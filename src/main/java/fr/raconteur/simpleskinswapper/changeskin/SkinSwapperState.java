@@ -1,7 +1,7 @@
 package fr.raconteur.simpleskinswapper.changeskin;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 
 public class SkinSwapperState {
 
@@ -28,10 +28,10 @@ public class SkinSwapperState {
      */
     public static synchronized boolean beginSwap() {
         if (current != State.READY_FOR_SWAP) {
-            MinecraftClient client = MinecraftClient.getInstance();
+            Minecraft client = Minecraft.getInstance();
             if (client.player != null) {
-                client.player.sendMessage(
-                        Text.translatable("simpleskinswapper.message.swap_in_progress"), false);
+                client.player.sendSystemMessage(
+                        Component.translatable("simpleskinswapper.message.swap_in_progress"));
             }
             return false;
         }

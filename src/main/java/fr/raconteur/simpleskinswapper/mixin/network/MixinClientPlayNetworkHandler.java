@@ -4,31 +4,31 @@ import com.mojang.authlib.properties.Property;
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper;
 import fr.raconteur.simpleskinswapper.changeskin.SkinChangeManager;
 import fr.raconteur.simpleskinswapper.changeskin.SkinSwapperState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.network.packet.s2c.play.PlayerListS2CPacket;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(ClientPlayNetworkHandler.class)
+@Mixin(ClientPacketListener.class)
 public class MixinClientPlayNetworkHandler {
 
-    @Inject(method = "onPlayerList", at = @At("TAIL"))
-    private void simpleskinswapper$afterPlayerList(PlayerListS2CPacket packet, CallbackInfo ci) {
+    @Inject(method = "handlePlayerInfoUpdate", at = @At("TAIL"))
+    private void simpleskinswapper$afterPlayerList(ClientboundPlayerInfoUpdatePacket packet, CallbackInfo ci) {
         String pendingTextureValue = SkinChangeManager.pendingCommandTextureValue;
         if (pendingTextureValue == null) return;
 
-        ClientPlayerEntity localPlayer = MinecraftClient.getInstance().player;
+        LocalPlayer localPlayer = Minecraft.getInstance().player;
         if (localPlayer == null) return;
 
         boolean localPlayerInPacket = false;
-        for (PlayerListS2CPacket.Entry entry : packet.getEntries()) {
-            if (entry.profileId().equals(localPlayer.getUuid())) {
+        for (ClientboundPlayerInfoUpdatePacket.Entry entry : packet.entries()) {
+            if (entry.profileId().equals(localPlayer.getUUID())) {
                 localPlayerInPacket = true;
                 break;
             }
@@ -42,12 +42,12 @@ public class MixinClientPlayNetworkHandler {
         SkinChangeManager.commandResponseSignal.set(true);
 
         // Read the texture value now stored in the (already-updated) PlayerListEntry
-        ClientPlayNetworkHandler networkHandler = MinecraftClient.getInstance().getNetworkHandler();
+        ClientPacketListener networkHandler = Minecraft.getInstance().getConnection();
         if (networkHandler == null) return;
 
         String currentTextureValue = null;
-        for (PlayerListEntry listEntry : networkHandler.getPlayerList()) {
-            if (listEntry.getProfile().id().equals(localPlayer.getUuid())) {
+        for (PlayerInfo listEntry : networkHandler.getOnlinePlayers()) {
+            if (listEntry.getProfile().id().equals(localPlayer.getUUID())) {
                 Property textures = listEntry.getProfile().properties()
                         .get("textures").stream().findFirst().orElse(null);
                 currentTextureValue = textures != null ? textures.value() : null;
@@ -65,8 +65,8 @@ public class MixinClientPlayNetworkHandler {
             SimpleSkinSwapper.LOGGER.info("[SkinSwap] Skin texture updated by server.");
             SkinChangeManager.pendingCommandTextureValue = null;
             SkinSwapperState.endSwap();
-            localPlayer.sendMessage(
-                    Text.translatable("simpleskinswapper.message.command_success"), false);
+            localPlayer.sendSystemMessage(
+                    Component.translatable("simpleskinswapper.message.command_success"));
         }
     }
 }

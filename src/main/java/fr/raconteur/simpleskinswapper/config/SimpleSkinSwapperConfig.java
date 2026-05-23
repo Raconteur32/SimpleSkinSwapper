@@ -3,11 +3,10 @@ package fr.raconteur.simpleskinswapper.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper;
-import net.minecraft.client.MinecraftClient;
-
 import java.io.*;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import net.minecraft.client.Minecraft;
 
 public class SimpleSkinSwapperConfig {
 
@@ -85,7 +84,7 @@ public class SimpleSkinSwapperConfig {
     }
 
     private static File getConfigFile() {
-        return MinecraftClient.getInstance().runDirectory.toPath()
+        return Minecraft.getInstance().gameDirectory.toPath()
                 .resolve("config")
                 .resolve("simpleskinswapper.json")
                 .toFile();

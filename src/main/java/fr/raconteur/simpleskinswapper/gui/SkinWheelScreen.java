@@ -3,17 +3,16 @@ package fr.raconteur.simpleskinswapper.gui;
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapperClient;
 import fr.raconteur.simpleskinswapper.changeskin.SkinChange;
 import fr.raconteur.simpleskinswapper.changeskin.SkinSwapperState;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.entity.player.PlayerSkinType;
-import net.minecraft.entity.player.SkinTextures;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.AssetInfo;
-
 import java.util.*;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.core.ClientAsset;
+import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.player.PlayerModelType;
+import net.minecraft.world.entity.player.PlayerSkin;
 
 public class SkinWheelScreen extends Screen {
 
@@ -31,23 +30,23 @@ public class SkinWheelScreen extends Screen {
     private static final int COLOR_TEXT         = 0xFFFFFFFF;
 
     public SkinWheelScreen(Screen parent) {
-        super(Text.empty());
+        super(Component.empty());
         this.parent = parent;
         this.entries = loadWheelEntries();
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
-    @Override
-    protected void applyBlur(DrawContext context) {
-        // No blur — wheel is a transparent overlay
-    }
+    //@Override
+    //protected void renderBlurredBackground(GuiGraphicsExtractor context) {
+    //    // No blur — wheel is a transparent overlay
+    //}
 
     @Override
-    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void extractBackground(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         // No background — wheel is a transparent overlay
     }
 
@@ -56,7 +55,7 @@ public class SkinWheelScreen extends Screen {
     // -------------------------------------------------------------------------
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         float cx = this.width / 2.0f;
         float cy = this.height / 2.0f;
 
@@ -64,10 +63,10 @@ public class SkinWheelScreen extends Screen {
 
         int n = entries.size();
         if (n == 0) {
-            context.drawCenteredTextWithShadow(textRenderer,
-                    Text.translatable("simpleskinswapper.screen.carousel.no_skins"),
+            context.centeredText(font,
+                    Component.translatable("simpleskinswapper.screen.carousel.no_skins"),
                     (int) cx, (int) cy, COLOR_TEXT);
-            super.render(context, mouseX, mouseY, delta);
+            super.extractRenderState(context, mouseX, mouseY, delta);
             return;
         }
 
@@ -96,12 +95,12 @@ public class SkinWheelScreen extends Screen {
 
         // Selected skin name above the wheel
         if (selectedIndex >= 0) {
-            context.drawCenteredTextWithShadow(textRenderer,
-                    Text.of(entries.get(selectedIndex).displayName),
-                    (int) cx, (int) (cy - OUTER_RADIUS) - textRenderer.fontHeight - 6, COLOR_TEXT);
+            context.centeredText(font,
+                    Component.nullToEmpty(entries.get(selectedIndex).displayName),
+                    (int) cx, (int) (cy - OUTER_RADIUS) - font.lineHeight - 6, COLOR_TEXT);
         }
 
-        super.render(context, mouseX, mouseY, delta);
+        super.extractRenderState(context, mouseX, mouseY, delta);
     }
 
     // -------------------------------------------------------------------------
@@ -124,7 +123,7 @@ public class SkinWheelScreen extends Screen {
         return (idx >= 0 && idx < n) ? idx : -1;
     }
 
-    private void drawSector(DrawContext context, float cx, float cy, int index, int n, boolean hovered) {
+    private void drawSector(GuiGraphicsExtractor context, float cx, float cy, int index, int n, boolean hovered) {
         double sectorSize = 2 * Math.PI / n;
         double angleOffset = -Math.PI / 2 - sectorSize / 2.0;
         double baseAngle = angleOffset + sectorSize * index;
@@ -134,7 +133,7 @@ public class SkinWheelScreen extends Screen {
         fillSector(context, cx, cy, OUTER_RADIUS, startAngle, endAngle, color);
     }
 
-    private void fillCircle(DrawContext context, float cx, float cy, float radius, int color) {
+    private void fillCircle(GuiGraphicsExtractor context, float cx, float cy, float radius, int color) {
         fillSector(context, cx, cy, radius, 0, 2 * Math.PI, color);
     }
 
@@ -149,7 +148,7 @@ public class SkinWheelScreen extends Screen {
      *     dy*cos(E) - dx*sin(E) <= 0   (right of end ray)
      * Each constraint is linear in dy → gives yLo / yHi directly.
      */
-    private void fillSector(DrawContext context, float cx, float cy, float radius,
+    private void fillSector(GuiGraphicsExtractor context, float cx, float cy, float radius,
                             double startAngle, double endAngle, int color) {
         int r   = (int) Math.ceil(radius);
         int icx = (int) cx;
@@ -194,7 +193,7 @@ public class SkinWheelScreen extends Screen {
         }
     }
 
-    private void drawSectorPreview(DrawContext context, float cx, float cy, int index, int n) {
+    private void drawSectorPreview(GuiGraphicsExtractor context, float cx, float cy, int index, int n) {
         double sectorSize = 2 * Math.PI / n;
         double angleOffset = -Math.PI / 2 - sectorSize / 2.0;
         double midAngle = angleOffset + sectorSize * index + sectorSize / 2.0;
@@ -210,9 +209,9 @@ public class SkinWheelScreen extends Screen {
         int halfH = 24;
 
         if (entry.textureId != null) {
-            SkinTextures skinTextures = new SkinTextures(
-                    new AssetInfo.SkinAssetInfo(entry.textureId, ""), null, null,
-                    entry.skinType == SkinType.SLIM ? PlayerSkinType.SLIM : PlayerSkinType.WIDE,
+            PlayerSkin skinTextures = new PlayerSkin(
+                    new ClientAsset.DownloadedTexture(entry.textureId, ""), null, null,
+                    entry.skinType == SkinType.SLIM ? PlayerModelType.SLIM : PlayerModelType.WIDE,
                     true
             );
             SkinRenderer.renderPlayer(context, px - halfW, py - halfH, px + halfW, py + halfH, halfH, skinTextures);
@@ -224,16 +223,16 @@ public class SkinWheelScreen extends Screen {
     // -------------------------------------------------------------------------
 
     @Override
-    public boolean mouseClicked(Click click, boolean doubled) {
+    public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
         if (click.button() == 0) { apply(); return true; }
-        if (click.button() == 1) { close(); return true; }
+        if (click.button() == 1) { onClose(); return true; }
         return super.mouseClicked(click, doubled);
     }
 
     @Override
-    public boolean keyReleased(KeyInput input) {
-        if (SimpleSkinSwapperClient.openWheelKey.matchesKey(input)) {
-            close();
+    public boolean keyReleased(KeyEvent input) {
+        if (SimpleSkinSwapperClient.openWheelKey.matches(input)) {
+            onClose();
             return true;
         }
         return super.keyReleased(input);
@@ -243,31 +242,31 @@ public class SkinWheelScreen extends Screen {
         if (selectedIndex >= 0 && selectedIndex < entries.size()) {
             SkinEntry entry = entries.get(selectedIndex);
             if (SkinSwapperState.beginSwap()) {
-                client.player.playSound(SoundEvents.UI_BUTTON_CLICK.value(), 1.0f, 1.0f);
+                minecraft.player.playSound(SoundEvents.UI_BUTTON_CLICK.value(), 1.0f, 1.0f);
                 SkinChange.changeSkin(
                         entry.file,
                         entry.skinType,
                         () -> {
-                            if (client.player != null)
-                                client.player.sendMessage(
-                                        Text.translatable("simpleskinswapper.message.success"), true);
+                            if (minecraft.player != null)
+                                minecraft.player.sendOverlayMessage(
+                                        Component.translatable("simpleskinswapper.message.success"));
                         },
                         err -> {
-                            if (client.player != null)
-                                client.player.sendMessage(
-                                        Text.translatable("simpleskinswapper.message.error", err), true);
+                            if (minecraft.player != null)
+                                minecraft.player.sendOverlayMessage(
+                                        Component.translatable("simpleskinswapper.message.error", err));
                         }
                 );
-                if (client.player != null)
-                    client.player.sendMessage(
-                            Text.translatable("simpleskinswapper.message.applying"), true);
+                if (minecraft.player != null)
+                    minecraft.player.sendOverlayMessage(
+                            Component.translatable("simpleskinswapper.message.applying"));
             }
         }
     }
 
     @Override
-    public void close() {
-        client.setScreen(parent);
+    public void onClose() {
+        minecraft.setScreen(parent);
     }
 
     // -------------------------------------------------------------------------

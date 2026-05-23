@@ -30,8 +30,8 @@
 		"simpleskinswapper.mixins.json"
 	],
 	"depends": {
-		"fabricloader": ">=0.18",
-		"minecraft": "1.21.11",
+		"fabricloader": ">=0.19.2",
+		"minecraft": "~26.1",
 		"fabric-api": "*"
 	},
 	"suggests": {

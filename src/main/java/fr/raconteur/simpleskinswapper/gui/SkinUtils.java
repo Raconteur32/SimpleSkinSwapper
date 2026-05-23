@@ -1,12 +1,11 @@
 package fr.raconteur.simpleskinswapper.gui;
 
+import com.mojang.blaze3d.platform.NativeImage;
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.util.Identifier;
-
 import javax.imageio.ImageIO;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.resources.Identifier;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -49,11 +48,11 @@ public class SkinUtils {
                 raw.close();
             }
 
-            Identifier id = Identifier.of(SimpleSkinSwapper.MOD_ID, textureId);
-            MinecraftClient client = MinecraftClient.getInstance();
-            NativeImageBackedTexture texture = new NativeImageBackedTexture(
+            Identifier id = Identifier.fromNamespaceAndPath(SimpleSkinSwapper.MOD_ID, textureId);
+            Minecraft client = Minecraft.getInstance();
+            DynamicTexture texture = new DynamicTexture(
                     () -> SimpleSkinSwapper.MOD_ID + ":" + textureId, image);
-            client.getTextureManager().registerTexture(id, texture);
+            client.getTextureManager().register(id, texture);
             return id;
         } catch (IOException e) {
             SimpleSkinSwapper.LOGGER.error("Failed to load skin texture from {}: {}", skinFile.getName(), e.getMessage());
@@ -65,7 +64,7 @@ public class SkinUtils {
      * Load a skin file as a Minecraft GPU texture from a thread (schedules on render thread).
      */
     public static void loadSkinTextureAsync(File skinFile, String textureId, java.util.function.Consumer<Identifier> callback) {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         client.execute(() -> {
             Identifier id = loadSkinTexture(skinFile, textureId);
             if (id != null) callback.accept(id);
@@ -83,7 +82,7 @@ public class SkinUtils {
         // Copy top half (0-31) as-is
         for (int x = 0; x < 64; x++) {
             for (int y = 0; y < 32; y++) {
-                dst.setColorArgb(x, y, src.getColorArgb(x, y));
+                dst.setPixel(x, y, src.getPixel(x, y));
             }
         }
 
@@ -101,8 +100,8 @@ public class SkinUtils {
     private static void stripAlpha(NativeImage img, int x0, int y0, int w, int h) {
         for (int x = x0; x < x0 + w; x++) {
             for (int y = y0; y < y0 + h; y++) {
-                int color = img.getColorArgb(x, y);
-                img.setColorArgb(x, y, color | 0xFF000000);
+                int color = img.getPixel(x, y);
+                img.setPixel(x, y, color | 0xFF000000);
             }
         }
     }
@@ -110,8 +109,8 @@ public class SkinUtils {
     private static void copyMirroredLimb(NativeImage img, int srcX, int srcY, int dstX, int dstY, int w, int h) {
         for (int x = 0; x < w; x++) {
             for (int y = 0; y < h; y++) {
-                int color = img.getColorArgb(srcX + (w - 1 - x), srcY + y);
-                img.setColorArgb(dstX + x, dstY + y, color);
+                int color = img.getPixel(srcX + (w - 1 - x), srcY + y);
+                img.setPixel(dstX + x, dstY + y, color);
             }
         }
     }

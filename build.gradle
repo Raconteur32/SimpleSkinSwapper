@@ -1,5 +1,5 @@
 plugins {
-	id 'fabric-loom' version '1.15-SNAPSHOT'
+	id 'net.fabricmc.fabric-loom' version '1.15-SNAPSHOT'
 	id 'maven-publish'
 }
 
@@ -41,20 +41,19 @@ repositories {
 dependencies {
 	// To change the versions see the gradle.properties file
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
 	// Fabric API
-	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-	include(modImplementation("dev.lambdaurora:spruceui:9.1.0+1.21.11"))
-	include("dev.yumi.mc.core:yumi-mc-foundation:1.0.0-beta.1+1.21.11")
+	include(implementation("dev.lambdaurora:spruceui:10.0.0+26.1"))
+	include("dev.yumi.mc.core:yumi-mc-foundation:1.0.0-beta.2+26.1")
 
 	// ModMenu integration
-	modCompileOnly "com.terraformersmc:modmenu:14.0.0-beta.1"
+	compileOnly "com.terraformersmc:modmenu:18.0.0-alpha.8"
 
 	// DevAuth: authenticate with a real Microsoft account in dev environment
-	modRuntimeOnly "me.djtheredstoner:DevAuth-fabric:1.2.2"
+	runtimeOnly "me.djtheredstoner:DevAuth-fabric:1.2.2"
 
 	// Apache HttpClient for Mojang API skin upload
 	implementation "org.apache.httpcomponents:httpclient:4.5.13"
@@ -74,14 +73,14 @@ processResources {
 }
 
 tasks.withType(JavaCompile).configureEach {
-	it.options.release = 21
+	it.options.release = 25
 }
 
 java {
 	withSourcesJar()
 
-	sourceCompatibility = JavaVersion.VERSION_21
-	targetCompatibility = JavaVersion.VERSION_21
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
 }
 
 jar {

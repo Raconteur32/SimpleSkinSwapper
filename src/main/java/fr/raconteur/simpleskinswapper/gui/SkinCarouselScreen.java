@@ -6,13 +6,12 @@ import dev.lambdaurora.spruceui.screen.SpruceScreen;
 import dev.lambdaurora.spruceui.widget.SpruceButtonWidget;
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.screen.ScreenTexts;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 import net.minecraft.util.Util;
-import net.minecraft.util.math.MathHelper;
-
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -37,7 +36,7 @@ public class SkinCarouselScreen extends SpruceScreen {
     private WatchService watchService;
 
     public SkinCarouselScreen(Screen parent) {
-        super(Text.translatable("simpleskinswapper.title"));
+        super(Component.translatable("simpleskinswapper.title"));
         this.parent = parent;
     }
 
@@ -50,24 +49,24 @@ public class SkinCarouselScreen extends SpruceScreen {
         for (SkinEntry entry : entries) {
             SkinCard card = new SkinCard(this, entry, getCardWidth(), getCardHeight());
             cards.add(card);
-            addDrawableChild(card);
+            addRenderableWidget(card);
         }
 
         if (!cards.isEmpty()) {
-            cardIndex = MathHelper.clamp(cardIndex, 0, getMaxCardIndex());
+            cardIndex = Mth.clamp(cardIndex, 0, getMaxCardIndex());
         }
 
         updateAllArrowStates();
 
-        addDrawableChild(new SpruceButtonWidget(
+        addRenderableWidget(new SpruceButtonWidget(
                 Position.of(this.width / 2 - 122, this.height - 24), 120, 20,
-                ScreenTexts.CANCEL,
-                button -> close()
+                CommonComponents.GUI_CANCEL,
+                button -> onClose()
         ));
-        addDrawableChild(new SpruceButtonWidget(
+        addRenderableWidget(new SpruceButtonWidget(
                 Position.of(this.width / 2 + 2, this.height - 24), 120, 20,
-                Text.translatable("simpleskinswapper.screen.carousel.open_folder"),
-                button -> Util.getOperatingSystem().open(
+                Component.translatable("simpleskinswapper.screen.carousel.open_folder"),
+                button -> Util.getPlatform().openFile(
                         FabricLoader.getInstance().getGameDir().resolve("skins").toFile())
         ));
 
@@ -76,9 +75,9 @@ public class SkinCarouselScreen extends SpruceScreen {
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         stopWatching();
-        this.client.setScreen(parent);
+        this.minecraft.setScreen(parent);
     }
 
     @Override
@@ -118,8 +117,8 @@ public class SkinCarouselScreen extends SpruceScreen {
     }
 
     @Override
-    public void render(SpruceGuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        graphics.fill(0, textRenderer.fontHeight * 3, this.width, this.height - textRenderer.fontHeight * 3, 0x7F000000);
+    public void extractRenderState(SpruceGuiGraphics graphics, int mouseX, int mouseY, float delta) {
+        graphics.fill(0, font.lineHeight * 3, this.width, this.height - font.lineHeight * 3, 0x7F000000);
 
         int cardW = getCardWidth();
         int cardH = getCardHeight();
@@ -135,24 +134,24 @@ public class SkinCarouselScreen extends SpruceScreen {
             card.overridePosition(cardX, cardTop);
         }
 
-        renderWidgets(graphics, mouseX, mouseY, delta);
+        super.extractRenderState(graphics, mouseX, mouseY, delta);
 
         if (getMaxCardIndex() > 0) {
             renderScrollbar(graphics, cardIndex);
         }
 
-        graphics.vanilla().drawCenteredTextWithShadow(
-                textRenderer,
-                getTitle().asOrderedText(),
-                this.width / 2, textRenderer.fontHeight, 0xFFFFFFFF
+        graphics.vanilla().centeredText(
+                font,
+                getTitle().getVisualOrderText(),
+                this.width / 2, font.lineHeight, 0xFFFFFFFF
         );
 
         // "No skins found" hint when directory is empty
         if (cards.isEmpty()) {
-            graphics.vanilla().drawCenteredTextWithShadow(
-                    textRenderer,
-                    Text.translatable("simpleskinswapper.screen.carousel.no_skins"),
-                    this.width / 2, this.height / 2 - textRenderer.fontHeight / 2, 0xFFAAAAAA
+            graphics.vanilla().centeredText(
+                    font,
+                    Component.translatable("simpleskinswapper.screen.carousel.no_skins"),
+                    this.width / 2, this.height / 2 - font.lineHeight / 2, 0xFFAAAAAA
             );
         }
     }
@@ -173,7 +172,7 @@ public class SkinCarouselScreen extends SpruceScreen {
 
     private int sbTrackX() { return getCardGap(); }
     private int sbTrackW() { return this.width - getCardGap() * 2; }
-    private int sbTrackY() { return this.height - textRenderer.fontHeight * 3 - SCROLLBAR_HEIGHT - 4; }
+    private int sbTrackY() { return this.height - font.lineHeight * 3 - SCROLLBAR_HEIGHT - 4; }
     private int sbThumbW() { return Math.max(20, sbTrackW() / Math.max(1, cards.size())); }
     private int sbThumbX(double index) {
         int thumbRange = sbTrackW() - sbThumbW();
@@ -194,7 +193,7 @@ public class SkinCarouselScreen extends SpruceScreen {
     }
 
     @Override
-    public boolean mouseClicked(Click click, boolean doubled) {
+    public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
         if (getMaxCardIndex() > 0 && click.button() == 0) {
             int trackY = sbTrackY();
             int trackX = sbTrackX();
@@ -218,7 +217,7 @@ public class SkinCarouselScreen extends SpruceScreen {
     }
 
     @Override
-    public boolean mouseDragged(Click click, double offsetX, double offsetY) {
+    public boolean mouseDragged(MouseButtonEvent click, double offsetX, double offsetY) {
         if (isDraggingScrollbar && click.button() == 0) {
             updateScrollFromMouseX((int) click.x());
             return true;
@@ -227,7 +226,7 @@ public class SkinCarouselScreen extends SpruceScreen {
     }
 
     @Override
-    public boolean mouseReleased(Click click) {
+    public boolean mouseReleased(MouseButtonEvent click) {
         if (isDraggingScrollbar && click.button() == 0) {
             isDraggingScrollbar = false;
             return true;
@@ -241,13 +240,13 @@ public class SkinCarouselScreen extends SpruceScreen {
         int thumbRange = sbTrackW() - thumbW;
         if (thumbRange <= 0) return;
         int newThumbX = mouseX - scrollbarDragOffsetX - trackX;
-        double fraction = MathHelper.clamp((double) newThumbX / thumbRange, 0.0, 1.0);
+        double fraction = Mth.clamp((double) newThumbX / thumbRange, 0.0, 1.0);
         setCardIndex(fraction * getMaxCardIndex());
     }
 
     private void scroll(double amount) {
         if (getMaxCardIndex() <= 0) return;
-        double newIndex = MathHelper.clamp(cardIndex + amount, 0, getMaxCardIndex());
+        double newIndex = Mth.clamp(cardIndex + amount, 0, getMaxCardIndex());
         setCardIndex(newIndex);
     }
 

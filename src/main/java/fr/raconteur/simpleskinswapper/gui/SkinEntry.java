@@ -2,8 +2,7 @@ package fr.raconteur.simpleskinswapper.gui;
 
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.util.Identifier;
-
+import net.minecraft.resources.Identifier;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;

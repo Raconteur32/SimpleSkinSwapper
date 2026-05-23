@@ -4,7 +4,7 @@ import fr.raconteur.simpleskinswapper.networking.HandshakePayload;
 import fr.raconteur.simpleskinswapper.networking.SkinRefreshPayload;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
-import net.minecraft.network.codec.PacketCodec;
+import net.minecraft.network.codec.StreamCodec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,8 +15,8 @@ public class SimpleSkinSwapper implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        PayloadTypeRegistry.playC2S().register(SkinRefreshPayload.PACKET_ID, SkinRefreshPayload.PACKET_CODEC);
-        PayloadTypeRegistry.playS2C().register(HandshakePayload.PACKET_ID, PacketCodec.unit(HandshakePayload.INSTANCE));
+        PayloadTypeRegistry.serverboundPlay().register(SkinRefreshPayload.PACKET_ID, SkinRefreshPayload.PACKET_CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(HandshakePayload.PACKET_ID, StreamCodec.unit(HandshakePayload.INSTANCE));
         LOGGER.info("SimpleSkinSwapper initializing...");
     }
 }

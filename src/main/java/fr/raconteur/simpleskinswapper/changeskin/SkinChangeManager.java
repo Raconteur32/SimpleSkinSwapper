@@ -2,14 +2,13 @@ package fr.raconteur.simpleskinswapper.changeskin;
 
 import fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig;
 import com.mojang.authlib.properties.Property;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.client.network.ServerInfo;
-import net.minecraft.text.Text;
-
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.network.chat.Component;
 
 public class SkinChangeManager {
 
@@ -58,14 +57,14 @@ public class SkinChangeManager {
      * @param attempt 0-based attempt index
      */
     public static void sendServerCommandIfNeeded(int attempt) {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
 
         if (attempt >= MAX_ATTEMPTS) {
             // All retries exhausted — give up and tell the player
             client.execute(() -> {
                 if (client.player != null) {
-                    client.player.sendMessage(
-                            Text.translatable("simpleskinswapper.message.command_give_up"), false);
+                    client.player.sendSystemMessage(
+                            Component.translatable("simpleskinswapper.message.command_give_up"));
                 }
             });
             SkinSwapperState.endSwap();
@@ -77,28 +76,28 @@ public class SkinChangeManager {
 
         SimpleSkinSwapperConfig config = SimpleSkinSwapperConfig.get();
 
-        ServerInfo serverInfo = client.getCurrentServerEntry();
+        ServerData serverInfo = client.getCurrentServer();
         if (serverInfo == null) {
             // Singleplayer — no server command needed
             SkinSwapperState.endSwap();
             return;
         }
 
-        final String serverAddress = serverInfo.address;
+        final String serverAddress = serverInfo.ip;
         final String serverCmd = config.getCommandForServer(serverAddress);
 
         if (serverCmd == null || serverCmd.isBlank()) {
             client.execute(() -> {
                 if (client.player != null) {
-                    client.player.sendMessage(
-                            Text.translatable("simpleskinswapper.message.command_not_defined", serverAddress), false);
+                    client.player.sendSystemMessage(
+                            Component.translatable("simpleskinswapper.message.command_not_defined", serverAddress));
                 }
             });
             SkinSwapperState.endSwap();
             return;
         }
 
-        if (client.getNetworkHandler() == null) {
+        if (client.getConnection() == null) {
             SkinSwapperState.endSwap();
             return;
         }
@@ -109,8 +108,8 @@ public class SkinChangeManager {
             // Record the current texture value before sending the command
             if (client.player != null) {
                 pendingCommandTextureValue = null;
-                for (PlayerListEntry listEntry : client.getNetworkHandler().getPlayerList()) {
-                    if (listEntry.getProfile().id().equals(client.player.getUuid())) {
+                for (PlayerInfo listEntry : client.getConnection().getOnlinePlayers()) {
+                    if (listEntry.getProfile().id().equals(client.player.getUUID())) {
                         Property textures = listEntry.getProfile().properties()
                                 .get("textures").stream().findFirst().orElse(null);
                         pendingCommandTextureValue = textures != null ? textures.value() : null;
@@ -121,19 +120,19 @@ public class SkinChangeManager {
 
             // Notify the player
             if (client.player != null) {
-                Text message;
+                Component message;
                 if (attempt == 0) {
-                    message = Text.translatable("simpleskinswapper.message.command_pending");
+                    message = Component.translatable("simpleskinswapper.message.command_pending");
                 } else {
                     long delaySeconds = RETRY_DELAYS_SECONDS[attempt - 1];
-                    message = Text.translatable("simpleskinswapper.message.command_retry",
+                    message = Component.translatable("simpleskinswapper.message.command_retry",
                             delaySeconds, attempt + 1, MAX_ATTEMPTS);
                 }
-                client.player.sendMessage(message, false);
+                client.player.sendSystemMessage(message);
             }
 
             Runnable sendCmd = () -> client.execute(() -> {
-                if (client.getNetworkHandler() == null) {
+                if (client.getConnection() == null) {
                     SkinSwapperState.endSwap();
                     return;
                 }
@@ -144,9 +143,9 @@ public class SkinChangeManager {
 
                 SkinSwapperState.waitForCommandResult();
                 if (cmd.startsWith("/")) {
-                    client.getNetworkHandler().sendChatCommand(cmd.substring(1));
+                    client.getConnection().sendCommand(cmd.substring(1));
                 } else {
-                    client.getNetworkHandler().sendChatMessage(cmd);
+                    client.getConnection().sendChat(cmd);
                 }
 
                 // Timeout: if no response is received within 5 s for THIS send, give up
@@ -155,8 +154,8 @@ public class SkinChangeManager {
                         pendingCommandTextureValue = null;
                         SkinSwapperState.endSwap();
                         if (client.player != null) {
-                            client.player.sendMessage(
-                                    Text.translatable("simpleskinswapper.message.command_timeout"), false);
+                            client.player.sendSystemMessage(
+                                    Component.translatable("simpleskinswapper.message.command_timeout"));
                         }
                     }
                 }), CompletableFuture.delayedExecutor(5, TimeUnit.SECONDS));

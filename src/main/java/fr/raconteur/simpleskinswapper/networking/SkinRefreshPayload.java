@@ -1,36 +1,36 @@
 package fr.raconteur.simpleskinswapper.networking;
 
 import com.mojang.authlib.properties.Property;
-import net.minecraft.network.RegistryByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
-public record SkinRefreshPayload(Property textureProperty) implements CustomPayload {
-    public static final CustomPayload.Id<SkinRefreshPayload> PACKET_ID =
-            new CustomPayload.Id<>(Identifier.of("skinshuffle", "skin_refresh"));
+public record SkinRefreshPayload(Property textureProperty) implements CustomPacketPayload {
+    public static final CustomPacketPayload.Type<SkinRefreshPayload> PACKET_ID =
+            new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath("skinshuffle", "skin_refresh"));
 
-    public static final PacketCodec<RegistryByteBuf, SkinRefreshPayload> PACKET_CODEC =
-            PacketCodec.of(SkinRefreshPayload::write, SkinRefreshPayload::read);
+    public static final StreamCodec<RegistryFriendlyByteBuf, SkinRefreshPayload> PACKET_CODEC =
+            StreamCodec.ofMember(SkinRefreshPayload::write, SkinRefreshPayload::read);
 
-    private static void write(SkinRefreshPayload payload, RegistryByteBuf buf) {
+    private static void write(SkinRefreshPayload payload, RegistryFriendlyByteBuf buf) {
         Property p = payload.textureProperty();
         buf.writeBoolean(p.hasSignature());
-        buf.writeString(p.name());
-        buf.writeString(p.value());
-        if (p.hasSignature()) buf.writeString(p.signature());
+        buf.writeUtf(p.name());
+        buf.writeUtf(p.value());
+        if (p.hasSignature()) buf.writeUtf(p.signature());
     }
 
-    private static SkinRefreshPayload read(RegistryByteBuf buf) {
+    private static SkinRefreshPayload read(RegistryFriendlyByteBuf buf) {
         boolean hasSig = buf.readBoolean();
-        String name = buf.readString();
-        String value = buf.readString();
-        String sig = hasSig ? buf.readString() : null;
+        String name = buf.readUtf();
+        String value = buf.readUtf();
+        String sig = hasSig ? buf.readUtf() : null;
         return new SkinRefreshPayload(new Property(name, value, sig));
     }
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public Type<? extends CustomPacketPayload> type() {
         return PACKET_ID;
     }
 }

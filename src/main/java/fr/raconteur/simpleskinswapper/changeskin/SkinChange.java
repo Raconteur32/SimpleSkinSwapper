@@ -5,7 +5,6 @@ import fr.raconteur.simpleskinswapper.SimpleSkinSwapper;
 import fr.raconteur.simpleskinswapper.gui.SkinType;
 import fr.raconteur.simpleskinswapper.networking.MineSkinUploader;
 import fr.raconteur.simpleskinswapper.networking.SkinShuffleCompat;
-import net.minecraft.client.MinecraftClient;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
@@ -15,6 +14,7 @@ import org.apache.http.impl.client.HttpClients;
 
 import java.io.File;
 import java.util.function.Consumer;
+import net.minecraft.client.Minecraft;
 
 public class SkinChange {
 
@@ -32,7 +32,7 @@ public class SkinChange {
      */
     public static void changeSkin(File skinFile, SkinType skinType,
                                    Runnable onSuccess, Consumer<String> onError) {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
 
         SimpleSkinSwapper.LOGGER.info("changeSkin called for: {}", skinFile.getName());
 
@@ -95,8 +95,8 @@ public class SkinChange {
         thread.start();
     }
 
-    private static String getAccessToken(MinecraftClient client) {
-        if (client.getSession() == null) return null;
-        return client.getSession().getAccessToken();
+    private static String getAccessToken(Minecraft client) {
+        if (client.getUser() == null) return null;
+        return client.getUser().getAccessToken();
     }
 }
