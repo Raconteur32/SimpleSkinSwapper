@@ -63,6 +63,7 @@ dependencies {
 	include "org.apache.httpcomponents:httpclient:4.5.13"
 	include "org.apache.httpcomponents:httpmime:4.5.13"
 	include "org.apache.httpcomponents:httpcore:4.4.15"
+	include(implementation("commons-logging:commons-logging:1.2"))
 }
 
 processResources {

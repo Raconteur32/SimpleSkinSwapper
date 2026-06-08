@@ -60,9 +60,11 @@ public class SkinEntry {
         if (textureId != null || textureLoading) return;
         textureLoading = true;
 
-        String key = "skin/entry_" + file.getName()
+        String sanitized = file.getName()
                 .toLowerCase()
                 .replaceAll("[^a-z0-9_/.-]", "_");
+        String pathHash = String.format("%08x", file.getAbsolutePath().hashCode() & 0x7FFFFFFF);
+        String key = "skin/entry_" + sanitized + "_" + pathHash;
 
         SkinUtils.loadSkinTextureAsync(file, key, id -> {
             this.textureId = id;
