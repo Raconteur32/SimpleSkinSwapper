@@ -2,10 +2,13 @@
 	"required": true,
 	"package": "fr.raconteur.simpleskinswapper.mixin",
 	"compatibilityLevel": "JAVA_21",
-	"mixins": [],
+	"mixins": [
+		"player.MixinPlayer"
+	],
 	"client": [
 		"menu.MixinGameMenuScreen",
-		"network.MixinClientPlayNetworkHandler"
+		"network.MixinClientPlayNetworkHandler",
+		"player.AbstractClientPlayerAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

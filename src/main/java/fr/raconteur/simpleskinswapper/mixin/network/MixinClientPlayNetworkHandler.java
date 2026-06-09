@@ -4,6 +4,8 @@ import com.mojang.authlib.properties.Property;
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper;
 import fr.raconteur.simpleskinswapper.changeskin.SkinChangeManager;
 import fr.raconteur.simpleskinswapper.changeskin.SkinSwapperState;
+import fr.raconteur.simpleskinswapper.mixin.player.AbstractClientPlayerAccessor;
+import fr.raconteur.simpleskinswapper.networking.SkinShuffleCompat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.PlayerInfo;
@@ -20,9 +22,6 @@ public class MixinClientPlayNetworkHandler {
 
     @Inject(method = "handlePlayerInfoUpdate", at = @At("TAIL"))
     private void simpleskinswapper$afterPlayerList(ClientboundPlayerInfoUpdatePacket packet, CallbackInfo ci) {
-        String pendingTextureValue = SkinChangeManager.pendingCommandTextureValue;
-        if (pendingTextureValue == null) return;
-
         LocalPlayer localPlayer = Minecraft.getInstance().player;
         if (localPlayer == null) return;
 
@@ -34,6 +33,18 @@ public class MixinClientPlayNetworkHandler {
             }
         }
         if (!localPlayerInPacket) return;
+
+        // Direct packet path (singleplayer / Fabric server with the mod): reset cached PlayerInfo
+        // so the player entity picks up the new GameProfile with the updated skin texture.
+        if (SkinShuffleCompat.consumeAwaitingSkinRefresh()) {
+            ((AbstractClientPlayerAccessor) localPlayer).simpleSkinSwapper$setPlayerInfo(null);
+            SimpleSkinSwapper.LOGGER.info("[SkinSwap] PlayerInfo cache cleared — skin will reload.");
+            return;
+        }
+
+        // Server command path (external plugin / vanilla server)
+        String pendingTextureValue = SkinChangeManager.pendingCommandTextureValue;
+        if (pendingTextureValue == null) return;
 
         // Validate state: only proceed if we are WAITING_FOR_COMMAND_RESPONSE
         if (!SkinSwapperState.commandResultReceived()) return;
