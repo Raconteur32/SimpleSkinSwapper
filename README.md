@@ -8,29 +8,10 @@
 
 - **Skin wheel** — a radial menu that displays up to 10 of your local skins at once, opened with a configurable keybind
 - **Skin carousel** — a classic list view for browsing skins more carefully, or for accessing skins that don't fit on the wheel when you have more than 10
-- **Server command support** — automatically send a server command after applying a skin so your skin refreshes in real time for other players, without needing to reconnect
-- **SkinShuffle Bridge compatibility** — when the [SkinShuffle Bridge](https://modrinth.com/plugin/skinshuffle) plugin is detected on the server, the mod uses the native skin refresh packet instead of a server command, for instant updates without any server configuration
-- **Per-server configuration** — each server can have its own command configured
-
----
-
-## Disclaimer
-
-This mod is heavily inspired by two existing mods:
-
-- [**SkinSwapper**](https://modrinth.com/mod/skinswapper) by [cobrasrock](https://modrinth.com/user/cobrasrock) — the original skin swapping mod, no longer updated for recent Minecraft versions
-- [**SkinShuffle**](https://modrinth.com/mod/skinshuffle) by [imb11](https://modrinth.com/organization/imb11) — the modern equivalent, and by far the most complete mod in this category
-
-Simple Skin Swapper was created because some aspects of SkinShuffle's design did not fit my workflow, and because the ability to trigger a server-side skin refresh command was missing. SkinShuffle's approach to quick skin switching also relies on keybinds rather than a dynamic radial wheel.
-
-> **This mod is not a replacement for SkinShuffle.** If SkinShuffle works for you, use it — it still has more features. This mod exists to fill a specific gap (skin wheel and more focused features).
-
----
-
-## Limitations
-
-- **Multiplayer only.** The mod is designed around the multiplayer experience and does not work in singleplayer worlds. Singleplayer support may be added in the future.
-- **Server command required for real-time updates (without SkinShuffle Bridge).** If your server does not have the SkinShuffle Bridge plugin, other players will only see your new skin after you reconnect — unless your server has a command like `/reloadskin` configured.
+- **Multiplayer skin refresh** — other players see your new skin in real time without reconnecting; three options depending on your server setup:
+  - install the mod server-side for native skin refresh support
+  - install the [SkinShuffle Bridge](https://modrinth.com/plugin/skinshuffle) plugin on Paper servers for the same result
+  - configure a per-server command as a fallback, if the server provides one (e.g. `/reloadskin`)
 
 ---
 
