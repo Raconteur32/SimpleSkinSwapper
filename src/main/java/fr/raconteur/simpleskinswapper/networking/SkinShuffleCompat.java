@@ -9,11 +9,27 @@ public class SkinShuffleCompat {
     /** True once a skinshuffle:handshake packet has been received from the server. */
     private static volatile boolean pluginPresent = false;
 
+    /**
+     * Set before sending SkinRefreshPayload; consumed by the afterPlayerList mixin
+     * to invalidate the local player's cached PlayerInfo after the server broadcasts
+     * the updated tab list entry.
+     */
+    private static volatile boolean awaitingSkinRefresh = false;
+
     public static boolean isInstalledOnServer() {
         return pluginPresent;
     }
 
+    public static boolean consumeAwaitingSkinRefresh() {
+        if (awaitingSkinRefresh) {
+            awaitingSkinRefresh = false;
+            return true;
+        }
+        return false;
+    }
+
     public static void sendSkinRefresh(Property textureProperty) {
+        awaitingSkinRefresh = true;
         ClientPlayNetworking.send(new SkinRefreshPayload(textureProperty));
     }
 
