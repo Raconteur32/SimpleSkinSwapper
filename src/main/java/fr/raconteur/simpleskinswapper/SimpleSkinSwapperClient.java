@@ -48,10 +48,10 @@ public class SimpleSkinSwapperClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
             TOTAL_TICK_DELTA++;
             if (openCarouselKey.consumeClick()) {
-                client.setScreen(new SkinCarouselScreen(client.screen));
+                client.gui.setScreen(new SkinCarouselScreen(client.gui.screen()));
             }
             if (openWheelKey.consumeClick()) {
-                client.setScreen(new SkinWheelScreen(client.screen));
+                client.gui.setScreen(new SkinWheelScreen(client.gui.screen()));
             }
         });
     }

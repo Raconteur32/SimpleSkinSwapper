@@ -46,11 +46,11 @@ dependencies {
 	// Fabric API
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-	include(implementation("dev.lambdaurora:spruceui:10.0.0+26.1"))
-	include("dev.yumi.mc.core:yumi-mc-foundation:1.0.0-beta.2+26.1")
+	include(implementation("dev.lambdaurora:spruceui:11.0.0+26.2"))
+	include("dev.yumi.mc.core:yumi-mc-foundation:1.1.1+26.2")
 
 	// ModMenu integration
-	compileOnly "com.terraformersmc:modmenu:18.0.0-alpha.8"
+	compileOnly "com.terraformersmc:modmenu:20.0.0-beta.2"
 
 	// DevAuth: authenticate with a real Microsoft account in dev environment
 	runtimeOnly "me.djtheredstoner:DevAuth-fabric:1.2.2"

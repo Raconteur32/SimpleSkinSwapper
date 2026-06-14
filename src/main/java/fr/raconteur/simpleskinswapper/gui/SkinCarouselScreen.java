@@ -77,7 +77,7 @@ public class SkinCarouselScreen extends SpruceScreen {
     @Override
     public void onClose() {
         stopWatching();
-        this.minecraft.setScreen(parent);
+        this.minecraft.gui.setScreen(parent);
     }
 
     @Override

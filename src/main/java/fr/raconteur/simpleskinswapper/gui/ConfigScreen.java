@@ -1,6 +1,7 @@
 package fr.raconteur.simpleskinswapper.gui;
 
 import fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.MultiLineTextWidget;
@@ -72,7 +73,7 @@ public class ConfigScreen extends Screen {
                 Component.translatable("simpleskinswapper.config.save"),
                 button -> {
                     if (currentServerAddress != null) save();
-                    this.minecraft.setScreen(parent);
+                    this.minecraft.gui.setScreen(parent);
                 })
                 .bounds(centerX - 100, this.height - 30, 95, 20)
                 .build());
@@ -80,7 +81,7 @@ public class ConfigScreen extends Screen {
         // Cancel button
         this.addRenderableWidget(Button.builder(
                 CommonComponents.GUI_CANCEL,
-                button -> this.minecraft.setScreen(parent))
+                button -> this.minecraft.gui.setScreen(parent))
                 .bounds(centerX + 5, this.height - 30, 95, 20)
                 .build());
     }
@@ -93,6 +94,6 @@ public class ConfigScreen extends Screen {
 
     @Override
     public void onClose() {
-        this.minecraft.setScreen(parent);
+        this.minecraft.gui.setScreen(parent);
     }
 }

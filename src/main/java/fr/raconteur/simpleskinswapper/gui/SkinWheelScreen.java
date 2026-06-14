@@ -266,7 +266,7 @@ public class SkinWheelScreen extends Screen {
 
     @Override
     public void onClose() {
-        minecraft.setScreen(parent);
+        minecraft.gui.setScreen(parent);
     }
 
     // -------------------------------------------------------------------------

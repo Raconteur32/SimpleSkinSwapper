@@ -37,7 +37,7 @@ public abstract class MixinGameMenuScreen extends Screen {
         PauseScreen self = (PauseScreen) (Object) this;
         this.addRenderableWidget(Button.builder(
                 Component.translatable("simpleskinswapper.screen.carousel.title"),
-                btn -> this.minecraft.setScreen(new SkinCarouselScreen(self)))
+                btn -> this.minecraft.gui.setScreen(new SkinCarouselScreen(self)))
                 .bounds(exitBtn.getX() + exitBtn.getWidth() + 4, exitBtn.getY(), 72, 20)
                 .build());
     }
