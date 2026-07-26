@@ -15,7 +15,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(PauseScreen.class)
 public abstract class MixinGameMenuScreen extends Screen {
 
-    // Kept identical to the title screen's preview size so the model renders at the same scale on both.
     private static final int PREVIEW_HEIGHT = 92;
     private static final int PREVIEW_WIDTH = PREVIEW_HEIGHT / 2;
     private static final int PREVIEW_GAP = 4;

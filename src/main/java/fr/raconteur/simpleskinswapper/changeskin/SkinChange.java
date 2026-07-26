@@ -20,11 +20,6 @@ import java.util.function.Consumer;
 
 public class SkinChange {
 
-    /**
-     * Callbacks always execute on the render thread.
-     *
-     * @param previewTextureId Already-loaded GPU texture for the pause menu preview (nullable).
-     */
     public static void changeSkin(File skinFile, SkinType skinType,
                                    @Nullable Identifier previewTextureId,
                                    Runnable onSuccess, Consumer<String> onError) {

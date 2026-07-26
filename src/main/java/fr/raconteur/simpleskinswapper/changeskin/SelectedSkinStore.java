@@ -23,7 +23,6 @@ public class SelectedSkinStore {
             .resolve("skins").resolve("selected.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-    // Single-threaded so writes stay in submission order without blocking callers (e.g. the render thread).
     private static final ExecutorService SAVE_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "SimpleSkinSwapper-SkinStoreSave");
         t.setDaemon(true);
@@ -33,7 +32,6 @@ public class SelectedSkinStore {
     private static volatile @Nullable Property selectedProperty = null;
     private static volatile boolean loaded = false;
 
-    // In-memory only — for pause menu preview
     private static volatile @Nullable Identifier previewTextureId = null;
     private static volatile @Nullable SkinType previewSkinType = null;
 
