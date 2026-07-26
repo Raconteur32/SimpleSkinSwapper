@@ -9,8 +9,6 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.PlayerModelType;
 import net.minecraft.world.entity.player.PlayerSkin;
 
-// Preview bounds are derived from this widget's own live position/size every frame, so it stays
-// correctly placed even if another mod moves or resizes the button after screen init.
 public class SkinPreviewButton extends Button {
 
     private final int previewWidth;

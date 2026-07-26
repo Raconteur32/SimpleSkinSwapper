@@ -54,7 +54,6 @@ public class StartupSkinSync {
                 return;
             }
 
-            // Compare by texture URL, which is content-addressed on Mojang's CDN.
             Optional<Property> stored = SelectedSkinStore.get();
             boolean matchesStored = false;
             if (stored.isPresent()) {
