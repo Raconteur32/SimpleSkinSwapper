@@ -1,6 +1,7 @@
 package fr.raconteur.simpleskinswapper;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import fr.raconteur.simpleskinswapper.changeskin.StartupSkinSync;
 import fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig;
 import fr.raconteur.simpleskinswapper.networking.SkinShuffleCompat;
 import fr.raconteur.simpleskinswapper.gui.SkinCarouselScreen;
@@ -24,6 +25,7 @@ public class SimpleSkinSwapperClient implements ClientModInitializer {
     public void onInitializeClient() {
         SkinShuffleCompat.init();
         SkinShuffleImporter.importIfNeeded();
+        StartupSkinSync.run();
         KeyMapping.Category category = KeyMapping.Category.register(Identifier.parse("simpleskinswapper.title"));
         openCarouselKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.simpleskinswapper.open_carousel",

@@ -246,6 +246,7 @@ public class SkinWheelScreen extends Screen {
                 SkinChange.changeSkin(
                         entry.file,
                         entry.skinType,
+                        entry.textureId,
                         () -> {
                             if (minecraft.player != null)
                                 minecraft.player.sendOverlayMessage(
