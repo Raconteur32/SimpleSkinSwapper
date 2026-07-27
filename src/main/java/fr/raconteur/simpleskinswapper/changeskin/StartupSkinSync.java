@@ -111,7 +111,7 @@ public class StartupSkinSync {
     }
 
     @Nullable
-    private static Property fetchMojangProperty(UUID uuid) {
+    static Property fetchMojangProperty(UUID uuid) {
         try {
             String uuidStr = uuid.toString().replace("-", "");
             URI uri = URI.create("https://sessionserver.mojang.com/session/minecraft/profile/" + uuidStr + "?unsigned=false");
@@ -185,7 +185,7 @@ public class StartupSkinSync {
     }
 
     @Nullable
-    private static byte[] downloadUrl(String url) {
+    static byte[] downloadUrl(String url) {
         try {
             HttpRequest req = HttpRequest.newBuilder(URI.create(url)).GET().build();
             HttpResponse<byte[]> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofByteArray());
