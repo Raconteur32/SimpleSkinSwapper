@@ -40,5 +40,6 @@
 	"simpleskinswapper.message.command_timeout": "La commande skin ne répond pas. Le serveur a peut-être un problème ou le mod ne détecte pas la réponse. Réessayez plus tard ou reconnectez-vous au serveur.",
 
 	"key.simpleskinswapper.open_carousel": "Ouvrir le Skin Swapper",
-	"key.simpleskinswapper.open_wheel": "Ouvrir la Roue de Skins"
+	"key.simpleskinswapper.open_wheel": "Ouvrir la Roue de Skins",
+	"key.category.simpleskinswapper.title": "Simple Skin Swapper"
 }

@@ -26,7 +26,7 @@ public class SimpleSkinSwapperClient implements ClientModInitializer {
         SkinShuffleCompat.init();
         SkinShuffleImporter.importIfNeeded();
         StartupSkinSync.run();
-        KeyBinding.Category category = KeyBinding.Category.create(Identifier.of("simpleskinswapper.title"));
+        KeyBinding.Category category = KeyBinding.Category.create(Identifier.of("simpleskinswapper", "title"));
         openCarouselKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.simpleskinswapper.open_carousel",
                 InputUtil.Type.KEYSYM,
