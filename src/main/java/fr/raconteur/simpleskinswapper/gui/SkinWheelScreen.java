@@ -247,6 +247,7 @@ public class SkinWheelScreen extends Screen {
                 SkinChange.changeSkin(
                         entry.file,
                         entry.skinType,
+                        entry.textureId,
                         () -> {
                             if (client.player != null)
                                 client.player.sendMessage(

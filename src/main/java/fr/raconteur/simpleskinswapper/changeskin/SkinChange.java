@@ -6,31 +6,22 @@ import fr.raconteur.simpleskinswapper.gui.SkinType;
 import fr.raconteur.simpleskinswapper.networking.MineSkinUploader;
 import fr.raconteur.simpleskinswapper.networking.SkinShuffleCompat;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.util.Identifier;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.entity.mime.content.FileBody;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.util.function.Consumer;
 
 public class SkinChange {
 
-    /**
-     * Apply a skin. Uploads to Mojang if a valid access token is available.
-     * If a SkinShuffle-compatible plugin is detected, sends a skin refresh packet
-     * via the MineSkin proxy instead of a server command.
-     *
-     * Callbacks always execute on the render thread.
-     *
-     * @param skinFile  The PNG file to apply.
-     * @param skinType  CLASSIC or SLIM.
-     * @param onSuccess Called when done.
-     * @param onError   Called on failure.
-     */
     public static void changeSkin(File skinFile, SkinType skinType,
+                                   @Nullable Identifier previewTextureId,
                                    Runnable onSuccess, Consumer<String> onError) {
         MinecraftClient client = MinecraftClient.getInstance();
 
@@ -47,7 +38,6 @@ public class SkinChange {
 
         Thread thread = new Thread(() -> {
             SimpleSkinSwapper.LOGGER.info("Uploading to Mojang...");
-            // Upload to Mojang for permanent skin change
             try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
                 HttpPost post = new HttpPost("https://api.minecraftservices.com/minecraft/profile/skins");
                 post.addHeader("Authorization", "Bearer " + accessToken);
@@ -68,23 +58,30 @@ public class SkinChange {
                 SimpleSkinSwapper.LOGGER.warn("Mojang upload error: {}", e.getMessage());
             }
 
-            // Notify the server of the skin change
-            SimpleSkinSwapper.LOGGER.info("SkinShuffle plugin detected: {}", SkinShuffleCompat.isInstalledOnServer());
-            if (SkinShuffleCompat.isInstalledOnServer()) {
-                SimpleSkinSwapper.LOGGER.info("Uploading to MineSkin proxy...");
-                Property textureProperty = MineSkinUploader.upload(skinFile, skinType.getMojangVariant());
-                if (textureProperty != null) {
-                    SimpleSkinSwapper.LOGGER.info("MineSkin upload OK, sending SkinRefreshPayload.");
-                    client.execute(() -> {
-                        SkinShuffleCompat.sendSkinRefresh(textureProperty);
-                        SkinSwapperState.endSwap();
-                    });
-                } else {
-                    SimpleSkinSwapper.LOGGER.warn("MineSkin upload failed, falling back to server command.");
-                    SkinChangeManager.sendServerCommandIfNeeded();
-                }
+            // Uploaded regardless of notification path, to get a canonical value+signature for selection tracking.
+            SimpleSkinSwapper.LOGGER.info("Uploading to MineSkin proxy for texture Property...");
+            Property textureProperty = MineSkinUploader.upload(skinFile, skinType.getMojangVariant());
+
+            if (textureProperty != null) {
+                client.execute(() -> {
+                    SelectedSkinStore.set(textureProperty);
+                    if (previewTextureId != null) {
+                        SelectedSkinStore.setPreview(previewTextureId, skinType);
+                    }
+                });
             } else {
-                SimpleSkinSwapper.LOGGER.info("No plugin detected, using server command.");
+                SimpleSkinSwapper.LOGGER.warn("MineSkin upload failed; selection will not be persisted.");
+            }
+
+            SimpleSkinSwapper.LOGGER.info("SkinShuffle plugin detected: {}", SkinShuffleCompat.isInstalledOnServer());
+            if (SkinShuffleCompat.isInstalledOnServer() && textureProperty != null) {
+                SimpleSkinSwapper.LOGGER.info("Sending SkinRefreshPayload.");
+                client.execute(() -> {
+                    SkinShuffleCompat.sendSkinRefresh(textureProperty);
+                    SkinSwapperState.endSwap();
+                });
+            } else {
+                SimpleSkinSwapper.LOGGER.info("Using server command for skin notification.");
                 SkinChangeManager.sendServerCommandIfNeeded();
             }
 

@@ -6,22 +6,36 @@ import dev.lambdaurora.spruceui.widget.SpruceButtonWidget;
 import dev.lambdaurora.spruceui.widget.container.SpruceContainerWidget;
 import fr.raconteur.simpleskinswapper.changeskin.SkinChange;
 import fr.raconteur.simpleskinswapper.changeskin.SkinSwapperState;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.entity.player.PlayerSkinType;
 import net.minecraft.entity.player.SkinTextures;
 import net.minecraft.text.Text;
 import net.minecraft.util.AssetInfo;
+import net.minecraft.util.math.MathHelper;
+import org.lwjgl.glfw.GLFW;
 
 public class SkinCard extends SpruceContainerWidget {
 
     private static final int BUTTON_HEIGHT = 20;
     private static final int BUTTON_MARGIN = 4;
+    // Vertical drag limit: enough to see under the chin / over the head without flipping past horizontal.
+    private static final float MAX_PITCH = 45.0F;
+    private static final float DRAG_SENSITIVITY = 1.0F;
+    // Higher = snappier spring-back to the initial orientation once the drag is released.
+    private static final float SPRING_RETURN_SPEED = 10.0F;
+    private static final float SPRING_SNAP_EPSILON = 0.05F;
 
     private final SkinEntry entry;
     private final SkinCarouselScreen parent;
     private final SpruceButtonWidget leftArrow;
     private final SpruceButtonWidget rightArrow;
     private final SpruceButtonWidget typeButton;
+
+    private boolean rotatingPreview = false;
+    private float previewYaw = 0.0F;
+    private float previewPitch = 0.0F;
+    private long lastSpringUpdateNanos = 0L;
 
     public SkinCard(SkinCarouselScreen parent, SkinEntry entry, int width, int height) {
         super(Position.of(0, 0), width, height);
@@ -85,7 +99,7 @@ public class SkinCard extends SpruceContainerWidget {
 
     private void applySkin() {
         if (!SkinSwapperState.beginSwap()) return;
-        SkinChange.changeSkin(entry.file, entry.skinType,
+        SkinChange.changeSkin(entry.file, entry.skinType, entry.textureId,
                 () -> showOverlay(Text.translatable("simpleskinswapper.message.success")),
                 err -> showOverlay(Text.translatable("simpleskinswapper.message.error", err))
         );
@@ -101,6 +115,54 @@ public class SkinCard extends SpruceContainerWidget {
 
     public void overridePosition(int x, int y) {
         this.getPosition().move(x, y);
+    }
+
+    @Override
+    protected boolean onMouseClick(Click click, boolean doubleClick) {
+        if (super.onMouseClick(click, doubleClick)) {
+            return true;
+        }
+        if (click.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            rotatingPreview = true;
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    protected boolean onMouseDrag(Click click, double deltaX, double deltaY) {
+        if (rotatingPreview && click.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            previewYaw = MathHelper.wrapDegrees(previewYaw - (float) deltaX * DRAG_SENSITIVITY);
+            previewPitch = MathHelper.clamp(previewPitch - (float) deltaY * DRAG_SENSITIVITY, -MAX_PITCH, MAX_PITCH);
+            return true;
+        }
+        return super.onMouseDrag(click, deltaX, deltaY);
+    }
+
+    @Override
+    protected boolean onMouseRelease(Click click) {
+        if (rotatingPreview) {
+            rotatingPreview = false;
+            return true;
+        }
+        return super.onMouseRelease(click);
+    }
+
+    private void updateSpringBack() {
+        long now = System.nanoTime();
+        float dt = lastSpringUpdateNanos == 0L ? 0.0F : (now - lastSpringUpdateNanos) / 1_000_000_000.0F;
+        lastSpringUpdateNanos = now;
+
+        if (rotatingPreview || (previewYaw == 0.0F && previewPitch == 0.0F)) {
+            return;
+        }
+
+        float t = 1.0F - (float) Math.exp(-SPRING_RETURN_SPEED * dt);
+        previewYaw = MathHelper.lerp(t, previewYaw, 0.0F);
+        previewPitch = MathHelper.lerp(t, previewPitch, 0.0F);
+
+        if (Math.abs(previewYaw) < SPRING_SNAP_EPSILON) previewYaw = 0.0F;
+        if (Math.abs(previewPitch) < SPRING_SNAP_EPSILON) previewPitch = 0.0F;
     }
 
     @Override
@@ -121,6 +183,7 @@ public class SkinCard extends SpruceContainerWidget {
     @Override
     protected void renderWidget(SpruceGuiGraphics graphics, int mouseX, int mouseY, float delta) {
         super.renderWidget(graphics, mouseX, mouseY, delta);
+        updateSpringBack();
 
         int margin = client.textRenderer.fontHeight / 2;
         int nameColor = this.active ? 0xFFFFFFFF : 0xFF808080;
@@ -145,7 +208,7 @@ public class SkinCard extends SpruceContainerWidget {
                     entry.skinType == SkinType.SLIM ? PlayerSkinType.SLIM : PlayerSkinType.WIDE,
                     true
             );
-            SkinRenderer.renderPlayer(graphics.vanilla(), previewLeft, previewTop, previewRight, previewBottom, size, skinTextures);
+            SkinRenderer.renderPlayerRotatable(graphics.vanilla(), previewLeft, previewTop, previewRight, previewBottom, size, skinTextures, previewYaw, previewPitch);
         }
     }
 }

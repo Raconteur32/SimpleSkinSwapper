@@ -1,6 +1,7 @@
 package fr.raconteur.simpleskinswapper.mixin.menu;
 
 import fr.raconteur.simpleskinswapper.gui.SkinCarouselScreen;
+import fr.raconteur.simpleskinswapper.gui.SkinPreviewButton;
 import net.minecraft.client.gui.screen.GameMenuScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -13,6 +14,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(GameMenuScreen.class)
 public abstract class MixinGameMenuScreen extends Screen {
+
+    private static final int PREVIEW_HEIGHT = 92;
+    private static final int PREVIEW_WIDTH = PREVIEW_HEIGHT / 2;
+    private static final int PREVIEW_GAP = 4;
 
     protected MixinGameMenuScreen() {
         super(Text.empty());
@@ -35,10 +40,15 @@ public abstract class MixinGameMenuScreen extends Screen {
         if (exitBtn == null) return;
 
         GameMenuScreen self = (GameMenuScreen) (Object) this;
-        this.addDrawableChild(ButtonWidget.builder(
+        int btnX = exitBtn.getX() + exitBtn.getWidth() + 4;
+        int btnY = exitBtn.getY();
+        int btnW = 72;
+
+        this.addDrawableChild(new SkinPreviewButton(
+                btnX, btnY, btnW, 20,
+                PREVIEW_WIDTH, PREVIEW_HEIGHT, PREVIEW_GAP,
                 Text.translatable("simpleskinswapper.screen.carousel.title"),
-                btn -> this.client.setScreen(new SkinCarouselScreen(self)))
-                .dimensions(exitBtn.getX() + exitBtn.getWidth() + 4, exitBtn.getY(), 72, 20)
-                .build());
+                btn -> this.client.setScreen(new SkinCarouselScreen(self))
+        ));
     }
 }

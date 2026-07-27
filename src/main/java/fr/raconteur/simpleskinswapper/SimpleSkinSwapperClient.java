@@ -1,5 +1,6 @@
 package fr.raconteur.simpleskinswapper;
 
+import fr.raconteur.simpleskinswapper.changeskin.StartupSkinSync;
 import fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig;
 import fr.raconteur.simpleskinswapper.networking.SkinShuffleCompat;
 import fr.raconteur.simpleskinswapper.gui.SkinCarouselScreen;
@@ -24,6 +25,7 @@ public class SimpleSkinSwapperClient implements ClientModInitializer {
     public void onInitializeClient() {
         SkinShuffleCompat.init();
         SkinShuffleImporter.importIfNeeded();
+        StartupSkinSync.run();
         KeyBinding.Category category = KeyBinding.Category.create(Identifier.of("simpleskinswapper.title"));
         openCarouselKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.simpleskinswapper.open_carousel",
