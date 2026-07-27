@@ -62,4 +62,12 @@ public class SkinTypeStore {
         map.put(filename, type.getMojangVariant());
         save(map);
     }
+
+    /** Removes the stored type for a skin file, e.g. when the file is deleted. */
+    public static void removeType(String filename) {
+        Map<String, String> map = load();
+        if (map.remove(filename) != null) {
+            save(map);
+        }
+    }
 }

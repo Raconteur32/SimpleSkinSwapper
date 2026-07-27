@@ -28,10 +28,14 @@ public class SkinCard extends SpruceContainerWidget {
 
     private final SkinEntry entry;
     private final SkinCarouselScreen parent;
+    private final SpruceButtonWidget applyButton;
     private final SpruceButtonWidget leftArrow;
     private final SpruceButtonWidget rightArrow;
     private final SpruceButtonWidget typeButton;
+    private final SpruceButtonWidget deleteButton;
+    private final SpruceButtonWidget confirmDeleteButton;
 
+    private boolean confirmingDelete = false;
     private boolean rotatingPreview = false;
     private float previewYaw = 0.0F;
     private float previewPitch = 0.0F;
@@ -42,9 +46,9 @@ public class SkinCard extends SpruceContainerWidget {
         this.parent = parent;
         this.entry = entry;
 
-        int arrowW = (width - BUTTON_MARGIN * 3) / 2;
+        int halfW = (width - BUTTON_MARGIN * 3) / 2;
 
-        SpruceButtonWidget applyButton = new SpruceButtonWidget(
+        applyButton = new SpruceButtonWidget(
                 Position.of(BUTTON_MARGIN, height - BUTTON_HEIGHT * 3 - BUTTON_MARGIN * 3),
                 width - BUTTON_MARGIN * 2, BUTTON_HEIGHT,
                 Component.translatable("simpleskinswapper.screen.carousel.apply"),
@@ -54,32 +58,51 @@ public class SkinCard extends SpruceContainerWidget {
 
         typeButton = new SpruceButtonWidget(
                 Position.of(BUTTON_MARGIN, height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 2),
-                width - BUTTON_MARGIN * 2, BUTTON_HEIGHT,
+                halfW, BUTTON_HEIGHT,
                 typeLabel(),
                 button -> toggleType()
         );
         addChild(typeButton);
 
+        deleteButton = new SpruceButtonWidget(
+                Position.of(BUTTON_MARGIN * 2 + halfW, height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 2),
+                halfW, BUTTON_HEIGHT,
+                Component.translatable("simpleskinswapper.screen.carousel.delete"),
+                button -> beginDeleteConfirmation()
+        );
+        addChild(deleteButton);
+
         leftArrow = new SpruceButtonWidget(
                 Position.of(BUTTON_MARGIN, height - BUTTON_HEIGHT - BUTTON_MARGIN),
-                arrowW, BUTTON_HEIGHT,
+                halfW, BUTTON_HEIGHT,
                 Component.literal("←"),
                 button -> parent.moveCard(this, -1)
         );
         addChild(leftArrow);
 
         rightArrow = new SpruceButtonWidget(
-                Position.of(BUTTON_MARGIN * 2 + arrowW, height - BUTTON_HEIGHT - BUTTON_MARGIN),
-                arrowW, BUTTON_HEIGHT,
+                Position.of(BUTTON_MARGIN * 2 + halfW, height - BUTTON_HEIGHT - BUTTON_MARGIN),
+                halfW, BUTTON_HEIGHT,
                 Component.literal("→"),
                 button -> parent.moveCard(this, +1)
         );
         addChild(rightArrow);
+
+        int deleteBlockTop = height - BUTTON_HEIGHT * 3 - BUTTON_MARGIN * 3;
+        int deleteBlockHeight = BUTTON_HEIGHT * 3 + BUTTON_MARGIN * 2;
+        confirmDeleteButton = new SpruceButtonWidget(
+                Position.of(BUTTON_MARGIN, deleteBlockTop + (deleteBlockHeight - BUTTON_HEIGHT) / 2),
+                width - BUTTON_MARGIN * 2, BUTTON_HEIGHT,
+                Component.translatable("simpleskinswapper.screen.carousel.delete_confirm"),
+                button -> confirmDelete()
+        );
+        confirmDeleteButton.setVisible(false);
+        addChild(confirmDeleteButton);
     }
 
-    public void updateArrowStates(int index, int total) {
-        leftArrow.setActive(index > 0);
-        rightArrow.setActive(index < total - 1);
+    public void updateArrowStates(boolean canMoveLeft, boolean canMoveRight) {
+        leftArrow.setActive(canMoveLeft);
+        rightArrow.setActive(canMoveRight);
     }
 
     SkinEntry getEntry() {
@@ -87,14 +110,43 @@ public class SkinCard extends SpruceContainerWidget {
     }
 
     private Component typeLabel() {
-        return Component.translatable("simpleskinswapper.screen.carousel.type",
-                Component.translatable("simpleskinswapper.screen.carousel.skin_type." + entry.skinType.getMojangVariant()));
+        return Component.translatable("simpleskinswapper.screen.carousel.skin_type." + entry.skinType.getMojangVariant());
     }
 
     private void toggleType() {
         entry.skinType = (entry.skinType == SkinType.CLASSIC) ? SkinType.SLIM : SkinType.CLASSIC;
         SkinTypeStore.setType(entry.file.getName(), entry.skinType);
         typeButton.setMessage(typeLabel());
+    }
+
+    private void beginDeleteConfirmation() {
+        confirmingDelete = true;
+        setNormalButtonsVisible(false);
+        confirmDeleteButton.setVisible(true);
+    }
+
+    private void cancelDeleteConfirmation() {
+        confirmingDelete = false;
+        setNormalButtonsVisible(true);
+        confirmDeleteButton.setVisible(false);
+    }
+
+    private void confirmDelete() {
+        confirmingDelete = false;
+        parent.deleteEntry(entry);
+    }
+
+    private void setNormalButtonsVisible(boolean visible) {
+        applyButton.setVisible(visible);
+        typeButton.setVisible(visible);
+        deleteButton.setVisible(visible);
+        leftArrow.setVisible(visible);
+        rightArrow.setVisible(visible);
+    }
+
+    private boolean isMouseOverCard(int mouseX, int mouseY) {
+        return mouseX >= getX() && mouseX < getX() + getWidth()
+                && mouseY >= getY() && mouseY < getY() + getHeight();
     }
 
     private void applySkin() {
@@ -182,6 +234,9 @@ public class SkinCard extends SpruceContainerWidget {
 
     @Override
     public void extractRenderState(SpruceGuiGraphics graphics, int mouseX, int mouseY, float delta) {
+        if (confirmingDelete && !isMouseOverCard(mouseX, mouseY)) {
+            cancelDeleteConfirmation();
+        }
         super.extractRenderState(graphics, mouseX, mouseY, delta);
         updateSpringBack();
 
