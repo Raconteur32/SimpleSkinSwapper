@@ -73,6 +73,12 @@ Build instructions, multi-version setup and contribution notes live in [DEV.md](
 
 ---
 
+## AI Disclosure
+
+This project uses generative AI at several levels (code, docs, configs). What that means, and what it doesn't, is explained in [AI_DISCLOSURE.md](AI_DISCLOSURE.md) — read it to decide whether this mod is for you.
+
+---
+
 ## Acknowledgements
 
 - [**cobrasrock**](https://modrinth.com/user/cobrasrock) for creating [SkinSwapper](https://modrinth.com/mod/skinswapper) under an open license that allowed me to reuse parts of its logic
