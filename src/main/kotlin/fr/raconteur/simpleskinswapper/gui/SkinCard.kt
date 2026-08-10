@@ -39,35 +39,35 @@ class SkinCard(
     init {
         val halfW = (width - BUTTON_MARGIN * 3) / 2
 
-        applyButton = SpruceButtonWidget(
+        applyButton = EdgeSafeButtonWidget(
             Position.of(BUTTON_MARGIN, height - BUTTON_HEIGHT * 3 - BUTTON_MARGIN * 3),
             width - BUTTON_MARGIN * 2, BUTTON_HEIGHT,
             Component.translatable("simpleskinswapper.screen.carousel.apply")
         ) { applySkin() }
         addChild(applyButton)
 
-        typeButton = SpruceButtonWidget(
+        typeButton = EdgeSafeButtonWidget(
             Position.of(BUTTON_MARGIN, height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 2),
             halfW, BUTTON_HEIGHT,
             typeLabel()
         ) { toggleType() }
         addChild(typeButton)
 
-        deleteButton = SpruceButtonWidget(
+        deleteButton = EdgeSafeButtonWidget(
             Position.of(BUTTON_MARGIN * 2 + halfW, height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 2),
             halfW, BUTTON_HEIGHT,
             Component.translatable("simpleskinswapper.screen.carousel.delete")
         ) { beginDeleteConfirmation() }
         addChild(deleteButton)
 
-        leftArrow = SpruceButtonWidget(
+        leftArrow = EdgeSafeButtonWidget(
             Position.of(BUTTON_MARGIN, height - BUTTON_HEIGHT - BUTTON_MARGIN),
             halfW, BUTTON_HEIGHT,
             Component.literal("←")
         ) { parent.moveCard(this, -1) }
         addChild(leftArrow)
 
-        rightArrow = SpruceButtonWidget(
+        rightArrow = EdgeSafeButtonWidget(
             Position.of(BUTTON_MARGIN * 2 + halfW, height - BUTTON_HEIGHT - BUTTON_MARGIN),
             halfW, BUTTON_HEIGHT,
             Component.literal("→")
@@ -76,7 +76,7 @@ class SkinCard(
 
         val deleteBlockTop = height - BUTTON_HEIGHT * 3 - BUTTON_MARGIN * 3
         val deleteBlockHeight = BUTTON_HEIGHT * 3 + BUTTON_MARGIN * 2
-        confirmDeleteButton = SpruceButtonWidget(
+        confirmDeleteButton = EdgeSafeButtonWidget(
             Position.of(BUTTON_MARGIN, deleteBlockTop + (deleteBlockHeight - BUTTON_HEIGHT) / 2),
             width - BUTTON_MARGIN * 2, BUTTON_HEIGHT,
             Component.translatable("simpleskinswapper.screen.carousel.delete_confirm")

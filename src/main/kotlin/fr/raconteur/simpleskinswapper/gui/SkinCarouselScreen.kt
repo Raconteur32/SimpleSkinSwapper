@@ -57,7 +57,19 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
         allEntries.clear()
         allEntries.addAll(loadOrderedEntries())
 
-        val searchWidth = Math.min(SEARCH_WIDTH, this.width - getCardGap() * 4)
+        val gap = getCardGap()
+        val addFileWidth = font.width(Component.translatable("simpleskinswapper.screen.carousel.add_from_file")) + 20
+        val addAccountWidth = font.width(Component.translatable("simpleskinswapper.screen.carousel.add_from_account")) + 20
+
+        // The two text fields share whatever horizontal space the fixed-size buttons leave,
+        // proportionally to their preferred widths, so the row never overflows the right edge
+        // at large GUI scales (small logical widths).
+        val flexBudget = this.width - gap * 5 - addFileWidth - addAccountWidth
+        val searchWidth = Math.min(SEARCH_WIDTH, flexBudget * SEARCH_WIDTH / (SEARCH_WIDTH + ACCOUNT_FIELD_WIDTH))
+            .coerceAtLeast(MIN_FIELD_WIDTH)
+        val accountWidth = Math.min(ACCOUNT_FIELD_WIDTH, flexBudget - searchWidth)
+            .coerceAtLeast(MIN_FIELD_WIDTH)
+
         val bandTop = font.lineHeight * 3
         val searchY = (bandTop + getCardTop()) / 2 - SEARCH_HEIGHT / 2
         searchField = object : SpruceTextFieldWidget(
@@ -71,10 +83,6 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
         searchField.setText(searchQuery)
         searchField.setChangedListener(this::onSearchChanged)
         addRenderableWidget(searchField)
-
-        val gap = getCardGap()
-        val addFileWidth = font.width(Component.translatable("simpleskinswapper.screen.carousel.add_from_file")) + 20
-        val addAccountWidth = font.width(Component.translatable("simpleskinswapper.screen.carousel.add_from_account")) + 20
 
         val addFileX = getCardGap() + searchWidth + gap
         addFromFileButton = SpruceButtonWidget(
@@ -92,7 +100,7 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
 
         val accountFieldX = addAccountX + addAccountWidth + gap
         accountField = object : SpruceTextFieldWidget(
-            Position.of(accountFieldX, searchY), ACCOUNT_FIELD_WIDTH, SEARCH_HEIGHT,
+            Position.of(accountFieldX, searchY), accountWidth, SEARCH_HEIGHT,
             Component.translatable("simpleskinswapper.screen.carousel.account_name")
         ) {
             override fun getTextColor(): Int {
@@ -209,6 +217,12 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
             val card = cards[i]
             val cardX = (startX + (i - cardIndex) * cardAreaWidth).toInt()
             card.overridePosition(cardX, cardTop)
+            // MC 26.2's RenderPass.enableScissor rejects zero-size scissors, and vanilla
+            // GuiRenderer does no scissor culling: an off-screen child button submits a label
+            // scissor that clamps to zero width and crashes the frame. Card content is inset
+            // by CARD_CONTENT_MARGIN, so hide cards as soon as their content leaves the
+            // screen, not just their frame (fractional scrolling makes 1-3px slivers common).
+            card.setVisible(cardX + cardW - CARD_CONTENT_MARGIN > 0 && cardX + CARD_CONTENT_MARGIN < this.width)
         }
 
         //? if >=26.1 {
@@ -332,7 +346,15 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
         return Math.max(naturalWidth, minWidth)
     }
 
-    private fun getCardHeight(): Int = (this.height / 1.5).toInt()
+    private fun getCardHeight(): Int {
+        val natural = (this.height / 1.5).toInt()
+        // Cards are bottom-anchored, so a fixed height makes them grow into the top bar at
+        // large GUI scales (small logical heights). Cap them so the top row, vertically
+        // centered between bandTop and cardTop, always keeps MIN_ROW_MARGIN on both sides.
+        val topBarBottom = font.lineHeight * 3 + SEARCH_HEIGHT + MIN_ROW_MARGIN * 2
+        val limit = sbTrackY() - CARD_BOTTOM_GAP - topBarBottom
+        return Math.min(natural, limit).coerceAtLeast(MIN_CARD_HEIGHT)
+    }
 
     private fun getCardTop(): Int = sbTrackY() - CARD_BOTTOM_GAP - getCardHeight()
 
@@ -511,11 +533,19 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
         private const val SEARCH_HEIGHT = 20
         private const val SEARCH_WIDTH = 200
         private const val ACCOUNT_FIELD_WIDTH = 120
+        private const val MIN_FIELD_WIDTH = 40
+        private const val MIN_CARD_HEIGHT = 40
+        // Minimum vertical margin above and below the top row (matches the bottom buttons'
+        // distance to the screen edge and SkinCard's BUTTON_MARGIN).
+        private const val MIN_ROW_MARGIN = 4
         private val PLACEHOLDER_COLOR = 0xFF707070.toInt()
         private val ERROR_COLOR = 0xFFFF5555.toInt()
         private const val INVALID_ACCOUNT_MESSAGE_MS = 1500L
         private const val CARD_BOTTOM_GAP = 12
         private const val MIN_CARD_ASPECT = 0.5F
+        // Inset of a card's scissored content (name text, child buttons) from the card frame;
+        // mirrors SkinCard's BUTTON_MARGIN. Used by the off-screen culling in extractRenderState.
+        private const val CARD_CONTENT_MARGIN = 4
 
         // A single write can emit several watch events (e.g. CREATE then MODIFY), so a self-triggered
         // filename is ignored for this whole window rather than just the first matching event.
