@@ -20,10 +20,10 @@ class SkinPreviewButton(
     override fun extractContents(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, a: Float) {
         this.extractDefaultSprite(graphics)
         this.extractDefaultLabel(graphics.textRendererForWidget(this, GuiGraphicsExtractor.HoveredTextEffects.NONE))
-        this.extractPreview(graphics, mouseX, mouseY)
+        this.renderPreview(graphics, mouseX, mouseY)
     }
 
-    private fun extractPreview(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
+    private fun renderPreview(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
         val texture = SelectedSkinStore.getPreviewTexture() ?: return
 
         val skinType = SelectedSkinStore.getPreviewSkinType()

@@ -1,5 +1,6 @@
 package fr.raconteur.simpleskinswapper.changeskin
 
+import fr.raconteur.simpleskinswapper.systemMessage
 import net.minecraft.client.Minecraft
 import net.minecraft.network.chat.Component
 
@@ -34,7 +35,7 @@ object SkinSwapperState {
     fun beginSwap(): Boolean {
         if (current != State.READY_FOR_SWAP) {
             val client = Minecraft.getInstance()
-            client.player?.sendSystemMessage(
+            client.player?.systemMessage(
                 Component.translatable("simpleskinswapper.message.swap_in_progress")
             )
             return false

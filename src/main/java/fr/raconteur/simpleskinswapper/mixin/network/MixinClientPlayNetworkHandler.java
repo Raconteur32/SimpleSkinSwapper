@@ -76,8 +76,13 @@ public class MixinClientPlayNetworkHandler {
             SimpleSkinSwapper.LOGGER.info("[SkinSwap] Skin texture updated by server.");
             SkinChangeManager.pendingCommandTextureValue = null;
             SkinSwapperState.endSwap();
+            //? if >=26.1 {
             localPlayer.sendSystemMessage(
                     Component.translatable("simpleskinswapper.message.command_success"));
+            //?} else {
+            /*localPlayer.displayClientMessage(
+                    Component.translatable("simpleskinswapper.message.command_success"), false);
+            *///?}
         }
     }
 }

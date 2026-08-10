@@ -5,6 +5,7 @@ import dev.lambdaurora.spruceui.render.SpruceGuiGraphics
 import dev.lambdaurora.spruceui.widget.SpruceButtonWidget
 import dev.lambdaurora.spruceui.widget.container.SpruceContainerWidget
 import fr.raconteur.simpleskinswapper.changeskin.SkinChange
+import fr.raconteur.simpleskinswapper.overlayMessage
 import fr.raconteur.simpleskinswapper.changeskin.SkinSwapperState
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.input.MouseButtonEvent
@@ -140,7 +141,7 @@ class SkinCard(
     }
 
     private fun showOverlay(text: Component) {
-        client.player?.sendOverlayMessage(text)
+        client.player?.overlayMessage(text)
     }
 
     fun overridePosition(x: Int, y: Int) {
@@ -208,11 +209,19 @@ class SkinCard(
         ctx.fill(x + w - 1, y + 1, x + w, y + h - 1, color)
     }
 
+    //? if >=26.1 {
     override fun extractRenderState(graphics: SpruceGuiGraphics, mouseX: Int, mouseY: Int, delta: Float) {
+    //?} else {
+    /*override fun renderWidget(graphics: SpruceGuiGraphics, mouseX: Int, mouseY: Int, delta: Float) {
+    *///?}
         if (confirmingDelete && !isMouseOverCard(mouseX, mouseY)) {
             cancelDeleteConfirmation()
         }
+        //? if >=26.1 {
         super.extractRenderState(graphics, mouseX, mouseY, delta)
+        //?} else {
+        /*super.renderWidget(graphics, mouseX, mouseY, delta)
+        *///?}
         updateSpringBack()
 
         val margin = client.font.lineHeight / 2

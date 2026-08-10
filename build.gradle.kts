@@ -1,21 +1,32 @@
+@file:OptIn(StonecutterExperimentalAPI::class)
+
+import dev.kikugie.stonecutter.StonecutterExperimentalAPI
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
-	id("net.fabricmc.fabric-loom") version "1.15-SNAPSHOT"
-	kotlin("jvm") version "2.4.10"
+	id("dev.kikugie.loom-back-compat")
+	kotlin("jvm")
 	`maven-publish`
 }
 
-val minecraft_version: String by project
-val loader_version: String by project
-val mod_version: String by project
-val maven_group: String by project
-val archives_base_name: String by project
-val fabric_version: String by project
+val mcVersion: String = sc.properties["deps.minecraft"]
+val loaderVersion: String = sc.properties["deps.fabric_loader"]
+val fabricVersion: String = sc.properties["deps.fabric_api"]
+val spruceuiVersion: String = sc.properties["deps.spruceui"]
+val yumiVersion: String = sc.properties["deps.yumi"]
+val modmenuVersion: String = sc.properties["deps.modmenu"]
+val modVersion: String = sc.properties["mod.version"]
+val mcDep: String = sc.properties["mod.mc_dep"]
+val loaderDep: String = sc.properties["mod.loader_dep"]
 
-version = mod_version
-group = maven_group
+val requiredJava = if (sc.current.parsed >= "26.1") JavaVersion.VERSION_25 else JavaVersion.VERSION_21
+val kotlinTarget = if (sc.current.parsed >= "26.1") JvmTarget.JVM_25 else JvmTarget.JVM_21
+
+version = modVersion
+group = sc.properties["mod.group"] as String
 
 base {
-	archivesName.set(archives_base_name)
+	archivesName.set(sc.properties["mod.id"] as String)
 }
 
 loom {
@@ -51,24 +62,26 @@ repositories {
 }
 
 dependencies {
-	// To change the versions see the gradle.properties file
-	minecraft("com.mojang:minecraft:$minecraft_version")
-	implementation("net.fabricmc:fabric-loader:$loader_version")
+	// To change the versions see the stonecutter.properties.toml file
+	minecraft("com.mojang:minecraft:$mcVersion")
+	// Applies Mojang mappings only on obfuscated versions (loom-back-compat no-ops on 26.x)
+	loomx.applyMojangMappings()
+	modImplementation("net.fabricmc:fabric-loader:$loaderVersion")
 
 	// Fabric API
-	implementation("net.fabricmc.fabric-api:fabric-api:$fabric_version")
+	modImplementation("net.fabricmc.fabric-api:fabric-api:$fabricVersion")
 
 	// Fabric Language Kotlin
-	implementation("net.fabricmc:fabric-language-kotlin:1.13.13+kotlin.2.4.10")
+	modImplementation("net.fabricmc:fabric-language-kotlin:1.13.13+kotlin.2.4.10")
 
-	include(implementation("dev.lambdaurora:spruceui:11.0.0+26.2")!!)
-	include("dev.yumi.mc.core:yumi-mc-foundation:1.1.1+26.2")
+	include(modImplementation("dev.lambdaurora:spruceui:$spruceuiVersion")!!)
+	include(modImplementation("dev.yumi.mc.core:yumi-mc-foundation:$yumiVersion")!!)
 
 	// ModMenu integration
-	compileOnly("com.terraformersmc:modmenu:20.0.0-beta.2")
+	modCompileOnly("com.terraformersmc:modmenu:$modmenuVersion")
 
 	// DevAuth: authenticate with a real Microsoft account in dev environment
-	runtimeOnly("me.djtheredstoner:DevAuth-fabric:1.2.2")
+	modRuntimeOnly("me.djtheredstoner:DevAuth-fabric:1.2.2")
 
 	// Apache HttpClient for Mojang API skin upload
 	implementation("org.apache.httpcomponents:httpclient:4.5.13")
@@ -82,26 +95,28 @@ dependencies {
 
 tasks.processResources {
 	inputs.property("version", project.version)
+	inputs.property("mc_dep", mcDep)
+	inputs.property("loader_dep", loaderDep)
 
 	filesMatching("fabric.mod.json") {
-		expand("version" to project.version)
+		expand("version" to project.version, "mc_dep" to mcDep, "loader_dep" to loaderDep)
 	}
 }
 
 tasks.withType<JavaCompile>().configureEach {
-	options.release.set(25)
+	options.release.set(requiredJava.majorVersion.toInt())
 }
 
 java {
 	withSourcesJar()
 
-	sourceCompatibility = JavaVersion.VERSION_25
-	targetCompatibility = JavaVersion.VERSION_25
+	sourceCompatibility = requiredJava
+	targetCompatibility = requiredJava
 }
 
 kotlin {
 	compilerOptions {
-		jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25)
+		jvmTarget.set(kotlinTarget)
 	}
 }
 

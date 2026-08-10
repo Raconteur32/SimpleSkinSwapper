@@ -130,7 +130,11 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
 
     override fun onClose() {
         stopWatching()
+        //? if >=26.2 {
         this.minecraft?.gui?.setScreen(parent)
+        //?} else {
+        /*this.minecraft?.setScreen(parent)
+        *///?}
     }
 
     override fun tick() {
@@ -187,7 +191,11 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
         }
     }
 
+    //? if >=26.1 {
     override fun extractRenderState(graphics: SpruceGuiGraphics, mouseX: Int, mouseY: Int, delta: Float) {
+    //?} else {
+    /*override fun render(graphics: SpruceGuiGraphics, mouseX: Int, mouseY: Int, delta: Float) {
+    *///?}
         graphics.fill(0, font.lineHeight * 3, this.width, this.height - font.lineHeight * 3, 0x7F000000)
 
         val cardW = getCardWidth()
@@ -203,7 +211,11 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
             card.overridePosition(cardX, cardTop)
         }
 
+        //? if >=26.1 {
         super.extractRenderState(graphics, mouseX, mouseY, delta)
+        //?} else {
+        /*renderWidgets(graphics, mouseX, mouseY, delta)
+        *///?}
 
         if (getMaxCardIndex() > 0) {
             renderScrollbar(graphics, cardIndex)

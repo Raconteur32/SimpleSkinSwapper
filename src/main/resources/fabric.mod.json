@@ -30,8 +30,8 @@
 		"simpleskinswapper.mixins.json"
 	],
 	"depends": {
-		"fabricloader": ">=0.19.2",
-		"minecraft": "~26.2-",
+		"fabricloader": "${loader_dep}",
+		"minecraft": "${mc_dep}",
 		"fabric-api": "*",
 		"fabric-language-kotlin": ">=1.13.13"
 	},

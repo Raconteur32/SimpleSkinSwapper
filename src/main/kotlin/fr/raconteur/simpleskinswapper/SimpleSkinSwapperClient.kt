@@ -49,10 +49,18 @@ class SimpleSkinSwapperClient : ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register { client ->
             TOTAL_TICK_DELTA++
             if (openCarouselKey?.consumeClick() == true) {
+                //? if >=26.2 {
                 client.gui.setScreen(SkinCarouselScreen(client.gui.screen()))
+                //?} else {
+                /*client.setScreen(SkinCarouselScreen(client.screen))
+                *///?}
             }
             if (openWheelKey?.consumeClick() == true) {
+                //? if >=26.2 {
                 client.gui.setScreen(SkinWheelScreen(client.gui.screen()))
+                //?} else {
+                /*client.setScreen(SkinWheelScreen(client.screen))
+                *///?}
             }
         }
     }

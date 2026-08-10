@@ -73,7 +73,11 @@ class ConfigScreen(private val parent: Screen?) : Screen(Component.translatable(
                 Component.translatable("simpleskinswapper.config.save")
             ) {
                 if (currentServerAddress != null) save()
-                this.minecraft?.gui?.setScreen(parent)
+                //? if >=26.2 {
+                    this.minecraft?.gui?.setScreen(parent)
+                    //?} else {
+                    /*this.minecraft?.setScreen(parent)
+                    *///?}
             }
                 .bounds(centerX - 100, this.height - 30, 95, 20)
                 .build()
@@ -82,7 +86,11 @@ class ConfigScreen(private val parent: Screen?) : Screen(Component.translatable(
         // Cancel button
         this.addRenderableWidget(
             Button.builder(CommonComponents.GUI_CANCEL) {
-                this.minecraft?.gui?.setScreen(parent)
+                //? if >=26.2 {
+                    this.minecraft?.gui?.setScreen(parent)
+                    //?} else {
+                    /*this.minecraft?.setScreen(parent)
+                    *///?}
             }
                 .bounds(centerX + 5, this.height - 30, 95, 20)
                 .build()
@@ -96,6 +104,10 @@ class ConfigScreen(private val parent: Screen?) : Screen(Component.translatable(
     }
 
     override fun onClose() {
-        this.minecraft?.gui?.setScreen(parent)
+        //? if >=26.2 {
+                    this.minecraft?.gui?.setScreen(parent)
+                    //?} else {
+                    /*this.minecraft?.setScreen(parent)
+                    *///?}
     }
 }

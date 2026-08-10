@@ -62,7 +62,13 @@ public abstract class MixinTitleScreen extends Screen {
                 btnX, btnY, btnW, 20,
                 PREVIEW_WIDTH, PREVIEW_HEIGHT, PREVIEW_GAP,
                 Component.translatable("simpleskinswapper.screen.carousel.title"),
-                btn -> this.minecraft.gui.setScreen(new SkinCarouselScreen(self))
+                btn -> {
+                    //? if >=26.2 {
+                    this.minecraft.gui.setScreen(new SkinCarouselScreen(self));
+                    //?} else {
+                    /*this.minecraft.setScreen(new SkinCarouselScreen(self));
+                    *///?}
+                }
         ));
 
         if (accessibilityBtn != null) {

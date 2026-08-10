@@ -1,0 +1,36 @@
+mod.base_version = "0.8.0"
+mod.group = "fr.raconteur"
+mod.id = "simpleskinswapper"
+
+["1.21.11"]
+deps.minecraft = "1.21.11"
+deps.fabric_loader = "0.18.5"
+deps.fabric_api = "0.141.3+1.21.11"
+deps.spruceui = "9.1.0+1.21.11"
+deps.yumi = "1.0.0-beta.1+1.21.11"
+deps.modmenu = "14.0.0-beta.1"
+mod.version = "0.8.0-1.21.11"
+mod.mc_dep = "1.21.11"
+mod.loader_dep = ">=0.18"
+
+["26.1.2"]
+deps.minecraft = "26.1.2"
+deps.fabric_loader = "0.19.2"
+deps.fabric_api = "0.149.1+26.1.2"
+deps.spruceui = "10.0.0+26.1"
+deps.yumi = "1.0.0-beta.2+26.1"
+deps.modmenu = "18.0.0-alpha.8"
+mod.version = "0.8.0-26.1.2"
+mod.mc_dep = "~26.1"
+mod.loader_dep = ">=0.19.2"
+
+["26.2"]
+deps.minecraft = "26.2"
+deps.fabric_loader = "0.19.3"
+deps.fabric_api = "0.152.1+26.2"
+deps.spruceui = "11.0.0+26.2"
+deps.yumi = "1.1.1+26.2"
+deps.modmenu = "20.0.0-beta.2"
+mod.version = "0.8.0-26.2"
+mod.mc_dep = "~26.2-"
+mod.loader_dep = ">=0.19.2"

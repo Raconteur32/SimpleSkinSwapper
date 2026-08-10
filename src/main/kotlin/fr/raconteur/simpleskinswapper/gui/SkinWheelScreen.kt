@@ -1,6 +1,7 @@
 package fr.raconteur.simpleskinswapper.gui
 
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapperClient
+import fr.raconteur.simpleskinswapper.overlayMessage
 import fr.raconteur.simpleskinswapper.changeskin.SkinChange
 import fr.raconteur.simpleskinswapper.changeskin.SkinSwapperState
 import net.minecraft.client.gui.GuiGraphicsExtractor
@@ -32,7 +33,11 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
     // Rendering
     // -------------------------------------------------------------------------
 
+    //? if >=26.1 {
     override fun extractRenderState(context: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
+    //?} else {
+    /*override fun render(context: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
+    *///?}
         val cx = this.width / 2.0f
         val cy = this.height / 2.0f
 
@@ -45,7 +50,15 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
                 Component.translatable("simpleskinswapper.screen.carousel.no_skins"),
                 cx.toInt(), cy.toInt(), COLOR_TEXT
             )
-            super.extractRenderState(context, mouseX, mouseY, delta)
+            //? if >=26.1 {
+            //? if >=26.1 {
+        super.extractRenderState(context, mouseX, mouseY, delta)
+        //?} else {
+        /*super.render(context, mouseX, mouseY, delta)
+        *///?}
+            //?} else {
+            /*super.render(context, mouseX, mouseY, delta)
+            *///?}
             return
         }
 
@@ -78,7 +91,11 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
             )
         }
 
+        //? if >=26.1 {
         super.extractRenderState(context, mouseX, mouseY, delta)
+        //?} else {
+        /*super.render(context, mouseX, mouseY, delta)
+        *///?}
     }
 
     // -------------------------------------------------------------------------
@@ -236,17 +253,17 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
                     entry.skinType,
                     entry.textureId,
                     {
-                        minecraft?.player?.sendOverlayMessage(
+                        minecraft?.player?.overlayMessage(
                             Component.translatable("simpleskinswapper.message.success")
                         )
                     },
                     { err ->
-                        minecraft?.player?.sendOverlayMessage(
+                        minecraft?.player?.overlayMessage(
                             Component.translatable("simpleskinswapper.message.error", err)
                         )
                     }
                 )
-                minecraft?.player?.sendOverlayMessage(
+                minecraft?.player?.overlayMessage(
                     Component.translatable("simpleskinswapper.message.applying")
                 )
             }
@@ -254,7 +271,11 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
     }
 
     override fun onClose() {
+        //? if >=26.2 {
         minecraft?.gui?.setScreen(parent)
+        //?} else {
+        /*minecraft?.setScreen(parent)
+        *///?}
     }
 
     companion object {

@@ -1,6 +1,8 @@
 # Simple Skin Swapper
 
-**Simple Skin Swapper** is a client-side Fabric mod for Minecraft 1.21.8+ that lets you switch between your local skin files on the fly — without restarting the game or navigating through external websites. Open a dynamic skin wheel with a keybind, hover over the skin you want, click, and you're done.
+**Simple Skin Swapper** is a client-side Fabric mod for Minecraft 1.21.11 and 26.x that lets you switch between your local skin files on the fly — without restarting the game or navigating through external websites. Open a dynamic skin wheel with a keybind, hover over the skin you want, click, and you're done.
+
+Supported versions: **1.21.11**, **26.1**, **26.2** (one jar per version, built from a single source tree with [Stonecutter](https://codeberg.org/stonecutter/stonecutter)).
 
 ---
 
@@ -17,8 +19,8 @@
 
 ## Installation
 
-1. Install [Fabric Loader](https://fabricmc.net/use/installer/) and [Fabric API](https://modrinth.com/mod/fabric-api)
-2. Drop the mod `.jar` into your `.minecraft/mods/` folder
+1. Install [Fabric Loader](https://fabricmc.net/use/installer/), [Fabric API](https://modrinth.com/mod/fabric-api) and [Fabric Language Kotlin](https://modrinth.com/mod/fabric-language-kotlin)
+2. Drop the mod `.jar` matching your Minecraft version into your `.minecraft/mods/` folder
 3. Add your skin PNG files to `.minecraft/skins/`
 4. Launch the game and bind the skin wheel key in Controls
 
@@ -62,6 +64,12 @@ Both the skin wheel and the skin carousel can be opened with a configurable keyb
 </center>
 
 **Adding skins:** drop any PNG skin file into the `.minecraft/skins/` folder (or the `skins/` folder of your instance if you use a custom launcher). A shortcut button to open that folder is available directly in the carousel screen.
+
+---
+
+## Development
+
+Build instructions, multi-version setup and contribution notes live in [DEV.md](DEV.md).
 
 ---
 

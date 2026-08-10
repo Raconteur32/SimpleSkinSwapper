@@ -1,6 +1,7 @@
 package fr.raconteur.simpleskinswapper.changeskin
 
 import fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig
+import fr.raconteur.simpleskinswapper.systemMessage
 import net.minecraft.client.Minecraft
 import net.minecraft.network.chat.Component
 import java.util.concurrent.CompletableFuture
@@ -67,7 +68,7 @@ object SkinChangeManager {
         if (attempt >= MAX_ATTEMPTS) {
             // All retries exhausted — give up and tell the player
             client.execute {
-                client.player?.sendSystemMessage(
+                client.player?.systemMessage(
                     Component.translatable("simpleskinswapper.message.command_give_up")
                 )
             }
@@ -92,7 +93,7 @@ object SkinChangeManager {
 
         if (serverCmd.isNullOrBlank()) {
             client.execute {
-                client.player?.sendSystemMessage(
+                client.player?.systemMessage(
                     Component.translatable("simpleskinswapper.message.command_not_defined", serverAddress)
                 )
             }
@@ -132,7 +133,7 @@ object SkinChangeManager {
                         delaySeconds, attempt + 1, MAX_ATTEMPTS
                     )
                 }
-                client.player!!.sendSystemMessage(message)
+                client.player!!.systemMessage(message)
             }
 
             val sendCmd = Runnable {
@@ -159,7 +160,7 @@ object SkinChangeManager {
                             if (!signal.get()) {
                                 pendingCommandTextureValue = null
                                 SkinSwapperState.endSwap()
-                                client.player?.sendSystemMessage(
+                                client.player?.systemMessage(
                                     Component.translatable("simpleskinswapper.message.command_timeout")
                                 )
                             }
