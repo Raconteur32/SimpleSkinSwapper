@@ -30,9 +30,12 @@ stonecutter parameters {
 			replace("PayloadTypeRegistry.playC2S()", "PayloadTypeRegistry.serverboundPlay()")
 			replace("PayloadTypeRegistry.playS2C()", "PayloadTypeRegistry.clientboundPlay()")
 
-			// Picture-in-picture GUI rendering moved packages and renamed the submit method
-			replace("net.minecraft.client.gui.render.state.pip", "net.minecraft.client.renderer.state.gui.pip")
+			// GUI render-state classes moved packages (the broad rule also covers the .pip subpackage)
+			replace("net.minecraft.client.gui.render.state", "net.minecraft.client.renderer.state.gui")
+			// Picture-in-picture GUI rendering renamed the submit methods
 			replace("submitPicturesInPictureState", "addPicturesInPictureState")
+			replace("submitBlitToCurrentLayer", "addBlitToCurrentLayer")
+			replace("submitGuiElement", "addGuiElement")
 
 			// Widget rendering pipeline renames (identical on Screen and spruceui widgets)
 			replace("renderDefaultSprite", "extractDefaultSprite")

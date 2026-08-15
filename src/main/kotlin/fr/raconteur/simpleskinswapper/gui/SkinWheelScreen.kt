@@ -10,14 +10,21 @@ import net.minecraft.client.input.KeyEvent
 import net.minecraft.client.input.MouseButtonEvent
 import net.minecraft.core.ClientAsset
 import net.minecraft.network.chat.Component
+import net.minecraft.resources.Identifier
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.world.entity.player.PlayerModelType
 import net.minecraft.world.entity.player.PlayerSkin
+import org.joml.Matrix3x2f
 
 class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
 
     private val entries: List<SkinEntry> = loadWheelEntries()
     private var selectedIndex = -1
+
+    init {
+        // Entries were just rescanned: drop baked previews for removed/replaced skins.
+        SkinPreviewCache.retainOnly(entries.mapTo(HashSet()) { SkinPreviewCache.previewKey(it.file) })
+    }
 
     override fun isPauseScreen(): Boolean = false
 
@@ -125,72 +132,24 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
         val startAngle = baseAngle + GAP_HALF_ANGLE
         val endAngle = baseAngle + sectorSize - GAP_HALF_ANGLE
         val color = if (hovered) COLOR_SECTOR_HOVER else COLOR_SECTOR
-        fillSector(context, cx, cy, OUTER_RADIUS, startAngle, endAngle, color)
+        submitSectorFill(context, cx, cy, OUTER_RADIUS, startAngle.toFloat(), endAngle.toFloat(), color)
     }
 
     private fun fillCircle(context: GuiGraphicsExtractor, cx: Float, cy: Float, radius: Float, color: Int) {
-        fillSector(context, cx, cy, radius, 0.0, 2 * Math.PI, color)
+        submitSectorFill(context, cx, cy, radius, 0.0f, (2 * Math.PI).toFloat(), color)
     }
 
-    /**
-     * Fills a pie sector using context.fill() — one call per pixel column.
-     * Uses analytical cross-product tests to compute the y-range per column in O(1),
-     * giving O(r) total instead of O(r²) with atan2.
-     *
-     * For a sector [startAngle, endAngle] with span < 2π:
-     *   A point (dx, dy) is inside iff
-     *     dy*cos(S) - dx*sin(S) >= 0   (left of start ray)
-     *     dy*cos(E) - dx*sin(E) <= 0   (right of end ray)
-     * Each constraint is linear in dy → gives yLo / yHi directly.
-     */
-    private fun fillSector(
+    /** Submits one sector as a single triangle-fan mesh — O(1) draw submissions per sector. */
+    private fun submitSectorFill(
         context: GuiGraphicsExtractor, cx: Float, cy: Float, radius: Float,
-        startAngle: Double, endAngle: Double, color: Int
+        startAngle: Float, endAngle: Float, color: Int
     ) {
-        val r = Math.ceil(radius.toDouble()).toInt()
-        val icx = cx.toInt()
-        val icy = cy.toInt()
-
-        val span = ((endAngle - startAngle) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI)
-        if (span >= 2 * Math.PI - 1e-9) {
-            // Full circle — skip angular tests entirely
-            for (dx in -r..r) {
-                val dMax = Math.sqrt(Math.max(0.0, (radius * radius - dx * dx).toDouble())).toInt()
-                if (dMax > 0) context.fill(icx + dx, icy - dMax, icx + dx + 1, icy + dMax + 1, color)
-            }
-            return
-        }
-
-        val cosS = Math.cos(startAngle)
-        val sinS = Math.sin(startAngle)
-        val cosE = Math.cos(endAngle)
-        val sinE = Math.sin(endAngle)
-
-        for (dx in -r..r) {
-            val r2 = (radius * radius - dx * dx).toDouble()
-            if (r2 <= 0) continue
-            val dyMax = Math.sqrt(r2).toInt()
-            var yLo = -dyMax.toDouble()
-            var yHi = dyMax.toDouble()
-
-            // Start-ray constraint: dy*cosS - dx*sinS >= 0  →  dy >= dx*sinS/cosS
-            val tS = dx * sinS
-            if (cosS > 1e-9) yLo = Math.max(yLo, tS / cosS)
-            else if (cosS < -1e-9) yHi = Math.min(yHi, tS / cosS)
-            else if (tS > 1e-9) continue // column entirely outside start ray
-
-            // End-ray constraint: dy*cosE - dx*sinE <= 0  →  dy <= dx*sinE/cosE
-            val tE = dx * sinE
-            if (cosE > 1e-9) yHi = Math.min(yHi, tE / cosE)
-            else if (cosE < -1e-9) yLo = Math.max(yLo, tE / cosE)
-            else if (tE < -1e-9) continue // column entirely outside end ray
-
-            val fillY1 = Math.ceil(yLo).toInt()
-            val fillY2 = Math.floor(yHi).toInt()
-            if (fillY1 <= fillY2) {
-                context.fill(icx + dx, icy + fillY1, icx + dx + 1, icy + fillY2 + 1, color)
-            }
-        }
+        context.guiRenderState.addGuiElement(
+            SectorFillRenderState(
+                Matrix3x2f(context.pose()), cx, cy, radius, startAngle, endAngle, color,
+                context.scissorStack.peek()
+            )
+        )
     }
 
     private fun drawSectorPreview(context: GuiGraphicsExtractor, cx: Float, cy: Float, index: Int, n: Int) {
@@ -208,16 +167,27 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
         val halfW = 16
         val halfH = 24
 
-        val textureId = entry.textureId
-        if (textureId != null) {
-            val skinTextures = PlayerSkin(
-                ClientAsset.DownloadedTexture(textureId, ""), null, null,
-                if (entry.skinType == SkinType.SLIM) PlayerModelType.SLIM else PlayerModelType.WIDE,
-                true
-            )
-            SkinRenderer.renderPlayer(context, px - halfW, py - halfH, px + halfW, py + halfH, halfH, skinTextures)
+        val textureId = entry.textureId ?: return
+
+        // Only the hovered sector gets a live (animated) entity render — at most one per frame.
+        if (index == selectedIndex) {
+            SkinRenderer.renderPlayer(context, px - halfW, py - halfH, px + halfW, py + halfH, halfH, buildPlayerSkin(entry, textureId))
+            return
+        }
+
+        // Others draw from the shared baked-preview cache; unbaked previews are skipped until baked.
+        val key = SkinPreviewCache.previewKey(entry.file)
+        if (!SkinPreviewCache.submitPreviewBlit(context, key, px - halfW, py - halfH, px + halfW, py + halfH)) {
+            SkinPreviewCache.requestPreview(key) { buildPlayerSkin(entry, textureId) }
         }
     }
+
+    private fun buildPlayerSkin(entry: SkinEntry, textureId: Identifier): PlayerSkin =
+        PlayerSkin(
+            ClientAsset.DownloadedTexture(textureId, ""), null, null,
+            if (entry.skinType == SkinType.SLIM) PlayerModelType.SLIM else PlayerModelType.WIDE,
+            true
+        )
 
     // -------------------------------------------------------------------------
     // Input handling

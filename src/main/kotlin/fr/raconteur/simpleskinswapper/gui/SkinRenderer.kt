@@ -13,7 +13,7 @@ import org.joml.Vector3f
 object SkinRenderer {
 
     // GUI Y goes down, 3D Y goes up → flip 180° around Z to avoid upside-down rendering.
-    private val BASE_ROTATION = Quaternionf().rotationZ(Math.PI.toFloat())
+    internal val BASE_ROTATION = Quaternionf().rotationZ(Math.PI.toFloat())
 
     // Raw model height feet-to-head-top in this pipeline's local units, derived from HumanoidModel's
     // part geometry (legs 12px + body 12px + head 8px = 32px = 2.0 blocks), not the 1.8 entity hitbox
@@ -23,7 +23,7 @@ object SkinRenderer {
 
     // Symmetric vertical centering offset: half the model height (plus a hair's-width safety margin)
     // so feet and head-top land equally far from the box's vertical center.
-    private val MODEL_OFFSET = Vector3f(0.0F, MODEL_HEIGHT / 2.0F + 0.01F, 0.0F)
+    internal val MODEL_OFFSET = Vector3f(0.0F, MODEL_HEIGHT / 2.0F + 0.01F, 0.0F)
 
     // Approximate torso height, used only as the drag-rotate pivot so tilting swings around the chest
     // instead of the feet. Independent of MODEL_OFFSET/framing.
@@ -32,7 +32,7 @@ object SkinRenderer {
     // Every call site sizes the render as previewHeight/2, which by itself maps a fixed ±1.0-unit world
     // window onto the box — too small to fit the full ~2.03-unit-tall model. Widen the window to match
     // MODEL_OFFSET (plus a small margin) so the model fills the preview without clipping the head.
-    private const val PREVIEW_HALF_HEIGHT = MODEL_HEIGHT / 2.0F + 0.02F
+    internal const val PREVIEW_HALF_HEIGHT = MODEL_HEIGHT / 2.0F + 0.02F
 
     @JvmStatic
     fun renderPlayer(context: GuiGraphicsExtractor, x1: Int, y1: Int, x2: Int, y2: Int, size: Int, skin: PlayerSkin) {
@@ -103,7 +103,7 @@ object SkinRenderer {
         context.disableScissor()
     }
 
-    private fun buildRenderState(skin: PlayerSkin): AvatarRenderState {
+    internal fun buildRenderState(skin: PlayerSkin): AvatarRenderState {
         val s = AvatarRenderState()
 
         s.boundingBoxWidth = 0.6F

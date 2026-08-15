@@ -6,6 +6,7 @@
 		"player.MixinPlayer"
 	],
 	"client": [
+		"client.GuiRendererMixin",
 		"menu.MixinGameMenuScreen",
 		"menu.MixinTitleScreen",
 		"network.MixinClientPlayNetworkHandler",
