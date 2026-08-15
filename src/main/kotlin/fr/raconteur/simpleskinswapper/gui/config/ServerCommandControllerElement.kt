@@ -70,15 +70,20 @@ class ServerCommandControllerElement(
         val fieldsWidth = dim.width() - gap
         val addressWidth = fieldsWidth / 2
 
+        // Inset vertically by 1px: EditBox draws its border one pixel OUTSIDE its bounds,
+        // so a box filling the dimension exactly would overflow 1px top and bottom.
+        val boxY = dim.y() + 1
+        val boxHeight = dim.height() - 2
+
         addressBox.x = dim.x()
-        addressBox.y = dim.y()
+        addressBox.y = boxY
         addressBox.width = addressWidth
-        addressBox.height = dim.height()
+        addressBox.height = boxHeight
 
         commandBox.x = dim.x() + addressWidth + gap
-        commandBox.y = dim.y()
+        commandBox.y = boxY
         commandBox.width = fieldsWidth - addressWidth
-        commandBox.height = dim.height()
+        commandBox.height = boxHeight
     }
 
     //? if >=26.1 {
