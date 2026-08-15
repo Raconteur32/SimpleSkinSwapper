@@ -18,6 +18,20 @@ class SimpleSkinSwapperConfig {
     @JvmField
     var serverCommands: MutableMap<String, String>? = defaultServerCommands()
 
+    /** Side of the Options/Quit row for the skin-preview button on the title screen. */
+    @JvmField
+    var titleScreenButtonSide: ButtonSide? = ButtonSide.RIGHT
+
+    /** Side of the Disconnect row for the skin-preview button on the pause menu. */
+    @JvmField
+    var pauseMenuButtonSide: ButtonSide? = ButtonSide.RIGHT
+
+    /** Non-null accessor for callers (e.g. Java mixins): defaults to RIGHT. */
+    fun titleScreenSide(): ButtonSide = titleScreenButtonSide ?: ButtonSide.RIGHT
+
+    /** Non-null accessor for callers (e.g. Java mixins): defaults to RIGHT. */
+    fun pauseMenuSide(): ButtonSide = pauseMenuButtonSide ?: ButtonSide.RIGHT
+
     /**
      * Returns the command for the given server address, or null if the server is not registered.
      */
@@ -100,10 +114,18 @@ class SimpleSkinSwapperConfig {
                             if (loaded.serverCommands == null) {
                                 loaded.serverCommands = defaultServerCommands()
                             }
+                            if (loaded.titleScreenButtonSide == null) {
+                                loaded.titleScreenButtonSide = ButtonSide.RIGHT
+                            }
+                            if (loaded.pauseMenuButtonSide == null) {
+                                loaded.pauseMenuButtonSide = ButtonSide.RIGHT
+                            }
                             return loaded
                         }
                     }
-                } catch (e: IOException) {
+                } catch (e: Exception) {
+                    // IOException (unreadable file) or JsonParseException (e.g. an invalid
+                    // enum value in a hand-edited file): fall back to defaults.
                     SimpleSkinSwapper.LOGGER.error("Failed to load config: {}", e.message)
                 }
             }

@@ -1,5 +1,7 @@
 package fr.raconteur.simpleskinswapper.mixin.menu;
 
+import fr.raconteur.simpleskinswapper.config.ButtonSide;
+import fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig;
 import fr.raconteur.simpleskinswapper.gui.SkinCarouselScreen;
 import fr.raconteur.simpleskinswapper.gui.SkinPreviewButton;
 import net.minecraft.client.gui.components.Button;
@@ -38,9 +40,10 @@ public abstract class MixinGameMenuScreen extends Screen {
         if (exitBtn == null) return;
 
         PauseScreen self = (PauseScreen) (Object) this;
-        int btnX = exitBtn.getX() + exitBtn.getWidth() + 4;
-        int btnY = exitBtn.getY();
+        boolean left = SimpleSkinSwapperConfig.get().pauseMenuSide() == ButtonSide.LEFT;
         int btnW = 72;
+        int btnX = left ? exitBtn.getX() - 4 - btnW : exitBtn.getX() + exitBtn.getWidth() + 4;
+        int btnY = exitBtn.getY();
 
         this.addRenderableWidget(new SkinPreviewButton(
                 btnX, btnY, btnW, 20,

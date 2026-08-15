@@ -1,5 +1,7 @@
 package fr.raconteur.simpleskinswapper.mixin.menu;
 
+import fr.raconteur.simpleskinswapper.config.ButtonSide;
+import fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig;
 import fr.raconteur.simpleskinswapper.gui.SkinCarouselScreen;
 import fr.raconteur.simpleskinswapper.gui.SkinPreviewButton;
 import net.minecraft.client.gui.components.Button;
@@ -32,31 +34,36 @@ public abstract class MixinTitleScreen extends Screen {
 
     @Inject(method = "init", at = @At("TAIL"))
     private void simpleskinswapper$addButton(CallbackInfo ci) {
-        Button quitBtn = null;
+        // RIGHT anchors on Quit (button goes right of it); LEFT anchors on Options (button
+        // goes left of it) — the two placements are strict mirrors on the same vanilla row.
+        boolean left = SimpleSkinSwapperConfig.get().titleScreenSide() == ButtonSide.LEFT;
+        String anchorKey = left ? "menu.options" : "menu.quit";
+
+        Button anchorBtn = null;
         for (var element : this.children()) {
             if (element instanceof Button btn && btn.getMessage().getContents() instanceof TranslatableContents tc
-                    && "menu.quit".equals(tc.getKey())) {
-                quitBtn = btn;
+                    && anchorKey.equals(tc.getKey())) {
+                anchorBtn = btn;
                 break;
             }
         }
-        if (quitBtn == null) return;
+        if (anchorBtn == null) return;
 
-        // The accessibility icon normally sits immediately right of Quit; shift it further right
-        // to make room for our button in that spot.
-        SpriteIconButton accessibilityBtn = null;
+        // The vanilla icon adjacent to the anchor (accessibility right of Quit, language left
+        // of Options) normally sits exactly where our button goes; shift it outward past us.
+        SpriteIconButton adjacentIcon = null;
         for (var element : this.children()) {
-            if (element instanceof SpriteIconButton icon
-                    && icon.getY() == quitBtn.getY() && icon.getX() > quitBtn.getX()) {
-                accessibilityBtn = icon;
+            if (element instanceof SpriteIconButton icon && icon.getY() == anchorBtn.getY()
+                    && (left ? icon.getX() < anchorBtn.getX() : icon.getX() > anchorBtn.getX())) {
+                adjacentIcon = icon;
                 break;
             }
         }
 
         TitleScreen self = (TitleScreen) (Object) this;
-        int btnX = quitBtn.getX() + quitBtn.getWidth() + 4;
-        int btnY = quitBtn.getY();
         int btnW = 72;
+        int btnX = left ? anchorBtn.getX() - 4 - btnW : anchorBtn.getX() + anchorBtn.getWidth() + 4;
+        int btnY = anchorBtn.getY();
 
         this.addRenderableWidget(new SkinPreviewButton(
                 btnX, btnY, btnW, 20,
@@ -71,8 +78,8 @@ public abstract class MixinTitleScreen extends Screen {
                 }
         ));
 
-        if (accessibilityBtn != null) {
-            accessibilityBtn.setPosition(btnX + btnW + 4, accessibilityBtn.getY());
+        if (adjacentIcon != null) {
+            adjacentIcon.setPosition(left ? btnX - 4 - adjacentIcon.getWidth() : btnX + btnW + 4, adjacentIcon.getY());
         }
     }
 }
