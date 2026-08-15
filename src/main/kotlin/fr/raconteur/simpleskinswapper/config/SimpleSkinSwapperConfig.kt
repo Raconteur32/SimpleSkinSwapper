@@ -27,16 +27,36 @@ class SimpleSkinSwapperConfig {
     }
 
     /**
-     * Adds an entry with an empty command for the server if not already registered,
-     * then persists the config.
+     * Builds the editable list shown by the config screen.
+     * When connected to a server, its entry comes first — proposed with an
+     * empty command if it has none configured yet.
      */
-    fun registerServerIfAbsent(address: String?) {
-        if (address == null) return
-        val commands = serverCommands ?: return
-        if (!commands.containsKey(address)) {
-            commands[address] = ""
-            save()
+    fun toServerCommandList(currentServerAddress: String?): MutableList<ServerCommand> {
+        val commands = serverCommands ?: emptyMap()
+        val list = mutableListOf<ServerCommand>()
+        if (currentServerAddress != null) {
+            list.add(ServerCommand(currentServerAddress, commands[currentServerAddress] ?: ""))
         }
+        commands.forEach { (address, command) ->
+            if (address != currentServerAddress) list.add(ServerCommand(address, command))
+        }
+        return list
+    }
+
+    /**
+     * Applies the edited list back to the config: entries with a blank address or
+     * a blank command are dropped; on duplicate addresses the last occurrence wins.
+     */
+    fun applyServerCommandList(entries: List<ServerCommand>) {
+        val map = LinkedHashMap<String, String>()
+        for (entry in entries) {
+            val address = entry.address.trim()
+            val command = entry.command.trim()
+            if (address.isNotEmpty() && command.isNotEmpty()) {
+                map[address] = command
+            }
+        }
+        serverCommands = map
     }
 
     companion object {

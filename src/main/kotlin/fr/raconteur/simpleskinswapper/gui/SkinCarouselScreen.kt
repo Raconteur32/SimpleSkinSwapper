@@ -7,6 +7,7 @@ import dev.lambdaurora.spruceui.widget.SpruceButtonWidget
 import dev.lambdaurora.spruceui.widget.text.SpruceTextFieldWidget
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
 import fr.raconteur.simpleskinswapper.changeskin.AccountSkinFetcher
+import fr.raconteur.simpleskinswapper.gui.config.YaclConfigScreen
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.input.MouseButtonEvent
@@ -115,20 +116,34 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
 
         rebuildCards()
 
+        val bottomButtonWidth = 110
+        val bottomRowLeft = this.width / 2 - (bottomButtonWidth * 3 + 8) / 2
         addRenderableWidget(
             SpruceButtonWidget(
-                Position.of(this.width / 2 - 122, this.height - 24), 120, 20,
+                Position.of(bottomRowLeft, this.height - 24), bottomButtonWidth, 20,
                 CommonComponents.GUI_CANCEL
             ) { onClose() }
         )
         addRenderableWidget(
             SpruceButtonWidget(
-                Position.of(this.width / 2 + 2, this.height - 24), 120, 20,
+                Position.of(bottomRowLeft + bottomButtonWidth + 4, this.height - 24), bottomButtonWidth, 20,
                 Component.translatable("simpleskinswapper.screen.carousel.open_folder")
             ) {
                 Util.getPlatform().openFile(
                     FabricLoader.getInstance().gameDir.resolve("skins").toFile()
                 )
+            }
+        )
+        addRenderableWidget(
+            SpruceButtonWidget(
+                Position.of(bottomRowLeft + (bottomButtonWidth + 4) * 2, this.height - 24), bottomButtonWidth, 20,
+                Component.translatable("simpleskinswapper.screen.carousel.config")
+            ) {
+                //? if >=26.2 {
+                this.minecraft?.gui?.setScreen(YaclConfigScreen.create(this))
+                //?} else {
+                /*this.minecraft?.setScreen(YaclConfigScreen.create(this))
+                *///?}
             }
         )
 

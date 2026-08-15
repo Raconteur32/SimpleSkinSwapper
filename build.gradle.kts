@@ -15,6 +15,7 @@ val fabricVersion: String = sc.properties["deps.fabric_api"]
 val spruceuiVersion: String = sc.properties["deps.spruceui"]
 val yumiVersion: String = sc.properties["deps.yumi"]
 val modmenuVersion: String = sc.properties["deps.modmenu"]
+val yaclVersion: String = sc.properties["deps.yacl"]
 val modVersion: String = sc.properties["mod.version"]
 val mcDep: String = sc.properties["mod.mc_dep"]
 val loaderDep: String = sc.properties["mod.loader_dep"]
@@ -59,6 +60,10 @@ repositories {
 		name = "Gegy"
 		url = uri("https://maven.gegy.dev")
 	}
+	maven {
+		name = "Xander Maven"
+		url = uri("https://maven.isxander.dev/releases")
+	}
 }
 
 dependencies {
@@ -77,8 +82,15 @@ dependencies {
 	include(modImplementation("dev.lambdaurora:spruceui:$spruceuiVersion")!!)
 	include(modImplementation("dev.yumi.mc.core:yumi-mc-foundation:$yumiVersion")!!)
 
-	// ModMenu integration
+	// ModMenu integration — compile-only for the published jar, but present in dev runtime
+	// so the ModMenu config entrypoint can be tested with runClient
 	modCompileOnly("com.terraformersmc:modmenu:$modmenuVersion")
+	modLocalRuntime("com.terraformersmc:modmenu:$modmenuVersion")
+
+	// YACL config screen — external dependency (not bundled: YACL officially discourages
+	// jar-in-jar as it's heavy and usually already present in modpacks); declared in
+	// fabric.mod.json "depends"
+	modImplementation("dev.isxander:yet-another-config-lib:$yaclVersion")
 
 	// DevAuth: authenticate with a real Microsoft account in dev environment
 	modRuntimeOnly("me.djtheredstoner:DevAuth-fabric:1.2.2")

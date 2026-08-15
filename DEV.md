@@ -21,7 +21,7 @@ All supported Minecraft versions are built from a single source tree using [Ston
 ## Where things live
 
 - `src/` — the single shared source tree (Kotlin; mixins in Java)
-- `stonecutter.properties.toml` — per-version dependency coordinates (Minecraft, loader, Fabric API, spruceui, yumi, modmenu) and the per-version `fabric.mod.json` constraints
+- `stonecutter.properties.toml` — per-version dependency coordinates (Minecraft, loader, Fabric API, spruceui, yumi, modmenu, yacl) and the per-version `fabric.mod.json` constraints
 - `stonecutter.gradle.kts` — Stonecutter configuration: active version and textual **replacements** for pure symbol renames between versions
 - `build.gradle.kts` — the shared build script applied to every version project
 

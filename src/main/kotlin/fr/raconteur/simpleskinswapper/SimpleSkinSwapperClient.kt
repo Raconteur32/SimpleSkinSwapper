@@ -2,7 +2,6 @@ package fr.raconteur.simpleskinswapper
 
 import com.mojang.blaze3d.platform.InputConstants
 import fr.raconteur.simpleskinswapper.changeskin.StartupSkinSync
-import fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig
 import fr.raconteur.simpleskinswapper.gui.SkinCarouselScreen
 import fr.raconteur.simpleskinswapper.gui.SkinShuffleImporter
 import fr.raconteur.simpleskinswapper.gui.SkinWheelScreen
@@ -10,7 +9,6 @@ import fr.raconteur.simpleskinswapper.networking.SkinShuffleCompat
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents
 import net.minecraft.client.KeyMapping
 import net.minecraft.resources.Identifier
 import org.lwjgl.glfw.GLFW
@@ -40,14 +38,21 @@ class SimpleSkinSwapperClient : ClientModInitializer {
             )
         )
 
-        ClientPlayConnectionEvents.JOIN.register { _, _, client ->
-            client.currentServer?.let { server ->
-                SimpleSkinSwapperConfig.get().registerServerIfAbsent(server.ip)
-            }
-        }
-
         ClientTickEvents.END_CLIENT_TICK.register { client ->
             TOTAL_TICK_DELTA++
+            // TEMP-DEBUG: auto-open the YACL config screen for automated GUI testing
+            //? if >=26.2 {
+            if (debugAutoOpenConfig && client.gui.screen() is net.minecraft.client.gui.screens.TitleScreen) {
+            //?} else {
+            /*if (debugAutoOpenConfig && client.screen is net.minecraft.client.gui.screens.TitleScreen) {
+            *///?}
+                debugAutoOpenConfig = false
+                //? if >=26.2 {
+                client.gui.setScreen(fr.raconteur.simpleskinswapper.gui.config.YaclConfigScreen.create(null))
+                //?} else {
+                /*client.setScreen(fr.raconteur.simpleskinswapper.gui.config.YaclConfigScreen.create(null))
+                *///?}
+            }
             if (openCarouselKey?.consumeClick() == true) {
                 //? if >=26.2 {
                 client.gui.setScreen(SkinCarouselScreen(client.gui.screen()))
@@ -75,5 +80,9 @@ class SimpleSkinSwapperClient : ClientModInitializer {
         /** Accumulated tick delta for animations (incremented each game tick). */
         @JvmField
         var TOTAL_TICK_DELTA = 0f
+
+        // TEMP-DEBUG: set by -Dsss.debugConfig=1 for automated GUI testing
+        @JvmField
+        var debugAutoOpenConfig: Boolean = System.getProperty("sss.debugConfig") != null
     }
 }
