@@ -1,14 +1,12 @@
 package fr.raconteur.simpleskinswapper.gui
 
-import dev.lambdaurora.spruceui.Position
-import dev.lambdaurora.spruceui.render.SpruceGuiGraphics
-import dev.lambdaurora.spruceui.screen.SpruceScreen
-import dev.lambdaurora.spruceui.widget.SpruceButtonWidget
-import dev.lambdaurora.spruceui.widget.text.SpruceTextFieldWidget
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
 import fr.raconteur.simpleskinswapper.changeskin.AccountSkinFetcher
 import fr.raconteur.simpleskinswapper.gui.config.YaclConfigScreen
 import net.fabricmc.loader.api.FabricLoader
+import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.client.gui.components.Button
+import net.minecraft.client.gui.components.EditBox
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.input.MouseButtonEvent
 import net.minecraft.network.chat.CommonComponents
@@ -27,7 +25,7 @@ import java.nio.file.WatchService
 import java.util.Collections
 import java.util.Locale
 
-class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.translatable("simpleskinswapper.title")) {
+class SkinCarouselScreen(private val parent: Screen?) : Screen(Component.translatable("simpleskinswapper.title")) {
 
     private val cards = ArrayList<SkinCard>()
     private val allEntries = ArrayList<SkinEntry>()
@@ -37,10 +35,10 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
     // full re-init that would drop UI state (e.g. losing focus/typed text in accountField).
     private val selfTriggeredFiles = HashMap<String, Long>()
 
-    private lateinit var searchField: SpruceTextFieldWidget
-    private lateinit var addFromFileButton: SpruceButtonWidget
-    private lateinit var addFromAccountButton: SpruceButtonWidget
-    private lateinit var accountField: SpruceTextFieldWidget
+    private lateinit var searchField: EditBox
+    private lateinit var addFromFileButton: Button
+    private lateinit var addFromAccountButton: Button
+    private lateinit var accountField: EditBox
     private var searchQuery = ""
     private var pendingAccountUsername = ""
     private var invalidAccountRevertAtMs = 0L
@@ -73,70 +71,63 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
 
         val bandTop = font.lineHeight * 3
         val searchY = (bandTop + getCardTop()) / 2 - SEARCH_HEIGHT / 2
-        searchField = object : SpruceTextFieldWidget(
-            Position.of(getCardGap(), searchY), searchWidth, SEARCH_HEIGHT,
+        searchField = EditBox(
+            font, getCardGap(), searchY, searchWidth, SEARCH_HEIGHT,
             Component.translatable("simpleskinswapper.screen.carousel.search")
-        ) {
-            override fun getTextColor(): Int =
-                if (this.text.isEmpty()) PLACEHOLDER_COLOR else super.getTextColor()
-        }
-        searchField.setPlaceholder(Component.translatable("simpleskinswapper.screen.carousel.search"))
-        searchField.setText(searchQuery)
-        searchField.setChangedListener(this::onSearchChanged)
+        )
+        searchField.setHint(Component.translatable("simpleskinswapper.screen.carousel.search"))
+        searchField.setValue(searchQuery)
+        searchField.setResponder(this::onSearchChanged)
         addRenderableWidget(searchField)
 
         val addFileX = getCardGap() + searchWidth + gap
-        addFromFileButton = SpruceButtonWidget(
-            Position.of(addFileX, searchY), addFileWidth, SEARCH_HEIGHT,
+        addFromFileButton = Button.builder(
             Component.translatable("simpleskinswapper.screen.carousel.add_from_file")
         ) { addSkinFromFile() }
+            .bounds(addFileX, searchY, addFileWidth, SEARCH_HEIGHT)
+            .build()
         addRenderableWidget(addFromFileButton)
 
         val addAccountX = addFileX + addFileWidth + gap
-        addFromAccountButton = SpruceButtonWidget(
-            Position.of(addAccountX, searchY), addAccountWidth, SEARCH_HEIGHT,
+        addFromAccountButton = Button.builder(
             Component.translatable("simpleskinswapper.screen.carousel.add_from_account")
         ) { addSkinFromAccount() }
+            .bounds(addAccountX, searchY, addAccountWidth, SEARCH_HEIGHT)
+            .build()
         addRenderableWidget(addFromAccountButton)
 
         val accountFieldX = addAccountX + addAccountWidth + gap
-        accountField = object : SpruceTextFieldWidget(
-            Position.of(accountFieldX, searchY), accountWidth, SEARCH_HEIGHT,
+        accountField = EditBox(
+            font, accountFieldX, searchY, accountWidth, SEARCH_HEIGHT,
             Component.translatable("simpleskinswapper.screen.carousel.account_name")
-        ) {
-            override fun getTextColor(): Int {
-                if (accountFieldShowingError) return ERROR_COLOR
-                return if (this.text.isEmpty()) PLACEHOLDER_COLOR else super.getTextColor()
-            }
-        }
-        accountField.setPlaceholder(Component.translatable("simpleskinswapper.screen.carousel.account_name"))
-        accountField.setChangedListener { text -> addFromAccountButton.isActive = text.isNotBlank() }
+        )
+        accountField.setHint(Component.translatable("simpleskinswapper.screen.carousel.account_name"))
+        accountField.setResponder { text -> addFromAccountButton.active = text.isNotBlank() }
         addRenderableWidget(accountField)
-        addFromAccountButton.isActive = false
+        addFromAccountButton.active = false
 
         rebuildCards()
 
         val bottomButtonWidth = 110
         val bottomRowLeft = this.width / 2 - (bottomButtonWidth * 3 + 8) / 2
         addRenderableWidget(
-            SpruceButtonWidget(
-                Position.of(bottomRowLeft, this.height - 24), bottomButtonWidth, 20,
-                CommonComponents.GUI_CANCEL
-            ) { onClose() }
+            Button.builder(CommonComponents.GUI_CANCEL) { onClose() }
+                .bounds(bottomRowLeft, this.height - 24, bottomButtonWidth, 20)
+                .build()
         )
         addRenderableWidget(
-            SpruceButtonWidget(
-                Position.of(bottomRowLeft + bottomButtonWidth + 4, this.height - 24), bottomButtonWidth, 20,
+            Button.builder(
                 Component.translatable("simpleskinswapper.screen.carousel.open_folder")
             ) {
                 Util.getPlatform().openFile(
                     FabricLoader.getInstance().gameDir.resolve("skins").toFile()
                 )
             }
+                .bounds(bottomRowLeft + bottomButtonWidth + 4, this.height - 24, bottomButtonWidth, 20)
+                .build()
         )
         addRenderableWidget(
-            SpruceButtonWidget(
-                Position.of(bottomRowLeft + (bottomButtonWidth + 4) * 2, this.height - 24), bottomButtonWidth, 20,
+            Button.builder(
                 Component.translatable("simpleskinswapper.screen.carousel.config")
             ) {
                 //? if >=26.2 {
@@ -145,6 +136,8 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
                 /*this.minecraft?.setScreen(YaclConfigScreen.create(this))
                 *///?}
             }
+                .bounds(bottomRowLeft + (bottomButtonWidth + 4) * 2, this.height - 24, bottomButtonWidth, 20)
+                .build()
         )
 
         stopWatching()
@@ -166,8 +159,9 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
         if (invalidAccountRevertAtMs != 0L && System.currentTimeMillis() >= invalidAccountRevertAtMs) {
             invalidAccountRevertAtMs = 0L
             accountFieldShowingError = false
-            accountField.setText(pendingAccountUsername)
-            addFromAccountButton.isActive = accountField.text.isNotBlank()
+            accountField.setTextColor(DEFAULT_TEXT_COLOR)
+            accountField.setValue(pendingAccountUsername)
+            addFromAccountButton.active = accountField.value.isNotBlank()
         }
 
         val service = watchService ?: return
@@ -215,9 +209,9 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
     }
 
     //? if >=26.1 {
-    override fun extractRenderState(graphics: SpruceGuiGraphics, mouseX: Int, mouseY: Int, delta: Float) {
+    override fun extractRenderState(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
     //?} else {
-    /*override fun render(graphics: SpruceGuiGraphics, mouseX: Int, mouseY: Int, delta: Float) {
+    /*override fun render(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
     *///?}
         graphics.fill(0, font.lineHeight * 3, this.width, this.height - font.lineHeight * 3, 0x7F000000)
 
@@ -237,20 +231,20 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
             // scissor that clamps to zero width and crashes the frame. Card content is inset
             // by CARD_CONTENT_MARGIN, so hide cards as soon as their content leaves the
             // screen, not just their frame (fractional scrolling makes 1-3px slivers common).
-            card.setVisible(cardX + cardW - CARD_CONTENT_MARGIN > 0 && cardX + CARD_CONTENT_MARGIN < this.width)
+            card.visible = cardX + cardW - CARD_CONTENT_MARGIN > 0 && cardX + CARD_CONTENT_MARGIN < this.width
         }
 
         //? if >=26.1 {
         super.extractRenderState(graphics, mouseX, mouseY, delta)
         //?} else {
-        /*renderWidgets(graphics, mouseX, mouseY, delta)
+        /*super.render(graphics, mouseX, mouseY, delta)
         *///?}
 
         if (getMaxCardIndex() > 0) {
             renderScrollbar(graphics, cardIndex)
         }
 
-        graphics.vanilla().centeredText(
+        graphics.centeredText(
             font,
             title.visualOrderText,
             this.width / 2, font.lineHeight, 0xFFFFFFFF.toInt()
@@ -258,7 +252,7 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
 
         // "No skins found" hint when directory is empty
         if (cards.isEmpty()) {
-            graphics.vanilla().centeredText(
+            graphics.centeredText(
                 font,
                 Component.translatable("simpleskinswapper.screen.carousel.no_skins"),
                 this.width / 2, this.height / 2 - font.lineHeight / 2, 0xFFAAAAAA.toInt()
@@ -285,15 +279,15 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
         return sbTrackX() + (index / maxIdx * thumbRange).toInt()
     }
 
-    private fun renderScrollbar(graphics: SpruceGuiGraphics, index: Double) {
+    private fun renderScrollbar(graphics: GuiGraphicsExtractor, index: Double) {
         val trackY = sbTrackY()
         val trackX = sbTrackX()
         val trackW = sbTrackW()
         val thumbW = sbThumbW()
         val thumbX = sbThumbX(index)
 
-        graphics.vanilla().fill(trackX, trackY, trackX + trackW, trackY + SCROLLBAR_HEIGHT, SCROLLBAR_TRACK_COLOR)
-        graphics.vanilla().fill(thumbX, trackY, thumbX + thumbW, trackY + SCROLLBAR_HEIGHT, SCROLLBAR_THUMB_COLOR)
+        graphics.fill(trackX, trackY, trackX + trackW, trackY + SCROLLBAR_HEIGHT, SCROLLBAR_TRACK_COLOR)
+        graphics.fill(thumbX, trackY, thumbX + thumbW, trackY + SCROLLBAR_HEIGHT, SCROLLBAR_THUMB_COLOR)
     }
 
     override fun mouseClicked(click: MouseButtonEvent, doubled: Boolean): Boolean {
@@ -445,7 +439,7 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
     }
 
     private fun addSkinFromAccount() {
-        val username = accountField.text
+        val username = accountField.value
         if (username.isBlank()) return
 
         val skinsDir = FabricLoader.getInstance().gameDir.resolve("skins")
@@ -464,12 +458,12 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
         val destName = destination.fileName.toString()
         markSelfTriggered(destName)
 
-        addFromAccountButton.isActive = false
+        addFromAccountButton.active = false
         AccountSkinFetcher.fetch(
             username, destination,
             { file ->
                 addImportedEntry(file)
-                addFromAccountButton.isActive = accountField.text.isNotBlank()
+                addFromAccountButton.active = accountField.value.isNotBlank()
             },
             {
                 selfTriggeredFiles.remove(destName)
@@ -481,9 +475,10 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
     private fun showInvalidAccount(previousText: String) {
         pendingAccountUsername = previousText
         accountFieldShowingError = true
-        accountField.setText(Component.translatable("simpleskinswapper.screen.carousel.invalid_account").string)
+        accountField.setTextColor(ERROR_COLOR)
+        accountField.setValue(Component.translatable("simpleskinswapper.screen.carousel.invalid_account").string)
         invalidAccountRevertAtMs = System.currentTimeMillis() + INVALID_ACCOUNT_MESSAGE_MS
-        addFromAccountButton.isActive = accountField.text.isNotBlank()
+        addFromAccountButton.active = accountField.value.isNotBlank()
     }
 
     private fun addImportedEntry(file: File) {
@@ -553,7 +548,8 @@ class SkinCarouselScreen(private val parent: Screen?) : SpruceScreen(Component.t
         // Minimum vertical margin above and below the top row (matches the bottom buttons'
         // distance to the screen edge and SkinCard's BUTTON_MARGIN).
         private const val MIN_ROW_MARGIN = 4
-        private val PLACEHOLDER_COLOR = 0xFF707070.toInt()
+        // Vanilla EditBox default text color; restored after the invalid-account error flash.
+        private val DEFAULT_TEXT_COLOR = 0xFFE0E0E0.toInt()
         private val ERROR_COLOR = 0xFFFF5555.toInt()
         private const val INVALID_ACCOUNT_MESSAGE_MS = 1500L
         private const val CARD_BOTTOM_GAP = 12

@@ -12,8 +12,6 @@ plugins {
 val mcVersion: String = sc.properties["deps.minecraft"]
 val loaderVersion: String = sc.properties["deps.fabric_loader"]
 val fabricVersion: String = sc.properties["deps.fabric_api"]
-val spruceuiVersion: String = sc.properties["deps.spruceui"]
-val yumiVersion: String = sc.properties["deps.yumi"]
 val modmenuVersion: String = sc.properties["deps.modmenu"]
 val yaclVersion: String = sc.properties["deps.yacl"]
 val modVersion: String = sc.properties["mod.version"]
@@ -57,10 +55,6 @@ repositories {
 		url = uri("https://maven.terraformersmc.com/releases/")
 	}
 	maven {
-		name = "Gegy"
-		url = uri("https://maven.gegy.dev")
-	}
-	maven {
 		name = "Xander Maven"
 		url = uri("https://maven.isxander.dev/releases")
 	}
@@ -78,9 +72,6 @@ dependencies {
 
 	// Fabric Language Kotlin
 	modImplementation("net.fabricmc:fabric-language-kotlin:1.13.13+kotlin.2.4.10")
-
-	include(modImplementation("dev.lambdaurora:spruceui:$spruceuiVersion")!!)
-	include(modImplementation("dev.yumi.mc.core:yumi-mc-foundation:$yumiVersion")!!)
 
 	// ModMenu integration — compile-only for the published jar, but present in dev runtime
 	// so the ModMenu config entrypoint can be tested with runClient

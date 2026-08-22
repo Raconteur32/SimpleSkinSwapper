@@ -1,13 +1,16 @@
 package fr.raconteur.simpleskinswapper.gui
 
-import dev.lambdaurora.spruceui.Position
-import dev.lambdaurora.spruceui.render.SpruceGuiGraphics
-import dev.lambdaurora.spruceui.widget.SpruceButtonWidget
-import dev.lambdaurora.spruceui.widget.container.SpruceContainerWidget
 import fr.raconteur.simpleskinswapper.changeskin.SkinChange
 import fr.raconteur.simpleskinswapper.overlayMessage
 import fr.raconteur.simpleskinswapper.changeskin.SkinSwapperState
+import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.ComponentPath
 import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.client.gui.components.AbstractWidget
+import net.minecraft.client.gui.components.events.ContainerEventHandler
+import net.minecraft.client.gui.components.events.GuiEventListener
+import net.minecraft.client.gui.narration.NarrationElementOutput
+import net.minecraft.client.gui.navigation.FocusNavigationEvent
 import net.minecraft.client.input.MouseButtonEvent
 import net.minecraft.core.ClientAsset
 import net.minecraft.network.chat.Component
@@ -21,14 +24,22 @@ class SkinCard(
     internal val entry: SkinEntry,
     width: Int,
     height: Int
-) : SpruceContainerWidget(Position.of(0, 0), width, height) {
+) : AbstractWidget(0, 0, width, height, Component.nullToEmpty(entry.displayName)), ContainerEventHandler {
 
-    private val applyButton: SpruceButtonWidget
-    private val leftArrow: SpruceButtonWidget
-    private val rightArrow: SpruceButtonWidget
-    private val typeButton: SpruceButtonWidget
-    private val deleteButton: SpruceButtonWidget
-    private val confirmDeleteButton: SpruceButtonWidget
+    private val client: Minecraft = Minecraft.getInstance()
+
+    // Child buttons use coordinates relative to the card; overridePosition shifts them along
+    // with the card (vanilla widgets are absolutely positioned, so they don't follow on their own).
+    private val cardButtons = ArrayList<EdgeSafeButtonWidget>()
+    private var focusedChild: GuiEventListener? = null
+    private var dragging = false
+
+    private val applyButton: EdgeSafeButtonWidget
+    private val leftArrow: EdgeSafeButtonWidget
+    private val rightArrow: EdgeSafeButtonWidget
+    private val typeButton: EdgeSafeButtonWidget
+    private val deleteButton: EdgeSafeButtonWidget
+    private val confirmDeleteButton: EdgeSafeButtonWidget
 
     private var confirmingDelete = false
     private var rotatingPreview = false
@@ -40,35 +51,35 @@ class SkinCard(
         val halfW = (width - BUTTON_MARGIN * 3) / 2
 
         applyButton = EdgeSafeButtonWidget(
-            Position.of(BUTTON_MARGIN, height - BUTTON_HEIGHT * 3 - BUTTON_MARGIN * 3),
+            BUTTON_MARGIN, height - BUTTON_HEIGHT * 3 - BUTTON_MARGIN * 3,
             width - BUTTON_MARGIN * 2, BUTTON_HEIGHT,
             Component.translatable("simpleskinswapper.screen.carousel.apply")
         ) { applySkin() }
         addChild(applyButton)
 
         typeButton = EdgeSafeButtonWidget(
-            Position.of(BUTTON_MARGIN, height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 2),
+            BUTTON_MARGIN, height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 2,
             halfW, BUTTON_HEIGHT,
             typeLabel()
         ) { toggleType() }
         addChild(typeButton)
 
         deleteButton = EdgeSafeButtonWidget(
-            Position.of(BUTTON_MARGIN * 2 + halfW, height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 2),
+            BUTTON_MARGIN * 2 + halfW, height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 2,
             halfW, BUTTON_HEIGHT,
             Component.translatable("simpleskinswapper.screen.carousel.delete")
         ) { beginDeleteConfirmation() }
         addChild(deleteButton)
 
         leftArrow = EdgeSafeButtonWidget(
-            Position.of(BUTTON_MARGIN, height - BUTTON_HEIGHT - BUTTON_MARGIN),
+            BUTTON_MARGIN, height - BUTTON_HEIGHT - BUTTON_MARGIN,
             halfW, BUTTON_HEIGHT,
             Component.literal("←")
         ) { parent.moveCard(this, -1) }
         addChild(leftArrow)
 
         rightArrow = EdgeSafeButtonWidget(
-            Position.of(BUTTON_MARGIN * 2 + halfW, height - BUTTON_HEIGHT - BUTTON_MARGIN),
+            BUTTON_MARGIN * 2 + halfW, height - BUTTON_HEIGHT - BUTTON_MARGIN,
             halfW, BUTTON_HEIGHT,
             Component.literal("→")
         ) { parent.moveCard(this, +1) }
@@ -77,17 +88,46 @@ class SkinCard(
         val deleteBlockTop = height - BUTTON_HEIGHT * 3 - BUTTON_MARGIN * 3
         val deleteBlockHeight = BUTTON_HEIGHT * 3 + BUTTON_MARGIN * 2
         confirmDeleteButton = EdgeSafeButtonWidget(
-            Position.of(BUTTON_MARGIN, deleteBlockTop + (deleteBlockHeight - BUTTON_HEIGHT) / 2),
+            BUTTON_MARGIN, deleteBlockTop + (deleteBlockHeight - BUTTON_HEIGHT) / 2,
             width - BUTTON_MARGIN * 2, BUTTON_HEIGHT,
             Component.translatable("simpleskinswapper.screen.carousel.delete_confirm")
         ) { confirmDelete() }
-        confirmDeleteButton.isVisible = false
+        confirmDeleteButton.visible = false
         addChild(confirmDeleteButton)
     }
 
+    private fun addChild(button: EdgeSafeButtonWidget) {
+        cardButtons.add(button)
+    }
+
+    override fun children(): List<GuiEventListener> = cardButtons
+
+    override fun isDragging(): Boolean = dragging
+
+    override fun setDragging(dragging: Boolean) {
+        this.dragging = dragging
+    }
+
+    override fun getFocused(): GuiEventListener? = focusedChild
+
+    override fun setFocused(focused: GuiEventListener?) {
+        this.focusedChild = focused
+    }
+
+    // ContainerEventHandler defaults conflict with AbstractWidget's implementations.
+    // The card itself is a leaf for keyboard focus/narration (children are mouse-driven).
+    override fun isFocused(): Boolean = super<AbstractWidget>.isFocused()
+
+    override fun setFocused(focused: Boolean) = super<AbstractWidget>.setFocused(focused)
+
+    override fun nextFocusPath(event: FocusNavigationEvent): ComponentPath? =
+        super<AbstractWidget>.nextFocusPath(event)
+
+    override fun updateWidgetNarration(output: NarrationElementOutput) = defaultButtonNarrationText(output)
+
     fun updateArrowStates(canMoveLeft: Boolean, canMoveRight: Boolean) {
-        leftArrow.isActive = canMoveLeft
-        rightArrow.isActive = canMoveRight
+        leftArrow.active = canMoveLeft
+        rightArrow.active = canMoveRight
     }
 
     fun getEntry(): SkinEntry = entry
@@ -104,13 +144,13 @@ class SkinCard(
     private fun beginDeleteConfirmation() {
         confirmingDelete = true
         setNormalButtonsVisible(false)
-        confirmDeleteButton.isVisible = true
+        confirmDeleteButton.visible = true
     }
 
     private fun cancelDeleteConfirmation() {
         confirmingDelete = false
         setNormalButtonsVisible(true)
-        confirmDeleteButton.isVisible = false
+        confirmDeleteButton.visible = false
     }
 
     private fun confirmDelete() {
@@ -119,11 +159,11 @@ class SkinCard(
     }
 
     private fun setNormalButtonsVisible(visible: Boolean) {
-        applyButton.isVisible = visible
-        typeButton.isVisible = visible
-        deleteButton.isVisible = visible
-        leftArrow.isVisible = visible
-        rightArrow.isVisible = visible
+        applyButton.visible = visible
+        typeButton.visible = visible
+        deleteButton.visible = visible
+        leftArrow.visible = visible
+        rightArrow.visible = visible
     }
 
     private fun isMouseOverCard(mouseX: Int, mouseY: Int): Boolean =
@@ -144,36 +184,58 @@ class SkinCard(
         client.player?.overlayMessage(text)
     }
 
-    fun overridePosition(x: Int, y: Int) {
-        this.position.move(x, y)
+    fun overridePosition(newX: Int, newY: Int) {
+        val dx = newX - x
+        val dy = newY - y
+        if (dx == 0 && dy == 0) return
+        setX(newX)
+        setY(newY)
+        for (child in cardButtons) {
+            child.setX(child.x + dx)
+            child.setY(child.y + dy)
+        }
     }
 
-    override fun onMouseClick(event: MouseButtonEvent, doubleClick: Boolean): Boolean {
-        if (super.onMouseClick(event, doubleClick)) {
-            return true
+    // Child event routing is written out explicitly: Kotlin cannot call Java interface
+    // default methods (ContainerEventHandler.mouseClicked et al.) via a qualified super call.
+    override fun mouseClicked(event: MouseButtonEvent, doubleClick: Boolean): Boolean {
+        for (child in cardButtons) {
+            if (child.mouseClicked(event, doubleClick)) {
+                focusedChild = child
+                if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) dragging = true
+                return true
+            }
         }
-        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && isMouseOverCard(event.x().toInt(), event.y().toInt())) {
             rotatingPreview = true
             return true
         }
         return false
     }
 
-    override fun onMouseDrag(event: MouseButtonEvent, deltaX: Double, deltaY: Double): Boolean {
+    override fun mouseDragged(event: MouseButtonEvent, deltaX: Double, deltaY: Double): Boolean {
         if (rotatingPreview && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             previewYaw = Mth.wrapDegrees((previewYaw - deltaX.toFloat() * DRAG_SENSITIVITY).toDouble()).toFloat()
             previewPitch = Mth.clamp(previewPitch - deltaY.toFloat() * DRAG_SENSITIVITY, -MAX_PITCH, MAX_PITCH)
             return true
         }
-        return super.onMouseDrag(event, deltaX, deltaY)
+        val focused = focusedChild
+        if (dragging && focused != null) {
+            return focused.mouseDragged(event, deltaX, deltaY)
+        }
+        return false
     }
 
-    override fun onMouseRelease(event: MouseButtonEvent): Boolean {
+    override fun mouseReleased(event: MouseButtonEvent): Boolean {
         if (rotatingPreview) {
             rotatingPreview = false
             return true
         }
-        return super.onMouseRelease(event)
+        if (dragging) {
+            dragging = false
+            return focusedChild?.mouseReleased(event) ?: false
+        }
+        return false
     }
 
     private fun updateSpringBack() {
@@ -193,9 +255,9 @@ class SkinCard(
         if (Math.abs(previewPitch) < SPRING_SNAP_EPSILON) previewPitch = 0.0F
     }
 
-    override fun extractBackground(graphics: SpruceGuiGraphics, mouseX: Int, mouseY: Int, delta: Float) {
+    private fun drawBackground(graphics: GuiGraphicsExtractor) {
         val borderColor = if (this.active) 0xDF000000.toInt() else 0x5F000000
-        drawBorder(graphics.vanilla(), x, y, width, height, borderColor)
+        drawBorder(graphics, x, y, width, height, borderColor)
         graphics.fill(
             x + 1, y + 1, x + width - 1, y + height - 1,
             if (this.active) 0x7F000000.toInt() else 0x0D000000
@@ -210,18 +272,24 @@ class SkinCard(
     }
 
     //? if >=26.1 {
-    override fun extractRenderState(graphics: SpruceGuiGraphics, mouseX: Int, mouseY: Int, delta: Float) {
+    override fun extractWidgetRenderState(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
     //?} else {
-    /*override fun renderWidget(graphics: SpruceGuiGraphics, mouseX: Int, mouseY: Int, delta: Float) {
+    /*override fun renderWidget(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
     *///?}
         if (confirmingDelete && !isMouseOverCard(mouseX, mouseY)) {
             cancelDeleteConfirmation()
         }
-        //? if >=26.1 {
-        super.extractRenderState(graphics, mouseX, mouseY, delta)
-        //?} else {
-        /*super.renderWidget(graphics, mouseX, mouseY, delta)
-        *///?}
+
+        drawBackground(graphics)
+
+        for (child in cardButtons) {
+            //? if >=26.1 {
+            child.extractRenderState(graphics, mouseX, mouseY, delta)
+            //?} else {
+            /*child.render(graphics, mouseX, mouseY, delta)
+            *///?}
+        }
+
         updateSpringBack()
 
         val margin = client.font.lineHeight / 2
@@ -229,9 +297,9 @@ class SkinCard(
         val textWidth = client.font.width(entry.displayName)
         val textX = x + (width - textWidth) / 2
         val textY = y + margin
-        graphics.vanilla().enableScissor(x + margin, textY, x + width - margin, textY + client.font.lineHeight)
-        graphics.vanilla().text(client.font, Component.nullToEmpty(entry.displayName), textX, textY, nameColor)
-        graphics.vanilla().disableScissor()
+        graphics.enableScissor(x + margin, textY, x + width - margin, textY + client.font.lineHeight)
+        graphics.text(client.font, Component.nullToEmpty(entry.displayName), textX, textY, nameColor)
+        graphics.disableScissor()
 
         entry.ensureTextureLoaded()
 
@@ -249,7 +317,7 @@ class SkinCard(
                 true
             )
             SkinRenderer.renderPlayerRotatable(
-                graphics.vanilla(), previewLeft, previewTop, previewRight, previewBottom,
+                graphics, previewLeft, previewTop, previewRight, previewBottom,
                 size, skinTextures, previewYaw, previewPitch
             )
         }

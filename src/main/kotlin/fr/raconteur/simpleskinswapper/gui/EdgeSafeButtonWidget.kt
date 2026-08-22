@@ -1,14 +1,12 @@
 package fr.raconteur.simpleskinswapper.gui
 
-import dev.lambdaurora.spruceui.Position
-import dev.lambdaurora.spruceui.render.SpruceGuiGraphics
-import dev.lambdaurora.spruceui.widget.SpruceButtonWidget
-import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.client.gui.components.Button
 import net.minecraft.network.chat.Component
 import net.minecraft.util.Mth
 
 /**
- * A [SpruceButtonWidget] whose label renders through the clamped ScissorStack instead of
+ * A vanilla [Button] whose label renders through the clamped ScissorStack instead of
  * vanilla's ActiveTextCollector.acceptScrolling, which attaches its scissor unclamped to the
  * text render state. Since MC 26.2 (RenderPass scissor validation, introduced with the Vulkan
  * backend work), that unclamped scissor crashes the frame as soon as the button straddles a
@@ -17,17 +15,18 @@ import net.minecraft.util.Mth
  * may be positioned (partially) off-screen, e.g. inside a scrolling carousel card.
  */
 class EdgeSafeButtonWidget(
-    position: Position, width: Int, height: Int,
-    message: Component, onPress: PressAction
-) : SpruceButtonWidget(position, width, height, message, onPress) {
+    x: Int, y: Int, width: Int, height: Int,
+    message: Component, onPress: Button.OnPress
+) : Button(x, y, width, height, message, onPress, Button.DEFAULT_NARRATION) {
 
-    //? if >=26.1 {
-    override fun extractText(graphics: SpruceGuiGraphics, color: Int) {
-    //?} else {
-    /*override fun renderText(graphics: SpruceGuiGraphics, color: Int) {
-    *///?}
-        val g = graphics.vanilla()
-        val font = Minecraft.getInstance().font
+    override fun extractContents(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
+        extractDefaultSprite(graphics)
+        drawLabel(graphics)
+    }
+
+    private fun drawLabel(g: GuiGraphicsExtractor) {
+        val font = net.minecraft.client.Minecraft.getInstance().font
+        val color = if (this.active) 0xFFFFFFFF.toInt() else 0xFFA0A0A0.toInt()
         val textWidth = font.width(message)
         val textY = y + (height - 8) / 2
 

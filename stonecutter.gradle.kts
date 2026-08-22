@@ -13,9 +13,9 @@ stonecutter active "26.2"
 stonecutter parameters {
 	replacements {
 		// GuiGraphics was split into GuiGraphics/GuiGraphicsExtractor in 26.x.
-		// Regex with explicit token boundaries: the plain string form would also
-		// rewrite spruceui's SpruceGuiGraphics on 26.x versions sharing the VCS form.
-		// Direct direction (26.x targets) is a deliberate no-op.
+		// Regex with explicit token boundaries and a no-op direct direction: the
+		// plain string form would rewrite the GuiGraphics substring inside the
+		// VCS-side GuiGraphicsExtractor tokens on 26.x targets.
 		regex(current.parsed >= "26.1") {
 			replace("(?!)x", "unused", "\\bGuiGraphicsExtractor\\b", "GuiGraphics")
 		}
@@ -37,7 +37,7 @@ stonecutter parameters {
 			replace("submitBlitToCurrentLayer", "addBlitToCurrentLayer")
 			replace("submitGuiElement", "addGuiElement")
 
-			// Widget rendering pipeline renames (identical on Screen and spruceui widgets)
+			// Widget rendering pipeline renames
 			replace("renderDefaultSprite", "extractDefaultSprite")
 			replace("renderDefaultLabel", "extractDefaultLabel")
 			replace("renderContents", "extractContents")

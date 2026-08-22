@@ -21,7 +21,7 @@ All supported Minecraft versions are built from a single source tree using [Ston
 ## Where things live
 
 - `src/` — the single shared source tree (Kotlin; mixins in Java)
-- `stonecutter.properties.toml` — per-version dependency coordinates (Minecraft, loader, Fabric API, spruceui, yumi, modmenu, yacl) and the per-version `fabric.mod.json` constraints
+- `stonecutter.properties.toml` — per-version dependency coordinates (Minecraft, loader, Fabric API, modmenu, yacl) and the per-version `fabric.mod.json` constraints
 - `stonecutter.gradle.kts` — Stonecutter configuration: active version and textual **replacements** for pure symbol renames between versions
 - `build.gradle.kts` — the shared build script applied to every version project
 
@@ -39,7 +39,7 @@ Two mechanisms, used deliberately:
    ```
    The source is always valid Kotlin for the *active* version; other versions' code stays wrapped in `/* */` until Stonecutter processes it.
 
-2. **Replacements** in `stonecutter.gradle.kts` for pure symbol renames (e.g. `GuiGraphicsExtractor` ↔ `GuiGraphics` on 1.21.11). Prefer word-boundary regexes over plain strings — plain string replacement can hit unrelated identifiers (e.g. spruceui's `SpruceGuiGraphics`).
+2. **Replacements** in `stonecutter.gradle.kts` for pure symbol renames (e.g. `GuiGraphicsExtractor` ↔ `GuiGraphics` on 1.21.11). The `GuiGraphicsExtractor` rule uses a word-boundary regex with a no-op direct direction on purpose: a plain string rule would rewrite the `GuiGraphics` substring inside VCS-side `GuiGraphicsExtractor` tokens on 26.x targets.
 
 CI builds every version on push (`.github/workflows/build.yml`) — the IDE only type-checks the active version, so cross-version breakage is caught there or by a local `./gradlew build`.
 
