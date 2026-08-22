@@ -1,5 +1,6 @@
 package fr.raconteur.simpleskinswapper.gui
 
+import com.mojang.blaze3d.platform.InputConstants
 import fr.raconteur.simpleskinswapper.changeskin.SkinChange
 import fr.raconteur.simpleskinswapper.overlayMessage
 import fr.raconteur.simpleskinswapper.changeskin.SkinSwapperState
@@ -17,7 +18,6 @@ import net.minecraft.network.chat.Component
 import net.minecraft.util.Mth
 import net.minecraft.world.entity.player.PlayerModelType
 import net.minecraft.world.entity.player.PlayerSkin
-import org.lwjgl.glfw.GLFW
 
 class SkinCard(
     private val parent: SkinCarouselScreen,
@@ -202,11 +202,11 @@ class SkinCard(
         for (child in cardButtons) {
             if (child.mouseClicked(event, doubleClick)) {
                 focusedChild = child
-                if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) dragging = true
+                if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) dragging = true
                 return true
             }
         }
-        if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && isMouseOverCard(event.x().toInt(), event.y().toInt())) {
+        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && isMouseOverCard(event.x().toInt(), event.y().toInt())) {
             rotatingPreview = true
             return true
         }
@@ -214,7 +214,7 @@ class SkinCard(
     }
 
     override fun mouseDragged(event: MouseButtonEvent, deltaX: Double, deltaY: Double): Boolean {
-        if (rotatingPreview && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+        if (rotatingPreview && event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
             previewYaw = Mth.wrapDegrees((previewYaw - deltaX.toFloat() * DRAG_SENSITIVITY).toDouble()).toFloat()
             previewPitch = Mth.clamp(previewPitch - deltaY.toFloat() * DRAG_SENSITIVITY, -MAX_PITCH, MAX_PITCH)
             return true

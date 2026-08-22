@@ -10,9 +10,9 @@ See proposal.md — Why. Current state: three Stonecutter targets (`1.21.11`, `2
 | Loader | `0.19.3` | same as 26.2 |
 | Fabric API | `0.158.0+26.3` | published during the snapshot cycle |
 | YACL | `3.9.6+26.3-fabric` | published |
-| ModMenu | `20.0.1` | compileOnly + local runtime |
+| ModMenu | `20.0.1` | compileOnly on 26.3: no compatible build yet (declares `<26.3-alpha.3`), so `modLocalRuntime` is skipped for this target until one publishes |
 
-The `remove-spruceui` change (applied before this one) removed the only bundled, version-pinned dependencies (SpruceUI/Yumi). Every remaining dependency publishes for 26.3, so nothing blocks the 26.3 target — dev or published.
+The `remove-spruceui` change (applied before this one) removed the only bundled, version-pinned dependencies (SpruceUI/Yumi). Every *shipped* dependency publishes for 26.3, so nothing blocks the published 26.3 jar; the dev runtime only loses ModMenu (config screen remains reachable via the carousel's config button).
 
 ## Goals / Non-Goals
 

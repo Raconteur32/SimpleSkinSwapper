@@ -33,6 +33,11 @@ loom {
 		named("client") {
 			property("devauth.enabled", "true")
 			property("devauth.account", "main")
+			// 26.3's new SDL windowing fails EGL init on native Wayland (EGL_BAD_DISPLAY); default
+			// to X11 (XWayland) on Linux unless the developer chose a video driver explicitly.
+			if (sc.current.parsed >= "26.3" && System.getProperty("os.name").startsWith("Linux")) {
+				environmentVariable("SDL_VIDEODRIVER", System.getenv("SDL_VIDEODRIVER") ?: "x11")
+			}
 		}
 	}
 }
@@ -74,9 +79,11 @@ dependencies {
 	modImplementation("net.fabricmc:fabric-language-kotlin:1.13.13+kotlin.2.4.10")
 
 	// ModMenu integration — compile-only for the published jar, but present in dev runtime
-	// so the ModMenu config entrypoint can be tested with runClient
+	// so the ModMenu config entrypoint can be tested with runClient.
+	// modLocalRuntime is skipped on 26.3: ModMenu 20.0.1 declares <26.3-alpha.3, so the dev
+	// client refuses to start until a compatible build is published.
 	modCompileOnly("com.terraformersmc:modmenu:$modmenuVersion")
-	modLocalRuntime("com.terraformersmc:modmenu:$modmenuVersion")
+	if (sc.current.parsed < "26.3") modLocalRuntime("com.terraformersmc:modmenu:$modmenuVersion")
 
 	// YACL config screen — external dependency (not bundled: YACL officially discourages
 	// jar-in-jar as it's heavy and usually already present in modpacks); declared in

@@ -1,5 +1,6 @@
 package fr.raconteur.simpleskinswapper.gui
 
+import com.mojang.blaze3d.platform.InputConstants
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapperClient
 import fr.raconteur.simpleskinswapper.overlayMessage
 import fr.raconteur.simpleskinswapper.changeskin.SkinChange
@@ -194,11 +195,12 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
     // -------------------------------------------------------------------------
 
     override fun mouseClicked(click: MouseButtonEvent, doubled: Boolean): Boolean {
-        if (click.button() == 0) {
+        // Button codes follow the platform: GLFW numbering (left=0) on <=26.2, SDL (left=1) on 26.3+.
+        if (click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
             apply()
             return true
         }
-        if (click.button() == 1) {
+        if (click.button() == InputConstants.MOUSE_BUTTON_RIGHT) {
             onClose()
             return true
         }

@@ -122,6 +122,7 @@ object SkinRenderer {
         val t = SimpleSkinSwapperClient.TOTAL_TICK_DELTA * 0.067F
         s.walkAnimationPos = Mth.sin(t.toDouble()).toFloat() * 0.05F
         s.walkAnimationSpeed = 0.1F
+        //? if <26.3
         s.attackTime = 0.0F
         s.swimAmount = 0.0F
         s.speedValue = 1.0F

@@ -2,7 +2,7 @@
 
 **Simple Skin Swapper** is a client-side Fabric mod for Minecraft 1.21.11 and 26.x that lets you switch between your local skin files on the fly — without restarting the game or navigating through external websites. Open a dynamic skin wheel with a keybind, hover over the skin you want, click, and you're done.
 
-Supported versions: **1.21.11**, **26.1**, **26.2** (one jar per version, built from a single source tree with [Stonecutter](https://codeberg.org/stonecutter/stonecutter)).
+Supported versions: **1.21.11**, **26.1**, **26.2**, **26.3** (snapshot) (one jar per version, built from a single source tree with [Stonecutter](https://codeberg.org/stonecutter/stonecutter)).
 
 ---
 

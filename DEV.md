@@ -9,6 +9,7 @@ All supported Minecraft versions are built from a single source tree using [Ston
 | `1.21.11`   | 1.21.11   | 21   | Mojang mappings applied by loom |
 | `26.1.2`    | 26.1.2    | 25   | unobfuscated |
 | `26.2`      | 26.2      | 25   | active/VCS version |
+| `26.3`      | 26.3-snapshot-9 | 25 | snapshot target; `deps.minecraft` bumps to `26.3` at release, which also becomes the active/VCS version. ModMenu is compile-only here (no 26.3-compatible build yet). The run config forces `SDL_VIDEODRIVER=x11` on Linux: the new SDL windowing fails EGL init on native Wayland (override by setting the var yourself) |
 
 ## Common tasks
 

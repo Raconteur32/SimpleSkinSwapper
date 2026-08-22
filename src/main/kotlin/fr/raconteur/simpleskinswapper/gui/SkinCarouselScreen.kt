@@ -1,5 +1,6 @@
 package fr.raconteur.simpleskinswapper.gui
 
+import com.mojang.blaze3d.platform.InputConstants
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
 import fr.raconteur.simpleskinswapper.changeskin.AccountSkinFetcher
 import fr.raconteur.simpleskinswapper.gui.config.YaclConfigScreen
@@ -14,7 +15,15 @@ import net.minecraft.network.chat.Component
 import net.minecraft.util.Mth
 import net.minecraft.util.Util
 import org.lwjgl.system.MemoryStack
+//? if >=26.3 {
+/*import net.minecraft.client.Minecraft
+import org.lwjgl.sdl.SDLDialog
+import org.lwjgl.sdl.SDL_DialogFileCallback
+import org.lwjgl.sdl.SDL_DialogFileFilter
+import org.lwjgl.system.MemoryUtil
+*///?} else {
 import org.lwjgl.util.tinyfd.TinyFileDialogs
+//?}
 import java.io.File
 import java.io.IOException
 import java.nio.file.FileSystems
@@ -291,7 +300,7 @@ class SkinCarouselScreen(private val parent: Screen?) : Screen(Component.transla
     }
 
     override fun mouseClicked(click: MouseButtonEvent, doubled: Boolean): Boolean {
-        if (getMaxCardIndex() > 0 && click.button() == 0) {
+        if (getMaxCardIndex() > 0 && click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
             val trackY = sbTrackY()
             val trackX = sbTrackX()
             val trackW = sbTrackW()
@@ -314,7 +323,7 @@ class SkinCarouselScreen(private val parent: Screen?) : Screen(Component.transla
     }
 
     override fun mouseDragged(click: MouseButtonEvent, offsetX: Double, offsetY: Double): Boolean {
-        if (isDraggingScrollbar && click.button() == 0) {
+        if (isDraggingScrollbar && click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
             updateScrollFromMouseX(click.x().toInt())
             return true
         }
@@ -322,7 +331,7 @@ class SkinCarouselScreen(private val parent: Screen?) : Screen(Component.transla
     }
 
     override fun mouseReleased(click: MouseButtonEvent): Boolean {
-        if (isDraggingScrollbar && click.button() == 0) {
+        if (isDraggingScrollbar && click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
             isDraggingScrollbar = false
             return true
         }
@@ -408,10 +417,41 @@ class SkinCarouselScreen(private val parent: Screen?) : Screen(Component.transla
     }
 
     private fun addSkinFromFile() {
+        //? if >=26.3 {
+        /*openSkinFileDialog()
+        *///?} else {
         val selected = openSkinFileDialog() ?: return
         importSkinFile(selected)
+        //?}
     }
 
+    //? if >=26.3 {
+    /*// SDL file dialogs are asynchronous (tinyfd was synchronous): the callback fires from the
+    // event pump, possibly after this screen closed — the result is marshalled to the main
+    // thread and only applied if this screen is still open.
+    private var dialogCallback: SDL_DialogFileCallback? = null
+
+    private fun openSkinFileDialog() {
+        dialogCallback?.free()
+        val callback = SDL_DialogFileCallback.create { _, filelist, _ ->
+            if (filelist != 0L) {
+                val first = MemoryUtil.memGetAddress(filelist)
+                if (first != 0L) {
+                    val path = MemoryUtil.memUTF8(first)
+                    Minecraft.getInstance().execute {
+                        if (Minecraft.getInstance().gui.screen() === this) importSkinFile(File(path))
+                    }
+                }
+            }
+        }
+        dialogCallback = callback
+        MemoryStack.stackPush().use { stack ->
+            val filters = SDL_DialogFileFilter.calloc(1, stack)
+            filters.get(0).name(stack.UTF8("PNG")).pattern(stack.UTF8("png"))
+            SDLDialog.SDL_ShowOpenFileDialog(callback, 0L, 0L, filters, "", false)
+        }
+    }
+    *///?} else {
     private fun openSkinFileDialog(): File? {
         MemoryStack.stackPush().use { stack ->
             val filters = stack.mallocPointer(1)
@@ -424,6 +464,7 @@ class SkinCarouselScreen(private val parent: Screen?) : Screen(Component.transla
             return path?.let { File(it) }
         }
     }
+    //?}
 
     private fun importSkinFile(source: File) {
         try {

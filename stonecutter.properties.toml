@@ -31,3 +31,13 @@ deps.yacl = "3.9.6+26.2-fabric"
 mod.version = "0.9.0-26.2"
 mod.mc_dep = "~26.2-"
 mod.loader_dep = ">=0.19.2"
+
+["26.3"]
+deps.minecraft = "26.3-snapshot-9"
+deps.fabric_loader = "0.19.3"
+deps.fabric_api = "0.158.0+26.3"
+deps.modmenu = "20.0.1"
+deps.yacl = "3.9.6+26.3-fabric"
+mod.version = "0.9.0-26.3"
+mod.mc_dep = "~26.3-"
+mod.loader_dep = ">=0.19.2"

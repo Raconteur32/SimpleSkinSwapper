@@ -2,9 +2,15 @@ package fr.raconteur.simpleskinswapper.gui
 
 import com.mojang.blaze3d.platform.Lighting
 import com.mojang.blaze3d.systems.RenderSystem
+//? if >=26.3 {
+/*import com.mojang.renderpearl.api.textures.FilterMode
+import com.mojang.renderpearl.api.textures.GpuTexture
+import com.mojang.renderpearl.api.textures.GpuTextureView
+*///?} else {
 import com.mojang.blaze3d.textures.FilterMode
 import com.mojang.blaze3d.textures.GpuTexture
 import com.mojang.blaze3d.textures.GpuTextureView
+//?}
 import com.mojang.blaze3d.vertex.PoseStack
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
 import net.minecraft.client.Minecraft
@@ -17,7 +23,14 @@ import net.minecraft.world.entity.player.PlayerSkin
 import org.joml.Matrix3x2f
 import java.io.File
 import com.mojang.blaze3d.ProjectionType
-//? if >=26.2 {
+//? if >=26.3 {
+/*import com.mojang.renderpearl.api.GpuFormat
+import net.minecraft.client.gui.render.GuiRenderer
+import net.minecraft.client.renderer.SubmitNodeStorage
+import net.minecraft.client.renderer.feature.FeatureRenderDispatcher
+import java.util.Optional
+import java.util.OptionalDouble
+*///?} else if >=26.2 {
 import com.mojang.blaze3d.GpuFormat
 import net.minecraft.client.gui.render.GuiRenderer
 import net.minecraft.client.renderer.SubmitNodeStorage
@@ -187,8 +200,10 @@ object SkinPreviewCache {
         val depthView = device.createTextureView(depthTexture)
         val preview = BakedPreview(colorTexture, colorView, depthTexture, depthView)
 
+        //? if <26.3 {
         RenderSystem.outputColorTextureOverride = colorView
         RenderSystem.outputDepthTextureOverride = depthView
+        //?}
         try {
             //? if >=26.2 {
             device.createCommandEncoder().clearColorAndDepthTextures(colorTexture, GuiRenderer.CLEAR_COLOR, depthTexture, 0.0)
@@ -221,7 +236,24 @@ object SkinPreviewCache {
 
             val cameraState = CameraRenderState()
             val avatarState = SkinRenderer.buildRenderState(skin)
-            //? if >=26.2 {
+            //? if >=26.3 {
+            /*mc.entityRenderDispatcher.submit(avatarState, cameraState, 0.0, 0.0, 0.0, poseStack, submitNodeStorage)
+            val prepared = mc.gameRenderer.featureRenderDispatcher().prepareFrame(submitNodeStorage)
+            try {
+                val pass = device.createCommandEncoder().createRenderPass(
+                    { "SimpleSkinSwapper skin preview" }, colorView, Optional.empty(), depthView, OptionalDouble.empty()
+                )
+                try {
+                    RenderSystem.bindDefaultUniforms(pass)
+                    FeatureRenderDispatcher.renderAllFeatures(pass, prepared)
+                } finally {
+                    pass.close()
+                }
+            } finally {
+                prepared.close()
+            }
+            modelViewStack.popMatrix()
+            *///?} else if >=26.2 {
             mc.entityRenderDispatcher.submit(avatarState, cameraState, 0.0, 0.0, 0.0, poseStack, submitNodeStorage)
             mc.gameRenderer.featureRenderDispatcher().renderAllFeatures(submitNodeStorage)
             modelViewStack.popMatrix()
@@ -236,8 +268,10 @@ object SkinPreviewCache {
             SimpleSkinSwapper.LOGGER.warn("Failed to bake skin preview for {}", key, t)
             return
         } finally {
+            //? if <26.3 {
             RenderSystem.outputColorTextureOverride = null
             RenderSystem.outputDepthTextureOverride = null
+            //?}
         }
         baked[key] = preview
     }

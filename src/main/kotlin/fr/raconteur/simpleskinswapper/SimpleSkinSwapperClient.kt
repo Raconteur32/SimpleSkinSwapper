@@ -11,7 +11,6 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper
 import net.minecraft.client.KeyMapping
 import net.minecraft.resources.Identifier
-import org.lwjgl.glfw.GLFW
 
 class SimpleSkinSwapperClient : ClientModInitializer {
 
@@ -20,11 +19,16 @@ class SimpleSkinSwapperClient : ClientModInitializer {
         SkinShuffleImporter.importIfNeeded()
         StartupSkinSync.run()
         val category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("simpleskinswapper", "title"))
+        //? if >=26.3 {
+        /*val unboundKeyType = InputConstants.Type.KEYBOARD
+        *///?} else {
+        val unboundKeyType = InputConstants.Type.KEYSYM
+        //?}
         openCarouselKey = KeyMappingHelper.registerKeyMapping(
             KeyMapping(
                 "key.simpleskinswapper.open_carousel",
-                InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_UNKNOWN,
+                unboundKeyType,
+                InputConstants.UNKNOWN.value,
                 category
             )
         )
@@ -32,8 +36,8 @@ class SimpleSkinSwapperClient : ClientModInitializer {
         openWheelKey = KeyMappingHelper.registerKeyMapping(
             KeyMapping(
                 "key.simpleskinswapper.open_wheel",
-                InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_UNKNOWN,
+                unboundKeyType,
+                InputConstants.UNKNOWN.value,
                 category
             )
         )

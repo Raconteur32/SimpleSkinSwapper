@@ -21,5 +21,5 @@ jobs:
 
       - name: Build every Minecraft version
         # The IDE only type-checks the active Stonecutter version; the root
-        # `build` task compiles all version projects (1.21.11, 26.1.2, 26.2).
+        # `build` task compiles all version projects (1.21.11, 26.1.2, 26.2, 26.3).
         run: ./gradlew build
