@@ -26,8 +26,9 @@ class SimpleSkinSwapperConfig {
     @JvmField
     var pauseMenuButtonSide: ButtonSide? = ButtonSide.RIGHT
 
+    /** Whether the title-screen and pause-menu skin previews play the limb walk animation. */
     @JvmField
-    var enableMovingLegs: Boolean = true
+    var animateMenuPreview: Boolean = true
 
     /** Non-null accessor for callers (e.g. Java mixins): defaults to RIGHT. */
     fun titleScreenSide(): ButtonSide = titleScreenButtonSide ?: ButtonSide.RIGHT

@@ -34,8 +34,8 @@
 	"simpleskinswapper.config.button_side.left": "Gauche",
 	"simpleskinswapper.config.button_side.right": "Droite",
 	"simpleskinswapper.config.group.player_models": "Modèles de joueur",
-	"simpleskinswapper.config.enable_moving_legs": "Activer l'animation des jambes",
-	"simpleskinswapper.config.enable_moving_legs.description": "Active l'animation des jambes des modèles de joueur dans les menus.",
+	"simpleskinswapper.config.animate_menu_preview": "Animer l'aperçu de skin dans les menus",
+	"simpleskinswapper.config.animate_menu_preview.description": "Joue l'animation de marche (bras et jambes) sur les aperçus de skin de l'écran titre et du menu pause.",
 
 	"simpleskinswapper.message.applying": "Application du skin...",
 	"simpleskinswapper.message.success": "Skin appliqué avec succès !",

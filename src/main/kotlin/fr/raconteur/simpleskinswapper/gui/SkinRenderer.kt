@@ -34,8 +34,8 @@ object SkinRenderer {
     internal const val PREVIEW_HALF_HEIGHT = MODEL_HEIGHT / 2.0F + 0.02F
 
     @JvmStatic
-    fun renderPlayer(context: GuiGraphicsExtractor, x1: Int, y1: Int, x2: Int, y2: Int, size: Int, skin: PlayerSkin) {
-        renderState(context, x1, y1, x2, y2, size, buildRenderState(skin), BASE_ROTATION, MODEL_OFFSET)
+    fun renderPlayer(context: GuiGraphicsExtractor, x1: Int, y1: Int, x2: Int, y2: Int, size: Int, skin: PlayerSkin, limbSwingIntensity: Float) {
+        renderState(context, x1, y1, x2, y2, size, buildRenderState(skin, limbSwingIntensity), BASE_ROTATION, MODEL_OFFSET)
     }
 
     /**
@@ -45,9 +45,9 @@ object SkinRenderer {
     @JvmStatic
     fun renderPlayerFollowingMouse(
         context: GuiGraphicsExtractor, x1: Int, y1: Int, x2: Int, y2: Int, size: Int,
-        skin: PlayerSkin, mouseX: Int, mouseY: Int
+        skin: PlayerSkin, mouseX: Int, mouseY: Int, limbSwingIntensity: Float
     ) {
-        val state = buildRenderState(skin)
+        val state = buildRenderState(skin, limbSwingIntensity)
 
         val centerX = (x1 + x2) / 2.0F
         val centerY = (y1 + y2) / 2.0F
@@ -70,7 +70,7 @@ object SkinRenderer {
     @JvmStatic
     fun renderPlayerRotatable(
         context: GuiGraphicsExtractor, x1: Int, y1: Int, x2: Int, y2: Int, size: Int,
-        skin: PlayerSkin, yawDegrees: Float, pitchDegrees: Float
+        skin: PlayerSkin, yawDegrees: Float, pitchDegrees: Float, limbSwingIntensity: Float
     ) {
         val yawPitch = Quaternionf()
             .rotateY(Math.toRadians(yawDegrees.toDouble()).toFloat())
@@ -85,7 +85,7 @@ object SkinRenderer {
         val rotatedPivot = yawPitch.transform(Vector3f(flippedPivot))
         val translation = Vector3f(flippedPivot).sub(rotatedPivot).add(MODEL_OFFSET)
 
-        renderState(context, x1, y1, x2, y2, size, buildRenderState(skin), rotation, translation)
+        renderState(context, x1, y1, x2, y2, size, buildRenderState(skin, limbSwingIntensity), rotation, translation)
     }
 
     private fun renderState(
@@ -104,7 +104,7 @@ object SkinRenderer {
 
     internal fun buildRenderState(
         skin: PlayerSkin,
-        enableMovingLegs: Boolean = fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig.get().enableMovingLegs,
+        limbSwingIntensity: Float,
         totalTickDelta: Float = SimpleSkinSwapperClient.TOTAL_TICK_DELTA): AvatarRenderState {
         val s = AvatarRenderState()
 
@@ -125,8 +125,8 @@ object SkinRenderer {
         val swingSpeedFactor = 0.12F
         // How far should the legs swing?
         val swingAmplitude = 0.20F
-        s.walkAnimationPos = if (enableMovingLegs) totalTickDelta * swingSpeedFactor else 0.0F
-        s.walkAnimationSpeed = if (enableMovingLegs) swingAmplitude else 0.0F
+        s.walkAnimationPos = if (limbSwingIntensity > 0.0F) totalTickDelta * swingSpeedFactor else 0.0F
+        s.walkAnimationSpeed = limbSwingIntensity * swingAmplitude
 
         //? if <26.3
         s.attackTime = 0.0F

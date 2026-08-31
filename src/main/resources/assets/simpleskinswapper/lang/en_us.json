@@ -34,8 +34,8 @@
 	"simpleskinswapper.config.button_side.left": "Left",
 	"simpleskinswapper.config.button_side.right": "Right",
 	"simpleskinswapper.config.group.player_models": "Player models",
-	"simpleskinswapper.config.enable_moving_legs": "Enable moving legs",
-	"simpleskinswapper.config.enable_moving_legs.description": "Enables moving legs on the player models in the menus.",
+	"simpleskinswapper.config.animate_menu_preview": "Animate menu skin preview",
+	"simpleskinswapper.config.animate_menu_preview.description": "Plays the limb walk animation (arms and legs) on the skin previews shown on the title screen and in the pause menu.",
 
 	"simpleskinswapper.message.applying": "Applying skin...",
 	"simpleskinswapper.message.success": "Skin applied successfully!",

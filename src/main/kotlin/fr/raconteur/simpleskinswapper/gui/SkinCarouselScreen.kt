@@ -55,6 +55,9 @@ class SkinCarouselScreen(private val parent: Screen?) : Screen(Component.transla
     private var cardIndex = 0.0
     private var watchService: WatchService? = null
 
+    /** Card currently being drag-rotated, if any — its hover animation is locked on while others stay static. */
+    internal var dragRotatingCard: SkinCard? = null
+
     private fun markSelfTriggered(filename: String) {
         selfTriggeredFiles[filename] = System.currentTimeMillis() + SELF_TRIGGERED_GRACE_MS
     }

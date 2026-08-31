@@ -46,6 +46,8 @@ class SkinCard(
     private var previewYaw = 0.0F
     private var previewPitch = 0.0F
     private var lastSpringUpdateNanos = 0L
+    private var hoverAnimFactor = 0.0F
+    private var lastHoverAnimUpdateNanos = 0L
 
     init {
         val halfW = (width - BUTTON_MARGIN * 3) / 2
@@ -208,6 +210,7 @@ class SkinCard(
         }
         if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && isMouseOverCard(event.x().toInt(), event.y().toInt())) {
             rotatingPreview = true
+            parent.dragRotatingCard = this
             return true
         }
         return false
@@ -229,6 +232,7 @@ class SkinCard(
     override fun mouseReleased(event: MouseButtonEvent): Boolean {
         if (rotatingPreview) {
             rotatingPreview = false
+            if (parent.dragRotatingCard === this) parent.dragRotatingCard = null
             return true
         }
         if (dragging) {
@@ -236,6 +240,30 @@ class SkinCard(
             return focusedChild?.mouseReleased(event) ?: false
         }
         return false
+    }
+
+    /** Eases [current] toward [target] with the same exponential family as the drag spring-back. */
+    private fun easeTowards(current: Float, target: Float, lastUpdateNanos: Long): Pair<Float, Long> {
+        val now = System.nanoTime()
+        val dt = if (lastUpdateNanos == 0L) 0.0F else (now - lastUpdateNanos) / 1_000_000_000.0F
+        val t = 1.0F - Math.exp((-SPRING_RETURN_SPEED * dt).toDouble()).toFloat()
+        var eased = Mth.lerp(t, current, target)
+        if (Math.abs(eased - target) < SPRING_SNAP_EPSILON) eased = target
+        return eased to now
+    }
+
+    private fun updateHoverAnimation(mouseX: Int, mouseY: Int) {
+        // The drag-rotated card keeps animating wherever the cursor goes; other cards stay
+        // static while a drag is in progress so the animation follows the dragged skin only.
+        val target = when {
+            rotatingPreview -> 1.0F
+            parent.dragRotatingCard != null -> 0.0F
+            isMouseOverCard(mouseX, mouseY) -> 1.0F
+            else -> 0.0F
+        }
+        val (eased, now) = easeTowards(hoverAnimFactor, target, lastHoverAnimUpdateNanos)
+        hoverAnimFactor = eased
+        lastHoverAnimUpdateNanos = now
     }
 
     private fun updateSpringBack() {
@@ -291,6 +319,7 @@ class SkinCard(
         }
 
         updateSpringBack()
+        updateHoverAnimation(mouseX, mouseY)
 
         val margin = client.font.lineHeight / 2
         val nameColor = if (this.active) 0xFFFFFFFF.toInt() else 0xFF808080.toInt()
@@ -318,7 +347,7 @@ class SkinCard(
             )
             SkinRenderer.renderPlayerRotatable(
                 graphics, previewLeft, previewTop, previewRight, previewBottom,
-                size, skinTextures, previewYaw, previewPitch
+                size, skinTextures, previewYaw, previewPitch, hoverAnimFactor
             )
         }
     }

@@ -56,12 +56,12 @@ object YaclConfigScreen {
                             .name(Component.translatable("simpleskinswapper.config.group.player_models"))
                             .option(
                                 Option.createBuilder<Boolean>()
-                                    .name(Component.translatable("simpleskinswapper.config.enable_moving_legs"))
-                                    .description(OptionDescription.of(Component.translatable("simpleskinswapper.config.enable_moving_legs.description")))
+                                    .name(Component.translatable("simpleskinswapper.config.animate_menu_preview"))
+                                    .description(OptionDescription.of(Component.translatable("simpleskinswapper.config.animate_menu_preview.description")))
                                     .binding(
                                         true,
-                                        { config.enableMovingLegs },
-                                        { config.enableMovingLegs = it }
+                                        { config.animateMenuPreview },
+                                        { config.animateMenuPreview = it }
                                     )
                                     .controller { option -> TickBoxControllerBuilder.create(option) }
                                     .build()

@@ -1,10 +1,6 @@
-# Skin Wheel
+# Skin Wheel Delta
 
-## Purpose
-
-The radial skin picker overlay: a hold-to-open wheel showing the user's first skins as pie sectors with 3D previews, where aiming with the mouse and releasing applies the highlighted skin.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Hovered sector shows an animated preview
 
@@ -25,16 +21,16 @@ Every skin preview on the wheel SHALL be rendered as a live 3D entity render eac
 - **WHEN** the wheel is open and the mouse hovers no sector
 - **THEN** all visible previews are rendered live in a static neutral pose
 
-### Requirement: Pie sectors are drawn as meshes, not per-column fills
+## REMOVED Requirements
 
-Wheel pie sectors SHALL be drawn as triangle meshes (one mesh per sector, or equivalent batched geometry) rather than one GUI fill per pixel column. The visual result (sector shape, gap angle, colors, hover highlight) SHALL remain unchanged.
+### Requirement: Skin previews are baked to textures instead of rendered live
 
-#### Scenario: Wheel renders with full sector count
+**Reason**: Product decision — all wheel previews are live 3D renders again so the hovered-sector animation no longer requires a baked/live swap. The bounded-baking and single-live-render performance rules no longer apply; up to one live render per sector per frame is an accepted cost.
 
-- **WHEN** the wheel is open with N sectors (1..10)
-- **THEN** sector backgrounds are drawn with at most O(N) draw submissions per frame, independent of the wheel radius in pixels
+**Migration**: None. Previews are simply rendered live every frame; the bake queue and blit path disappear.
 
-#### Scenario: Hover highlight still works
+### Requirement: Baked previews are cached globally, not per wheel screen
 
-- **WHEN** the user hovers a sector
-- **THEN** that sector is drawn in the hover color and all other sectors keep the base color, exactly as before
+**Reason**: The bake pipeline this cache served is removed with the move back to fully live rendering.
+
+**Migration**: None. No preview bake cache exists anymore; the shared-preview-cache requirement is obsolete.

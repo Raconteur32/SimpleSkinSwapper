@@ -1,6 +1,7 @@
 package fr.raconteur.simpleskinswapper.gui
 
 import fr.raconteur.simpleskinswapper.changeskin.SelectedSkinStore
+import fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.components.Button
 import net.minecraft.core.ClientAsset
@@ -39,6 +40,9 @@ class SkinPreviewButton(
         val x1 = centerX - previewWidth / 2
         val x2 = centerX + previewWidth / 2
 
-        SkinRenderer.renderPlayerFollowingMouse(graphics, x1, y1, x2, y2, previewHeight / 2, skin, mouseX, mouseY)
+        SkinRenderer.renderPlayerFollowingMouse(
+            graphics, x1, y1, x2, y2, previewHeight / 2, skin, mouseX, mouseY,
+            if (SimpleSkinSwapperConfig.get().animateMenuPreview) 1.0F else 0.0F
+        )
     }
 }

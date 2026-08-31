@@ -13,6 +13,7 @@ import net.minecraft.core.ClientAsset
 import net.minecraft.network.chat.Component
 import net.minecraft.resources.Identifier
 import net.minecraft.sounds.SoundEvents
+import net.minecraft.util.Mth
 import net.minecraft.world.entity.player.PlayerModelType
 import net.minecraft.world.entity.player.PlayerSkin
 import org.joml.Matrix3x2f
@@ -21,11 +22,8 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
 
     private val entries: List<SkinEntry> = loadWheelEntries()
     private var selectedIndex = -1
-
-    init {
-        // Entries were just rescanned: drop baked previews for removed/replaced skins.
-        SkinPreviewCache.retainOnly(entries.mapTo(HashSet()) { SkinPreviewCache.previewKey(it.file) })
-    }
+    private val hoverAnimFactors = FloatArray(entries.size)
+    private var lastHoverAnimUpdateNanos = 0L
 
     override fun isPauseScreen(): Boolean = false
 
@@ -77,6 +75,8 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
 
         // Center fill circle (on top of sectors)
         fillCircle(context, cx, cy, 28f, COLOR_CENTER_BG)
+
+        updateHoverAnimations()
 
         // Skin previews — painter's order: top (smallest py) first
         val sectorSize2 = 2 * Math.PI / n
@@ -153,6 +153,20 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
         )
     }
 
+    /** Eases every sector's hover factor toward 1 (hovered) or 0 with an exponential settle. */
+    private fun updateHoverAnimations() {
+        val now = System.nanoTime()
+        val dt = if (lastHoverAnimUpdateNanos == 0L) 0.0F else (now - lastHoverAnimUpdateNanos) / 1_000_000_000.0F
+        lastHoverAnimUpdateNanos = now
+        val t = 1.0F - Math.exp((-HOVER_ANIM_SPEED * dt).toDouble()).toFloat()
+        for (i in hoverAnimFactors.indices) {
+            val target = if (i == selectedIndex) 1.0F else 0.0F
+            var eased = Mth.lerp(t, hoverAnimFactors[i], target)
+            if (Math.abs(eased - target) < HOVER_ANIM_SNAP_EPSILON) eased = target
+            hoverAnimFactors[i] = eased
+        }
+    }
+
     private fun drawSectorPreview(context: GuiGraphicsExtractor, cx: Float, cy: Float, index: Int, n: Int) {
         val sectorSize = 2 * Math.PI / n
         val angleOffset = -Math.PI / 2 - sectorSize / 2.0
@@ -170,17 +184,11 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
 
         val textureId = entry.textureId ?: return
 
-        // Only the hovered sector gets a live (animated) entity render — at most one per frame.
-        if (index == selectedIndex) {
-            SkinRenderer.renderPlayer(context, px - halfW, py - halfH, px + halfW, py + halfH, halfH, buildPlayerSkin(entry, textureId))
-            return
-        }
-
-        // Others draw from the shared baked-preview cache; unbaked previews are skipped until baked.
-        val key = SkinPreviewCache.previewKey(entry.file)
-        if (!SkinPreviewCache.submitPreviewBlit(context, key, px - halfW, py - halfH, px + halfW, py + halfH)) {
-            SkinPreviewCache.requestPreview(key) { buildPlayerSkin(entry, textureId) }
-        }
+        // Every preview is a live entity render; only the hovered one plays the walk animation.
+        SkinRenderer.renderPlayer(
+            context, px - halfW, py - halfH, px + halfW, py + halfH, halfH,
+            buildPlayerSkin(entry, textureId), hoverAnimFactors[index]
+        )
     }
 
     private fun buildPlayerSkin(entry: SkinEntry, textureId: Identifier): PlayerSkin =
@@ -254,6 +262,10 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
         private const val MAX_ENTRIES = 10
         private const val OUTER_RADIUS = 90.0f
         private val GAP_HALF_ANGLE = Math.toRadians(2.0).toFloat()
+
+        // Hover animation easing: higher = faster settle back to the neutral pose.
+        private const val HOVER_ANIM_SPEED = 10.0F
+        private const val HOVER_ANIM_SNAP_EPSILON = 0.05F
 
         private val COLOR_SECTOR = 0xCC1A2535.toInt()
         private val COLOR_SECTOR_HOVER = 0xEE2B5F9E.toInt()
