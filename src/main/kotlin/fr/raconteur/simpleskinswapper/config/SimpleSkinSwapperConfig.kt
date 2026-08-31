@@ -26,6 +26,9 @@ class SimpleSkinSwapperConfig {
     @JvmField
     var pauseMenuButtonSide: ButtonSide? = ButtonSide.RIGHT
 
+    @JvmField
+    var enableMovingLegs: Boolean = true
+
     /** Non-null accessor for callers (e.g. Java mixins): defaults to RIGHT. */
     fun titleScreenSide(): ButtonSide = titleScreenButtonSide ?: ButtonSide.RIGHT
 

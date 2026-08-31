@@ -4,7 +4,6 @@ import fr.raconteur.simpleskinswapper.SimpleSkinSwapperClient
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.renderer.entity.state.AvatarRenderState
 import net.minecraft.client.renderer.state.gui.pip.GuiEntityRenderState
-import net.minecraft.util.Mth
 import net.minecraft.world.entity.Pose
 import net.minecraft.world.entity.player.PlayerSkin
 import org.joml.Quaternionf
@@ -103,7 +102,10 @@ object SkinRenderer {
         context.disableScissor()
     }
 
-    internal fun buildRenderState(skin: PlayerSkin): AvatarRenderState {
+    internal fun buildRenderState(
+        skin: PlayerSkin,
+        enableMovingLegs: Boolean = fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig.get().enableMovingLegs,
+        totalTickDelta: Float = SimpleSkinSwapperClient.TOTAL_TICK_DELTA): AvatarRenderState {
         val s = AvatarRenderState()
 
         s.boundingBoxWidth = 0.6F
@@ -111,7 +113,7 @@ object SkinRenderer {
         s.eyeHeight = 1.62F
         s.scale = 1.0F
         s.ageScale = 1.0F
-        s.ageInTicks = SimpleSkinSwapperClient.TOTAL_TICK_DELTA
+        s.ageInTicks = totalTickDelta
         s.id = 0
 
         s.pose = Pose.STANDING
@@ -119,9 +121,13 @@ object SkinRenderer {
         s.yRot = 0.0F
         s.xRot = 0.0F
 
-        val t = SimpleSkinSwapperClient.TOTAL_TICK_DELTA * 0.067F
-        s.walkAnimationPos = Mth.sin(t.toDouble()).toFloat() * 0.05F
-        s.walkAnimationSpeed = 0.1F
+        // How fast should the legs swing?
+        val progressFactor = 0.12F
+        // How far should the legs swing?
+        val animationSpeed = 0.20F
+        s.walkAnimationPos = if (enableMovingLegs) totalTickDelta * progressFactor else 0.0F
+        s.walkAnimationSpeed = if (enableMovingLegs) animationSpeed else 0.0F
+
         //? if <26.3
         s.attackTime = 0.0F
         s.swimAmount = 0.0F

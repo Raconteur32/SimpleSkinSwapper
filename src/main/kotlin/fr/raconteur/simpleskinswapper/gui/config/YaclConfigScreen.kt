@@ -4,8 +4,10 @@ import dev.isxander.yacl3.api.ConfigCategory
 import dev.isxander.yacl3.api.ListOption
 import dev.isxander.yacl3.api.Option
 import dev.isxander.yacl3.api.OptionDescription
+import dev.isxander.yacl3.api.OptionGroup
 import dev.isxander.yacl3.api.YetAnotherConfigLib
 import dev.isxander.yacl3.api.controller.EnumControllerBuilder
+import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder
 import fr.raconteur.simpleskinswapper.config.ButtonSide
 import fr.raconteur.simpleskinswapper.config.ServerCommand
 import fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig
@@ -29,6 +31,47 @@ object YaclConfigScreen {
             .title(Component.translatable("simpleskinswapper.config.title"))
             .category(
                 ConfigCategory.createBuilder()
+                    .name(Component.translatable("simpleskinswapper.config.category.options"))
+                    .group(
+                        OptionGroup.createBuilder()
+                            .name(Component.translatable("simpleskinswapper.config.group.menu_buttons"))
+                            .option(
+                                buttonSideOption(
+                                    "simpleskinswapper.config.title_screen_button_side",
+                                    { config.titleScreenSide() },
+                                    { config.titleScreenButtonSide = it }
+                                )
+                            )
+                            .option(
+                                buttonSideOption(
+                                    "simpleskinswapper.config.pause_menu_button_side",
+                                    { config.pauseMenuSide() },
+                                    { config.pauseMenuButtonSide = it }
+                                )
+                            )
+                            .build()
+                    )
+                    .group(
+                        OptionGroup.createBuilder()
+                            .name(Component.translatable("simpleskinswapper.config.group.player_models"))
+                            .option(
+                                Option.createBuilder<Boolean>()
+                                    .name(Component.translatable("simpleskinswapper.config.enable_moving_legs"))
+                                    .description(OptionDescription.of(Component.translatable("simpleskinswapper.config.enable_moving_legs.description")))
+                                    .binding(
+                                        true,
+                                        { config.enableMovingLegs },
+                                        { config.enableMovingLegs = it }
+                                    )
+                                    .controller { option -> TickBoxControllerBuilder.create(option) }
+                                    .build()
+                            )
+                            .build()
+                    )
+                    .build()
+            )
+            .category(
+                ConfigCategory.createBuilder()
                     .name(Component.translatable("simpleskinswapper.config.category.servers"))
                     .option(
                         ListOption.createBuilder<ServerCommand>()
@@ -46,25 +89,6 @@ object YaclConfigScreen {
                             .controller { option -> ServerCommandControllerBuilder.create(option) }
                             .initial(ServerCommand("", ""))
                             .build()
-                    )
-                    .build()
-            )
-            .category(
-                ConfigCategory.createBuilder()
-                    .name(Component.translatable("simpleskinswapper.config.category.menu_buttons"))
-                    .option(
-                        buttonSideOption(
-                            "simpleskinswapper.config.title_screen_button_side",
-                            { config.titleScreenSide() },
-                            { config.titleScreenButtonSide = it }
-                        )
-                    )
-                    .option(
-                        buttonSideOption(
-                            "simpleskinswapper.config.pause_menu_button_side",
-                            { config.pauseMenuSide() },
-                            { config.pauseMenuButtonSide = it }
-                        )
                     )
                     .build()
             )
