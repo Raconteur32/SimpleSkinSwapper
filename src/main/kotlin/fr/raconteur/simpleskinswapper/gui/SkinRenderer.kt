@@ -122,11 +122,11 @@ object SkinRenderer {
         s.xRot = 0.0F
 
         // How fast should the legs swing?
-        val progressFactor = 0.12F
+        val swingSpeedFactor = 0.12F
         // How far should the legs swing?
-        val animationSpeed = 0.20F
-        s.walkAnimationPos = if (enableMovingLegs) totalTickDelta * progressFactor else 0.0F
-        s.walkAnimationSpeed = if (enableMovingLegs) animationSpeed else 0.0F
+        val swingAmplitude = 0.20F
+        s.walkAnimationPos = if (enableMovingLegs) totalTickDelta * swingSpeedFactor else 0.0F
+        s.walkAnimationSpeed = if (enableMovingLegs) swingAmplitude else 0.0F
 
         //? if <26.3
         s.attackTime = 0.0F
