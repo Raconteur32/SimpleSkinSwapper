@@ -36,6 +36,9 @@
 	"simpleskinswapper.config.group.player_models": "Player models",
 	"simpleskinswapper.config.animate_menu_preview": "Animate menu skin preview",
 	"simpleskinswapper.config.animate_menu_preview.description": "Plays the limb walk animation (arms and legs) on the skin previews shown on the title screen and in the pause menu.",
+	"simpleskinswapper.config.group.skin_wheel": "Skin wheel",
+	"simpleskinswapper.config.remember_wheel_position": "Remember wheel position",
+	"simpleskinswapper.config.remember_wheel_position.description": "Reopens the skin wheel at the last position used in this session instead of the first wheel.",
 
 	"simpleskinswapper.message.applying": "Applying skin...",
 	"simpleskinswapper.message.success": "Skin applied successfully!",

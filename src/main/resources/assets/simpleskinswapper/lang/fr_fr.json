@@ -36,6 +36,9 @@
 	"simpleskinswapper.config.group.player_models": "Modèles de joueur",
 	"simpleskinswapper.config.animate_menu_preview": "Animer l'aperçu de skin dans les menus",
 	"simpleskinswapper.config.animate_menu_preview.description": "Joue l'animation de marche (bras et jambes) sur les aperçus de skin de l'écran titre et du menu pause.",
+	"simpleskinswapper.config.group.skin_wheel": "Roue de skins",
+	"simpleskinswapper.config.remember_wheel_position": "Se souvenir de la dernière roue",
+	"simpleskinswapper.config.remember_wheel_position.description": "Rouvre la roue de skins à la dernière position utilisée dans la session au lieu de la première roue.",
 
 	"simpleskinswapper.message.applying": "Application du skin...",
 	"simpleskinswapper.message.success": "Skin appliqué avec succès !",

@@ -68,6 +68,23 @@ object YaclConfigScreen {
                             )
                             .build()
                     )
+                    .group(
+                        OptionGroup.createBuilder()
+                            .name(Component.translatable("simpleskinswapper.config.group.skin_wheel"))
+                            .option(
+                                Option.createBuilder<Boolean>()
+                                    .name(Component.translatable("simpleskinswapper.config.remember_wheel_position"))
+                                    .description(OptionDescription.of(Component.translatable("simpleskinswapper.config.remember_wheel_position.description")))
+                                    .binding(
+                                        false,
+                                        { config.rememberWheelPosition },
+                                        { config.rememberWheelPosition = it }
+                                    )
+                                    .controller { option -> TickBoxControllerBuilder.create(option) }
+                                    .build()
+                            )
+                            .build()
+                    )
                     .build()
             )
             .category(

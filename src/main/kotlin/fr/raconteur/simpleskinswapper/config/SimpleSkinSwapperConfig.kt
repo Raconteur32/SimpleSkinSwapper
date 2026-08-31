@@ -30,6 +30,10 @@ class SimpleSkinSwapperConfig {
     @JvmField
     var animateMenuPreview: Boolean = true
 
+    /** Whether the skin wheel reopens at the last position used in the current session. */
+    @JvmField
+    var rememberWheelPosition: Boolean = false
+
     /** Non-null accessor for callers (e.g. Java mixins): defaults to RIGHT. */
     fun titleScreenSide(): ButtonSide = titleScreenButtonSide ?: ButtonSide.RIGHT
 

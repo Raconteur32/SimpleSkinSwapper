@@ -20,8 +20,12 @@ import kotlin.math.sin
  * Flat-color pie sector (triangle fan) GUI element, replacing the old one-[net.minecraft.client.gui.GuiGraphicsExtractor.fill]-per-pixel-column
  * approach with a single mesh: one draw submission per sector instead of O(radius) quads.
  *
+ * The fan apex sits [innerRadius] away from the center along the sector bisector (0 = at the
+ * center), which lets [fr.raconteur.simpleskinswapper.gui.SkinWheelScreen] build sectors whose
+ * straight edges are parallel to the ideal radius lines — constant-width gaps between sectors.
+ *
  * The GUI pipeline only supports quads, so each fan triangle is emitted as a degenerate quad
- * (center, p1, p0, p0) which the quad indexer splits into the wanted triangle plus a zero-area one.
+ * (apex, p1, p0, p0) which the quad indexer splits into the wanted triangle plus a zero-area one.
  * The GUI pipeline keeps back-face culling enabled, so the two arc points are emitted in
  * decreasing-angle order to match the front-face winding of vanilla's ColoredRectangleRenderState.
  */
@@ -33,6 +37,7 @@ class SectorFillRenderState(
     private val startAngle: Float,
     private val endAngle: Float,
     private val color: Int,
+    private val innerRadius: Float,
     private val scissor: ScreenRectangle?,
     private val boundsRect: ScreenRectangle?
 ) : GuiElementRenderState {
@@ -40,12 +45,21 @@ class SectorFillRenderState(
     constructor(
         pose: Matrix3x2fc, cx: Float, cy: Float, radius: Float,
         startAngle: Float, endAngle: Float, color: Int, scissor: ScreenRectangle?
-    ) : this(pose, cx, cy, radius, startAngle, endAngle, color, scissor,
+    ) : this(pose, cx, cy, radius, startAngle, endAngle, color, 0.0F, scissor,
+        computeBounds(pose, cx, cy, radius, startAngle, endAngle, scissor))
+
+    constructor(
+        pose: Matrix3x2fc, cx: Float, cy: Float, radius: Float,
+        startAngle: Float, endAngle: Float, color: Int, innerRadius: Float, scissor: ScreenRectangle?
+    ) : this(pose, cx, cy, radius, startAngle, endAngle, color, innerRadius, scissor,
         computeBounds(pose, cx, cy, radius, startAngle, endAngle, scissor))
 
     override fun buildVertices(consumer: VertexConsumer) {
         val segments = segmentCount(radius, endAngle - startAngle)
         val span = endAngle - startAngle
+        val mid = startAngle + span / 2f
+        val ax = cx + innerRadius * cos(mid)
+        val ay = cy + innerRadius * sin(mid)
         for (i in 0..<segments) {
             val a0 = startAngle + span * i / segments
             val a1 = startAngle + span * (i + 1) / segments
@@ -53,7 +67,7 @@ class SectorFillRenderState(
             val y0 = cy + radius * sin(a0)
             val x1 = cx + radius * cos(a1)
             val y1 = cy + radius * sin(a1)
-            consumer.addVertexWith2DPose(pose, cx, cy).setColor(color)
+            consumer.addVertexWith2DPose(pose, ax, ay).setColor(color)
             consumer.addVertexWith2DPose(pose, x1, y1).setColor(color)
             consumer.addVertexWith2DPose(pose, x0, y0).setColor(color)
             consumer.addVertexWith2DPose(pose, x0, y0).setColor(color)

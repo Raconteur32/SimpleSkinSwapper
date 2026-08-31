@@ -1,29 +1,6 @@
-# Skin Wheel
+# Skin Wheel Delta
 
-## Purpose
-
-The radial skin picker overlay: a hold-to-open wheel showing the user's skins as pie sectors with 3D previews, paginated through the whole library in wheels of ten, where aiming with the mouse and releasing applies the highlighted skin.
-
-## Requirements
-
-### Requirement: Hovered sector shows an animated preview
-
-Every skin preview on the wheel SHALL be rendered as a live 3D entity render each frame. Previews of non-hovered sectors SHALL hold a static neutral pose. The preview of the currently hovered sector SHALL play the limb walk animation (arms and legs), and when the hover moves away or between sectors, the previously animated preview's limbs SHALL return to the neutral pose through a smooth eased transition rather than freezing instantly. At most one sector SHALL be hovered at any time.
-
-#### Scenario: Hovering a sector animates its preview
-
-- **WHEN** the user moves the mouse over a sector
-- **THEN** that sector's preview plays the limb walk animation while all other previews stay static neutral
-
-#### Scenario: Moving hover between sectors
-
-- **WHEN** the user moves the mouse from one sector to another
-- **THEN** the previously hovered preview's limbs ease back to the neutral pose and the newly hovered preview animates
-
-#### Scenario: Mouse at rest renders all previews statically
-
-- **WHEN** the wheel is open and the mouse hovers no sector
-- **THEN** all visible previews are rendered live in a static neutral pose
+## MODIFIED Requirements
 
 ### Requirement: Pie sectors are drawn as meshes, not per-column fills
 
@@ -43,6 +20,8 @@ Wheel pie sectors SHALL be drawn as triangle meshes (one mesh per sector, or equ
 
 - **WHEN** two adjacent sectors are displayed
 - **THEN** the separation between them has the same width near the center and near the rim, following a straight line
+
+## ADDED Requirements
 
 ### Requirement: The wheel pages through the whole skin library in wheels of ten
 
