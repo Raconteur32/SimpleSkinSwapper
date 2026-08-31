@@ -219,23 +219,23 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
         if (selectedIndex >= 0 && selectedIndex < entries.size) {
             val entry = entries[selectedIndex]
             if (SkinSwapperState.beginSwap()) {
-                minecraft?.player?.playSound(SoundEvents.UI_BUTTON_CLICK.value(), 1.0f, 1.0f)
+                minecraft.player?.playSound(SoundEvents.UI_BUTTON_CLICK.value(), 1.0f, 1.0f)
                 SkinChange.changeSkin(
                     entry.file,
                     entry.skinType,
                     entry.textureId,
                     {
-                        minecraft?.player?.overlayMessage(
+                        minecraft.player?.overlayMessage(
                             Component.translatable("simpleskinswapper.message.success")
                         )
                     },
                     { err ->
-                        minecraft?.player?.overlayMessage(
+                        minecraft.player?.overlayMessage(
                             Component.translatable("simpleskinswapper.message.error", err)
                         )
                     }
                 )
-                minecraft?.player?.overlayMessage(
+                minecraft.player?.overlayMessage(
                     Component.translatable("simpleskinswapper.message.applying")
                 )
             }
@@ -244,9 +244,9 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
 
     override fun onClose() {
         //? if >=26.2 {
-        minecraft?.gui?.setScreen(parent)
+        minecraft.gui.setScreen(parent)
         //?} else {
-        /*minecraft?.setScreen(parent)
+        /*minecraft.setScreen(parent)
         *///?}
     }
 

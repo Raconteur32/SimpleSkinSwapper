@@ -36,10 +36,6 @@ object StartupSkinSync {
         try {
             val client = Minecraft.getInstance()
             val uuid = client.user.profileId
-            if (uuid == null) {
-                SimpleSkinSwapper.LOGGER.warn("StartupSkinSync: no UUID available, skipping.")
-                return
-            }
 
             val mojangProperty = fetchMojangProperty(uuid) ?: return
 

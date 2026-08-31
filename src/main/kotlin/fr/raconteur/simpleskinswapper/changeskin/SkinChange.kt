@@ -93,6 +93,6 @@ object SkinChange {
     }
 
     private fun getAccessToken(client: Minecraft): String? {
-        return client.user?.accessToken
+        return client.user.accessToken
     }
 }

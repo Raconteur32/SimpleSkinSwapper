@@ -140,9 +140,9 @@ class SkinCarouselScreen(private val parent: Screen?) : Screen(Component.transla
                 Component.translatable("simpleskinswapper.screen.carousel.config")
             ) {
                 //? if >=26.2 {
-                this.minecraft?.gui?.setScreen(YaclConfigScreen.create(this))
+                this.minecraft.gui.setScreen(YaclConfigScreen.create(this))
                 //?} else {
-                /*this.minecraft?.setScreen(YaclConfigScreen.create(this))
+                /*this.minecraft.setScreen(YaclConfigScreen.create(this))
                 *///?}
             }
                 .bounds(bottomRowLeft + (bottomButtonWidth + 4) * 2, this.height - 24, bottomButtonWidth, 20)
@@ -156,9 +156,9 @@ class SkinCarouselScreen(private val parent: Screen?) : Screen(Component.transla
     override fun onClose() {
         stopWatching()
         //? if >=26.2 {
-        this.minecraft?.gui?.setScreen(parent)
+        this.minecraft.gui.setScreen(parent)
         //?} else {
-        /*this.minecraft?.setScreen(parent)
+        /*this.minecraft.setScreen(parent)
         *///?}
     }
 
