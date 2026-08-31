@@ -1,9 +1,14 @@
-package fr.raconteur.simpleskinswapper.gui
+package fr.raconteur.simpleskinswapper.gui.library
 
 import com.mojang.blaze3d.platform.InputConstants
 import fr.raconteur.simpleskinswapper.changeskin.SkinChange
-import fr.raconteur.simpleskinswapper.overlayMessage
 import fr.raconteur.simpleskinswapper.changeskin.SkinSwapperState
+import fr.raconteur.simpleskinswapper.gui.EdgeSafeButtonWidget
+import fr.raconteur.simpleskinswapper.gui.SkinEntry
+import fr.raconteur.simpleskinswapper.gui.SkinRenderer
+import fr.raconteur.simpleskinswapper.gui.SkinType
+import fr.raconteur.simpleskinswapper.gui.SkinTypeStore
+import fr.raconteur.simpleskinswapper.overlayMessage
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.ComponentPath
 import net.minecraft.client.gui.GuiGraphicsExtractor
@@ -19,8 +24,14 @@ import net.minecraft.util.Mth
 import net.minecraft.world.entity.player.PlayerModelType
 import net.minecraft.world.entity.player.PlayerSkin
 
-class SkinCard(
-    private val parent: SkinCarouselScreen,
+/**
+ * One skin card in the library grid. Drag intent is spatially split: the model area rotates
+ * the preview (existing behavior), while the card frame or the ⋮⋮ handle starts a reorder
+ * drag owned by the parent screen. The card shows its 1-based position and, when its position
+ * falls inside the category's wheel allocation, an allocation marker strip in the category color.
+ */
+class SkinLibraryCard(
+    private val parent: SkinLibraryScreen,
     internal val entry: SkinEntry,
     width: Int,
     height: Int
@@ -28,15 +39,11 @@ class SkinCard(
 
     private val client: Minecraft = Minecraft.getInstance()
 
-    // Child buttons use coordinates relative to the card; overridePosition shifts them along
-    // with the card (vanilla widgets are absolutely positioned, so they don't follow on their own).
     private val cardButtons = ArrayList<EdgeSafeButtonWidget>()
     private var focusedChild: GuiEventListener? = null
     private var dragging = false
 
     private val applyButton: EdgeSafeButtonWidget
-    private val leftArrow: EdgeSafeButtonWidget
-    private val rightArrow: EdgeSafeButtonWidget
     private val typeButton: EdgeSafeButtonWidget
     private val deleteButton: EdgeSafeButtonWidget
     private val confirmDeleteButton: EdgeSafeButtonWidget
@@ -49,48 +56,38 @@ class SkinCard(
     private var hoverAnimFactor = 0.0F
     private var lastHoverAnimUpdateNanos = 0L
 
+    // Visible/clickable vertical bounds, updated by the parent grid every frame: the card
+    // never draws over the config band above or the footer buttons below (spec: clamp).
+    internal var clipTop = Int.MIN_VALUE
+    internal var clipBottom = Int.MAX_VALUE
+
     init {
         val halfW = (width - BUTTON_MARGIN * 3) / 2
 
         applyButton = EdgeSafeButtonWidget(
-            BUTTON_MARGIN, height - BUTTON_HEIGHT * 3 - BUTTON_MARGIN * 3,
+            BUTTON_MARGIN, height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 2,
             width - BUTTON_MARGIN * 2, BUTTON_HEIGHT,
             Component.translatable("simpleskinswapper.screen.carousel.apply")
         ) { applySkin() }
         addChild(applyButton)
 
         typeButton = EdgeSafeButtonWidget(
-            BUTTON_MARGIN, height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 2,
+            BUTTON_MARGIN, height - BUTTON_HEIGHT - BUTTON_MARGIN,
             halfW, BUTTON_HEIGHT,
             typeLabel()
         ) { toggleType() }
         addChild(typeButton)
 
         deleteButton = EdgeSafeButtonWidget(
-            BUTTON_MARGIN * 2 + halfW, height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 2,
+            BUTTON_MARGIN * 2 + halfW, height - BUTTON_HEIGHT - BUTTON_MARGIN,
             halfW, BUTTON_HEIGHT,
             Component.translatable("simpleskinswapper.screen.carousel.delete")
         ) { beginDeleteConfirmation() }
         addChild(deleteButton)
 
-        leftArrow = EdgeSafeButtonWidget(
-            BUTTON_MARGIN, height - BUTTON_HEIGHT - BUTTON_MARGIN,
-            halfW, BUTTON_HEIGHT,
-            Component.literal("←")
-        ) { parent.moveCard(this, -1) }
-        addChild(leftArrow)
-
-        rightArrow = EdgeSafeButtonWidget(
-            BUTTON_MARGIN * 2 + halfW, height - BUTTON_HEIGHT - BUTTON_MARGIN,
-            halfW, BUTTON_HEIGHT,
-            Component.literal("→")
-        ) { parent.moveCard(this, +1) }
-        addChild(rightArrow)
-
-        val deleteBlockTop = height - BUTTON_HEIGHT * 3 - BUTTON_MARGIN * 3
-        val deleteBlockHeight = BUTTON_HEIGHT * 3 + BUTTON_MARGIN * 2
+        val deleteBlockTop = height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 2
         confirmDeleteButton = EdgeSafeButtonWidget(
-            BUTTON_MARGIN, deleteBlockTop + (deleteBlockHeight - BUTTON_HEIGHT) / 2,
+            BUTTON_MARGIN, deleteBlockTop,
             width - BUTTON_MARGIN * 2, BUTTON_HEIGHT,
             Component.translatable("simpleskinswapper.screen.carousel.delete_confirm")
         ) { confirmDelete() }
@@ -116,8 +113,6 @@ class SkinCard(
         this.focusedChild = focused
     }
 
-    // ContainerEventHandler defaults conflict with AbstractWidget's implementations.
-    // The card itself is a leaf for keyboard focus/narration (children are mouse-driven).
     override fun isFocused(): Boolean = super<AbstractWidget>.isFocused()
 
     override fun setFocused(focused: Boolean) = super<AbstractWidget>.setFocused(focused)
@@ -126,11 +121,6 @@ class SkinCard(
         super<AbstractWidget>.nextFocusPath(event)
 
     override fun updateWidgetNarration(output: NarrationElementOutput) = defaultButtonNarrationText(output)
-
-    fun updateArrowStates(canMoveLeft: Boolean, canMoveRight: Boolean) {
-        leftArrow.active = canMoveLeft
-        rightArrow.active = canMoveRight
-    }
 
     fun getEntry(): SkinEntry = entry
 
@@ -164,12 +154,39 @@ class SkinCard(
         applyButton.visible = visible
         typeButton.visible = visible
         deleteButton.visible = visible
-        leftArrow.visible = visible
-        rightArrow.visible = visible
     }
 
     private fun isMouseOverCard(mouseX: Int, mouseY: Int): Boolean =
         mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height
+
+    /** Frame band: within [FRAME_BAND] px of a card edge — a reorder grab zone. */
+    private fun isOnFrame(mouseX: Int, mouseY: Int): Boolean {
+        val inOuter = isMouseOverCard(mouseX, mouseY)
+        val inInner = mouseX >= x + FRAME_BAND && mouseX < x + width - FRAME_BAND &&
+            mouseY >= y + FRAME_BAND && mouseY < y + height - FRAME_BAND
+        return inOuter && !inInner
+    }
+
+    private fun isOnHandle(mouseX: Int, mouseY: Int): Boolean {
+        val r = handleRect()
+        return mouseX >= r.first && mouseX < r.first + HANDLE && mouseY >= r.second && mouseY < r.second + HANDLE
+    }
+
+    /** ⋮⋮ handle: right flank of the preview area, vertically centered. */
+    private fun handleRect(): Pair<Int, Int> = (x + width - HANDLE - 4) to (previewCenterY() - HANDLE / 2)
+
+    /** Vertical center of the preview area — shared by the hit test and the renderer. */
+    private fun previewCenterY(): Int {
+        val top = y + HEADER_HEIGHT + 2
+        val bottom = y + height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 3
+        return (top + bottom) / 2
+    }
+
+    private fun isOnModel(mouseX: Int, mouseY: Int): Boolean {
+        val top = y + HEADER_HEIGHT + 2
+        val bottom = y + height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 3
+        return mouseX >= x + 1 && mouseX < x + width - 1 && mouseY >= top && mouseY < bottom
+    }
 
     private fun applySkin() {
         if (!SkinSwapperState.beginSwap()) return
@@ -198,20 +215,31 @@ class SkinCard(
         }
     }
 
-    // Child event routing is written out explicitly: Kotlin cannot call Java interface
-    // default methods (ContainerEventHandler.mouseClicked et al.) via a qualified super call.
     override fun mouseClicked(event: MouseButtonEvent, doubleClick: Boolean): Boolean {
+        // Ignore clicks outside the visible (clipped) part of the card so a card sliding
+        // under the config band or over the footer never steals their clicks.
+        val my = event.y().toInt()
+        if (my < clipTop || my >= clipBottom) return false
         for (child in cardButtons) {
+            if (child.y >= clipBottom) continue
             if (child.mouseClicked(event, doubleClick)) {
                 focusedChild = child
                 if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) dragging = true
                 return true
             }
         }
-        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && isMouseOverCard(event.x().toInt(), event.y().toInt())) {
-            rotatingPreview = true
-            parent.dragRotatingCard = this
-            return true
+        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && isMouseOverCard(event.x().toInt(), event.y().toInt()) && !confirmingDelete) {
+            val mx = event.x().toInt()
+            val my = event.y().toInt()
+            if (isOnHandle(mx, my) || isOnFrame(mx, my)) {
+                parent.beginCardReorder(this, mx, my)
+                return true
+            }
+            if (isOnModel(mx, my)) {
+                rotatingPreview = true
+                parent.dragRotatingCard = this
+                return true
+            }
         }
         return false
     }
@@ -242,7 +270,6 @@ class SkinCard(
         return false
     }
 
-    /** Eases [current] toward [target] with the same exponential family as the drag spring-back. */
     private fun easeTowards(current: Float, target: Float, lastUpdateNanos: Long): Pair<Float, Long> {
         val now = System.nanoTime()
         val dt = if (lastUpdateNanos == 0L) 0.0F else (now - lastUpdateNanos) / 1_000_000_000.0F
@@ -253,9 +280,11 @@ class SkinCard(
     }
 
     private fun updateHoverAnimation(mouseX: Int, mouseY: Int) {
-        // The drag-rotated card keeps animating wherever the cursor goes; other cards stay
-        // static while a drag is in progress so the animation follows the dragged skin only.
+        // Dragged cards own the animation: the reorder-dragged card animates nowhere and cards
+        // beneath it stay static; the drag-rotated card keeps animating wherever the cursor goes.
         val target = when {
+            parent.reorderDraggingCard === this -> 0.0F
+            parent.reorderDraggingCard != null -> 0.0F
             rotatingPreview -> 1.0F
             parent.dragRotatingCard != null -> 0.0F
             isMouseOverCard(mouseX, mouseY) -> 1.0F
@@ -283,13 +312,17 @@ class SkinCard(
         if (Math.abs(previewPitch) < SPRING_SNAP_EPSILON) previewPitch = 0.0F
     }
 
-    private fun drawBackground(graphics: GuiGraphicsExtractor) {
+    private fun drawBackground(graphics: GuiGraphicsExtractor, allocated: Boolean, allocationColor: Int) {
         val borderColor = if (this.active) 0xDF000000.toInt() else 0x5F000000
         drawBorder(graphics, x, y, width, height, borderColor)
         graphics.fill(
             x + 1, y + 1, x + width - 1, y + height - 1,
             if (this.active) 0x7F000000.toInt() else 0x0D000000
         )
+        // Allocation marker: a strip in the category color for cards inside the wheel allocation.
+        if (allocated) {
+            graphics.fill(x + 1, y + 1, x + width - 1, y + 1 + MARKER_HEIGHT, allocationColor)
+        }
     }
 
     private fun drawBorder(ctx: GuiGraphicsExtractor, x: Int, y: Int, w: Int, h: Int, color: Int) {
@@ -297,6 +330,23 @@ class SkinCard(
         ctx.fill(x, y + h - 1, x + w, y + h, color)
         ctx.fill(x, y + 1, x + 1, y + h - 1, color)
         ctx.fill(x + w - 1, y + 1, x + w, y + h - 1, color)
+    }
+
+    private fun drawHandle(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
+        val hx = handleRect().first
+        val hy = handleRect().second
+        val hovered = mouseX >= hx - 1 && mouseX < hx + HANDLE + 1 && mouseY >= hy - 1 && mouseY < hy + HANDLE + 1
+        if (hovered) {
+            graphics.fill(hx - 1, hy - 1, hx + HANDLE + 1, hy + HANDLE + 1, 0x30FFFFFF)
+        }
+        val dotColor = 0xFFB0B8C0.toInt()
+        for (col in 0..1) {
+            for (row in 0..2) {
+                val px = hx + 3 + col * 5
+                val py = hy + 2 + row * 4
+                graphics.fill(px, py, px + 2, py + 2, dotColor)
+            }
+        }
     }
 
     //? if >=26.1 {
@@ -308,7 +358,17 @@ class SkinCard(
             cancelDeleteConfirmation()
         }
 
-        drawBackground(graphics)
+        // Clip to the grid viewport: cards sliding out never draw over the band or footer.
+        // The reorder-dragged card floats unclipped (it is drawn manually by the screen).
+        val floating = parent.reorderDraggingCard === this
+        val cTop = Math.max(y, clipTop)
+        val cBot = Math.min(y + height, clipBottom)
+        val clipped = !floating && cBot - cTop >= 8
+        if (clipped) graphics.enableScissor(x - 1, cTop, x + width + 1, cBot)
+
+        val allocationColor = parent.allocationColorFor(this)
+        drawBackground(graphics, allocationColor != null, allocationColor ?: 0)
+        drawHandle(graphics, mouseX, mouseY)
 
         for (child in cardButtons) {
             //? if >=26.1 {
@@ -321,19 +381,34 @@ class SkinCard(
         updateSpringBack()
         updateHoverAnimation(mouseX, mouseY)
 
+        val previewTop = y + HEADER_HEIGHT + 2
+        val previewBottom = y + height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 3
+        val centerY = previewCenterY()
+
+        // Position number: left flank of the preview area, vertically centered; tinted with
+        // the category color while the card sits inside the wheel allocation (single-line
+        // form: stonecutter rewrites .text(client.font, Component for <26.1).
+        graphics.text(client.font, Component.nullToEmpty((parent.indexOfCard(this) + 1).toString()), x + 5, centerY - 4, allocationColor ?: 0xFF909090.toInt())
+
         val margin = client.font.lineHeight / 2
         val nameColor = if (this.active) 0xFFFFFFFF.toInt() else 0xFF808080.toInt()
         val textWidth = client.font.width(entry.displayName)
         val textX = x + (width - textWidth) / 2
         val textY = y + margin
-        graphics.enableScissor(x + margin, textY, x + width - margin, textY + client.font.lineHeight)
-        graphics.text(client.font, Component.nullToEmpty(entry.displayName), textX, textY, nameColor)
-        graphics.disableScissor()
+        // The whole header line belongs to the name; number and handle live on the flanks.
+        val nameLeft = x + 4
+        val nameRight = x + width - 4
+        // Guard the scissor: a zero/negative-size scissor rectangle crashes MC 26.2.
+        if (nameRight - nameLeft >= 8) {
+            graphics.enableScissor(nameLeft, textY, nameRight, textY + client.font.lineHeight)
+            graphics.text(client.font, Component.nullToEmpty(entry.displayName), textX, textY, nameColor)
+            graphics.disableScissor()
+        } else {
+            graphics.text(client.font, Component.nullToEmpty(entry.displayName), textX, textY, nameColor)
+        }
 
         entry.ensureTextureLoaded()
 
-        val previewTop = y + margin + client.font.lineHeight + 2
-        val previewBottom = y + height - BUTTON_HEIGHT * 3 - BUTTON_MARGIN * 4
         val previewLeft = x + 1
         val previewRight = x + width - 1
 
@@ -350,17 +425,27 @@ class SkinCard(
                 size, skinTextures, previewYaw, previewPitch, hoverAnimFactor
             )
         }
+
+        if (clipped) graphics.disableScissor()
     }
 
     companion object {
-        private const val BUTTON_HEIGHT = 20
-        private const val BUTTON_MARGIN = 4
+        // Compact card chrome: 16px button rows, 3px margins, 14px header strip.
+        private const val BUTTON_HEIGHT = 16
+        private const val BUTTON_MARGIN = 3
 
-        // Vertical drag limit: enough to see under the chin / over the head without flipping past horizontal.
+        // Header strip (marker + number + name + handle) height in px.
+        private const val HEADER_HEIGHT = 14
+
+        // Reorder grab zones: the ⋮⋮ handle and a [FRAME_BAND] px band along the card edges.
+        private const val FRAME_BAND = 4
+        private const val HANDLE = 12
+
+        // Allocation marker strip thickness in px.
+        private const val MARKER_HEIGHT = 2
+
         private const val MAX_PITCH = 45.0F
         private const val DRAG_SENSITIVITY = 1.0F
-
-        // Higher = snappier spring-back to the initial orientation once the drag is released.
         private const val SPRING_RETURN_SPEED = 10.0F
         private const val SPRING_SNAP_EPSILON = 0.05F
     }

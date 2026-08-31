@@ -3,6 +3,9 @@ package fr.raconteur.simpleskinswapper.gui
 import com.mojang.blaze3d.platform.InputConstants
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapperClient
 import fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig
+import fr.raconteur.simpleskinswapper.gui.library.SkinCategoriesStore
+import fr.raconteur.simpleskinswapper.gui.library.SkinCategory
+import fr.raconteur.simpleskinswapper.gui.library.SkinCategoryPalette
 import fr.raconteur.simpleskinswapper.overlayMessage
 import fr.raconteur.simpleskinswapper.changeskin.SkinChange
 import fr.raconteur.simpleskinswapper.changeskin.SkinSwapperState
@@ -21,8 +24,16 @@ import org.joml.Matrix3x2f
 
 class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
 
-    private val entries: List<SkinEntry> = loadWheelEntries()
-    private val wheels: List<List<SkinEntry>> = entries.chunked(WHEEL_SIZE)
+    private val client get() = minecraft
+
+    private val byName: Map<String, SkinEntry> = SkinEntry.loadSkins().associateBy { it.file.name }
+
+    // Wheels composed from the user's categories: allocated categories in order, each
+    // contributing at most maxWheels wheels of ten. wheelCategories[w] owns wheels[w].
+    private val wheelBuild: Pair<List<List<SkinEntry>>, List<SkinCategory>> = buildWheels()
+    private val wheels: List<List<SkinEntry>> = wheelBuild.first
+    private val wheelCategories: List<SkinCategory> = wheelBuild.second
+    private val firstWheelIndexOf: Map<SkinCategory, Int> = buildFirstWheelIndex()
     private val wheelCount: Int = wheels.size
 
     // Continuous wheel position: wheelPos eases toward the integer targetPos. Both live in an
@@ -35,6 +46,10 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
     private var selectedIndex = -1
     private val hoverAnimFactors = Array(wheelCount) { FloatArray(WHEEL_SIZE) }
     private var lastHoverAnimUpdateNanos = 0L
+
+    // Hovered pagination dot index at rest, or -1; used for the tooltip and dot clicks.
+    private var hoverDot = -1
+    private val paginationDots = ArrayList<Pair<Float, Float>>()
 
     init {
         if (wheelCount > 0 && SimpleSkinSwapperConfig.get().rememberWheelPosition) {
@@ -62,10 +77,12 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
         val cx = this.width / 2.0f
         val cy = this.height / 2.0f
 
-        if (entries.isEmpty()) {
+        if (wheelCount == 0) {
+            val key = if (byName.isEmpty()) "simpleskinswapper.screen.carousel.no_skins"
+            else "simpleskinswapper.screen.wheel.empty"
             context.centeredText(
                 font,
-                Component.translatable("simpleskinswapper.screen.carousel.no_skins"),
+                Component.translatable(key),
                 cx.toInt(), cy.toInt(), COLOR_TEXT
             )
             //? if >=26.1 {
@@ -105,15 +122,32 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
             )
         }
 
-        // Pagination feedback below the wheel: dots for few wheels, a counter beyond
+        // Pagination feedback below the wheel: dots for few wheels, a counter beyond.
+        // Multi-category compositions color each dot after its owning category, and dots
+        // become clickable shortcuts to a category's first wheel.
+        hoverDot = -1
         if (atRest && wheelCount > 1) {
             val fy = cy + OUTER_RADIUS + font.lineHeight + 4
             if (wheelCount <= 9) {
                 val spacing = 12
                 val startX = cx - (wheelCount - 1) * spacing / 2.0f
+                val multiCategory = wheelCategories.distinctBy { it.name }.size > 1
+                paginationDots.clear()
                 for (d in 0..<wheelCount) {
-                    val active = d == activeWheel
-                    fillCircle(context, startX + d * spacing, fy, 2.0f, if (active) COLOR_TEXT else COLOR_PAGINATION_DIM)
+                    val dx = startX + d * spacing
+                    paginationDots.add(dx to fy)
+                    if (Math.hypot((mouseX - dx).toDouble(), (mouseY - fy).toDouble()) <= DOT_HIT_RADIUS) hoverDot = d
+                    val dotColor = when {
+                        multiCategory && d == activeWheel -> SkinCategoryPalette.parse(wheelCategories[d].colorHex)
+                        multiCategory -> (0x80 shl 24) or (SkinCategoryPalette.parse(wheelCategories[d].colorHex) and 0xFFFFFF)
+                        d == activeWheel -> COLOR_TEXT
+                        else -> COLOR_PAGINATION_DIM
+                    }
+                    fillCircle(context, dx, fy, if (d == activeWheel) 2.5f else 2.0f, dotColor)
+                }
+                if (hoverDot >= 0) {
+                    drawTooltip(context, mouseX, mouseY,
+                        Component.nullToEmpty(wheelCategories[hoverDot].name))
                 }
             } else {
                 context.centeredText(
@@ -317,6 +351,16 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
     override fun mouseClicked(click: MouseButtonEvent, doubled: Boolean): Boolean {
         // Button codes follow the platform: GLFW numbering (left=0) on <=26.2, SDL (left=1) on 26.3+.
         if (click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
+            // A pagination-dot click jumps to the dot's category instead of applying.
+            if (hoverDot >= 0) {
+                val desiredActive = firstWheelIndexOf[wheelCategories[hoverDot]] ?: return true
+                val current = Math.floorMod(Math.round(wheelPos), wheelCount)
+                var delta = desiredActive - current
+                delta = ((delta + wheelCount / 2 + wheelCount) % wheelCount) - wheelCount / 2
+                if (delta != 0) targetPos += delta
+                hoverDot = -1
+                return true
+            }
             apply()
             return true
         }
@@ -376,6 +420,41 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
         *///?}
     }
 
+    private fun buildWheels(): Pair<List<List<SkinEntry>>, List<SkinCategory>> {
+        val wheelList = ArrayList<List<SkinEntry>>()
+        val owners = ArrayList<SkinCategory>()
+        for ((category, names) in SkinCategoriesStore.wheelComposition()) {
+            for (chunk in names.chunked(WHEEL_SIZE)) {
+                val resolved = chunk.mapNotNull { byName[it] }
+                if (resolved.isNotEmpty()) {
+                    wheelList.add(resolved)
+                    owners.add(category)
+                }
+            }
+        }
+        return wheelList to owners
+    }
+
+    private fun buildFirstWheelIndex(): Map<SkinCategory, Int> {
+        val map = HashMap<SkinCategory, Int>()
+        for (w in 0..<wheelCount) {
+            map.putIfAbsent(wheelCategories[w], w)
+        }
+        return map
+    }
+
+    private fun drawTooltip(context: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, message: Component) {
+        val w = font.width(message) + 8
+        val h = font.lineHeight + 4
+        var x = mouseX + 8
+        var y = mouseY - h - 2
+        if (x + w > this.width) x = this.width - w
+        if (y < 0) y = mouseY + 12
+        context.fill(x, y, x + w, y + h, 0xF0100018.toInt())
+        context.fill(x, y, x + w, y + 1, 0xFF505068.toInt())
+        context.text(client.font, Component.nullToEmpty(message.string), x + 4, y + 2, 0xFFFFFFFF.toInt())
+    }
+
     companion object {
         private const val WHEEL_SIZE = 10
         private const val OUTER_RADIUS = 90.0f
@@ -399,6 +478,9 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
         private const val HOVER_ANIM_SPEED = 10.0F
         private const val HOVER_ANIM_SNAP_EPSILON = 0.05F
 
+        // Pagination dot hit radius in px (dots are drawn 2-2.5 px radius).
+        private const val DOT_HIT_RADIUS = 6.0
+
         // Session-scoped last active wheel, restored on open when rememberWheelPosition is enabled.
         private var lastWheelPosition = 0
 
@@ -407,11 +489,5 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
         private val COLOR_CENTER_BG = 0xBB0D1627.toInt()
         private val COLOR_TEXT = 0xFFFFFFFF.toInt()
         private val COLOR_PAGINATION_DIM = 0x60FFFFFF.toInt()
-
-        // -------------------------------------------------------------------------
-        // Data loading — reads order.txt, no writes
-        // -------------------------------------------------------------------------
-
-        private fun loadWheelEntries(): List<SkinEntry> = SkinCarouselScreen.loadOrderedEntries()
     }
 }

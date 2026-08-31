@@ -2,7 +2,7 @@ package fr.raconteur.simpleskinswapper.mixin.menu;
 
 import fr.raconteur.simpleskinswapper.config.ButtonSide;
 import fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig;
-import fr.raconteur.simpleskinswapper.gui.SkinCarouselScreen;
+import fr.raconteur.simpleskinswapper.gui.library.SkinLibraryScreen;
 import fr.raconteur.simpleskinswapper.gui.SkinPreviewButton;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.PauseScreen;
@@ -51,9 +51,9 @@ public abstract class MixinGameMenuScreen extends Screen {
                 Component.translatable("simpleskinswapper.screen.carousel.title"),
                 btn -> {
                     //? if >=26.2 {
-                    this.minecraft.gui.setScreen(new SkinCarouselScreen(self));
+                    this.minecraft.gui.setScreen(new SkinLibraryScreen(self));
                     //?} else {
-                    /*this.minecraft.setScreen(new SkinCarouselScreen(self));
+                    /*this.minecraft.setScreen(new SkinLibraryScreen(self));
                     *///?}
                 }
         ));

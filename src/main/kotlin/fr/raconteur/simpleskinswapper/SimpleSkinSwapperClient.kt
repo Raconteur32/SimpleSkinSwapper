@@ -2,7 +2,7 @@ package fr.raconteur.simpleskinswapper
 
 import com.mojang.blaze3d.platform.InputConstants
 import fr.raconteur.simpleskinswapper.changeskin.StartupSkinSync
-import fr.raconteur.simpleskinswapper.gui.SkinCarouselScreen
+import fr.raconteur.simpleskinswapper.gui.library.SkinLibraryScreen
 import fr.raconteur.simpleskinswapper.gui.SkinShuffleImporter
 import fr.raconteur.simpleskinswapper.gui.SkinWheelScreen
 import fr.raconteur.simpleskinswapper.networking.SkinShuffleCompat
@@ -59,9 +59,9 @@ class SimpleSkinSwapperClient : ClientModInitializer {
             }
             if (openCarouselKey?.consumeClick() == true) {
                 //? if >=26.2 {
-                client.gui.setScreen(SkinCarouselScreen(client.gui.screen()))
+                client.gui.setScreen(SkinLibraryScreen(client.gui.screen()))
                 //?} else {
-                /*client.setScreen(SkinCarouselScreen(client.screen))
+                /*client.setScreen(SkinLibraryScreen(client.screen))
                 *///?}
             }
             if (openWheelKey?.consumeClick() == true) {
