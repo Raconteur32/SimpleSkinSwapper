@@ -58,5 +58,9 @@
   "simpleskinswapper.screen.library.empty_category": "This category is empty — drag skins here from All skins",
   "simpleskinswapper.screen.library.delete_category_confirm": "Delete",
   "simpleskinswapper.screen.library.delete_category_question": "Delete this category? Its skins stay in the library.",
-  "simpleskinswapper.screen.wheel.empty": "No category feeds the wheel — assign wheel slots in the library"
+  "simpleskinswapper.screen.wheel.empty": "No category feeds the wheel — assign wheel slots in the library",
+  "simpleskinswapper.screen.detail.file_name": "File name",
+  "simpleskinswapper.screen.detail.display_name": "Display name",
+  "simpleskinswapper.screen.detail.delete": "Delete",
+  "simpleskinswapper.screen.detail.delete_confirm": "Confirm"
 }

@@ -89,6 +89,21 @@ object SkinCategoriesStore {
         return changed
     }
 
+    /** Renames a skin file in every category that references it, preserving order. */
+    fun renameInAll(oldFileName: String, newFileName: String) {
+        if (oldFileName == newFileName) return
+        ensureLoaded()
+        var changed = false
+        for (category in categories) {
+            val idx = category.skins.indexOf(oldFileName)
+            if (idx >= 0) {
+                category.skins[idx] = newFileName
+                changed = true
+            }
+        }
+        if (changed) save()
+    }
+
     /**
      * Wheel composition: allocated categories in order, each contributing at most
      * `maxWheels * 10` file names from its ordered list. Categories with allocation 0

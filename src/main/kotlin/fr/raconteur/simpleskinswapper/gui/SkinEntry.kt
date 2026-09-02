@@ -9,10 +9,19 @@ import java.io.File
  * Represents a skin file entry in the carousel.
  * Lazily loads the GPU texture on first render.
  */
-class SkinEntry(@JvmField val file: File) {
+class SkinEntry(@JvmField var file: File) {
 
+    /** File name without extension, used when no display name override is set. */
     @JvmField
+    val baseName: String
+
+    /** Optional user-set display name (null = show the file name). */
+    @JvmField
+    var displayNameOverride: String? = SkinNameStore.getName(file.name)
+
+    /** Name shown in the UI: the override when set, the file name otherwise. */
     val displayName: String
+        get() = displayNameOverride ?: baseName
 
     @JvmField
     var skinType: SkinType
@@ -28,9 +37,9 @@ class SkinEntry(@JvmField val file: File) {
         val detected = SkinUtils.detectSkinType(file)
         skinType = SkinTypeStore.getType(file.name, detected)
 
-        // Display name: filename without extension
+        // Base display name: filename without extension
         val name = file.name
-        displayName = if (name.endsWith(".png")) name.substring(0, name.length - 4) else name
+        baseName = if (name.endsWith(".png")) name.substring(0, name.length - 4) else name
     }
 
     /**

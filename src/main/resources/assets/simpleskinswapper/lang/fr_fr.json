@@ -58,5 +58,9 @@
   "simpleskinswapper.screen.library.empty_category": "Cette catégorie est vide — glisse des skins depuis « Tous les skins »",
   "simpleskinswapper.screen.library.delete_category_confirm": "Supprimer",
   "simpleskinswapper.screen.library.delete_category_question": "Supprimer cette catégorie ? Ses skins restent dans la bibliothèque.",
-  "simpleskinswapper.screen.wheel.empty": "Aucune catégorie n'alimente la roue — attribue des roues dans la bibliothèque"
+  "simpleskinswapper.screen.wheel.empty": "Aucune catégorie n'alimente la roue — attribue des roues dans la bibliothèque",
+  "simpleskinswapper.screen.detail.file_name": "Nom du fichier",
+  "simpleskinswapper.screen.detail.display_name": "Nom affiché",
+  "simpleskinswapper.screen.detail.delete": "Supprimer",
+  "simpleskinswapper.screen.detail.delete_confirm": "Confirmer"
 }

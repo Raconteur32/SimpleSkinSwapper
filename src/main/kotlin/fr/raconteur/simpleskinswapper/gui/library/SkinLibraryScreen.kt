@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
 import fr.raconteur.simpleskinswapper.changeskin.AccountSkinFetcher
 import fr.raconteur.simpleskinswapper.gui.EdgeSafeButtonWidget
+import fr.raconteur.simpleskinswapper.gui.SkinNameStore
 import fr.raconteur.simpleskinswapper.gui.SkinEntry
 import fr.raconteur.simpleskinswapper.gui.SkinTypeStore
 import fr.raconteur.simpleskinswapper.gui.config.YaclConfigScreen
@@ -13,8 +14,12 @@ import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.components.EditBox
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.input.MouseButtonEvent
+import net.minecraft.client.input.CharacterEvent
+import net.minecraft.client.input.KeyEvent
+import net.minecraft.client.renderer.RenderPipelines
 import net.minecraft.network.chat.CommonComponents
 import net.minecraft.network.chat.Component
+import net.minecraft.resources.Identifier
 import net.minecraft.util.Mth
 import net.minecraft.util.Util
 import org.lwjgl.system.MemoryStack
@@ -60,6 +65,10 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     // Card reorder drag (started by a card's frame/handle zone).
     internal var reorderDraggingCard: SkinLibraryCard? = null
     internal var dragRotatingCard: SkinLibraryCard? = null
+
+    // Open skin detail overlay (null = closed). Registered as a widget while open.
+    internal var detail: SkinDetailPanel? = null
+        private set
     private var reorderGrabX = 0
     private var reorderGrabY = 0
     private var reorderCursorX = 0
@@ -224,31 +233,46 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     private fun recomputeLayout() {
-        // Content starts below the import row (8..28) with a margin, and the grid always
-        // keeps a margin under whatever sits above it (import row or config band) — both
-        // the strip and the grid align on this top edge (layout_check script mirrors this).
-        gridTop = contentTop() + bandHeight() + BAND_GRID_MARGIN
+        // Constant viewport, whatever sits inside it (import row above, config band inside
+        // the page) — switching category or expanding the band never moves the layout.
+        gridTop = contentTop() + BAND_GRID_MARGIN
         gridBottom = this.height - 28
-        val panelLeft = panelX
-        val panelW = this.width - PAD - panelLeft
+        // The grid lives inside the page's baked border (8px, measured on the texture)
+        // plus a small breathing margin on every side — cards never touch the border.
+        val gridLeft = gridLeft()
+        val gridRight = gridRight()
+        val gridW = gridRight - gridLeft
         val gap = GRID_GAP
-        cols = ((panelW - gap) / (MIN_CELL_W + gap)).toInt().coerceIn(3, MAX_COLS)
-        cellW = (panelW - gap * (cols - 1)) / cols
-        cellH = Math.min(cellW * 4 / 3, gridBottom - gridTop - gap * 2).coerceAtLeast(MIN_CELL_H)
+        cols = ((gridW - gap) / (MIN_CELL_W + gap)).toInt().coerceIn(3, MAX_COLS)
+        cellW = (gridW - gap * (cols - 1)) / cols
+        val viewH = gridBottom - gridTop
+        cellH = Math.min(cellW * 4 / 3, viewH - GRID_MARGIN * 2).coerceAtLeast(MIN_CELL_H)
         val totalW = cols * cellW + gap * (cols - 1)
-        gridOffsetX = panelLeft + (panelW - totalW) / 2
+        gridOffsetX = gridLeft + (gridW - totalW) / 2
         updateMaxScroll()
     }
 
     private fun updateMaxScroll() {
+        // The config band scrolls away with the content, so it counts toward it.
+        val bandH = if (selectedCategory != null) bandHeight() + GRID_GAP else 0
         val rows = Math.ceil(cards.size / cols.toDouble()).toInt()
-        val contentH = rows * (cellH + GRID_GAP) - GRID_GAP
-        maxScroll = Math.max(0, contentH - (gridBottom - gridTop))
+        val contentH = bandH + rows * (cellH + GRID_GAP) - GRID_GAP
+        maxScroll = Math.max(0, contentH - (gridBottom - gridTop - GRID_MARGIN * 2))
     }
+
+    /** Card-area inner edges: the page's baked border plus the grid margin. The config band uses them too. */
+    private fun gridLeft(): Int = panelX - 6 + PAGE_BORDER + GRID_MARGIN
+
+    private fun gridRight(): Int = this.width - PAD - PAGE_BORDER - GRID_MARGIN
 
     private fun bandHeight(): Int = if (selectedCategory == null) 0 else if (bandExpanded) BAND_EXPANDED_H else BAND_COLLAPSED_H
 
-    private fun bandY(): Int = contentTop()
+    /** Top of the config band inside the viewport; scrolls away with the card content. */
+    private fun bandY(): Int = gridTop + GRID_MARGIN - scrollY
+
+    /** Unscrolled Y where the first grid row sits (right under the band when it is shown). */
+    private fun contentStartY(): Int =
+        gridTop + GRID_MARGIN + (if (selectedCategory != null) bandHeight() + GRID_GAP else 0)
 
     /** Import row (y=8, height 20) plus a 4px margin. */
     private fun contentTop(): Int = HEADER_Y + HEADER_HEIGHT + 4
@@ -285,6 +309,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         updateMaxScroll()
         scrollY = Mth.clamp(scrollY, 0, maxScroll)
         refreshBandWidgets()
+        rebindDetail()
     }
 
     fun indexOfCard(card: SkinLibraryCard): Int = cards.indexOf(card)
@@ -304,9 +329,51 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             return
         }
         SkinTypeStore.removeType(entry.file.name)
+        SkinNameStore.removeName(entry.file.name)
         SkinCategoriesStore.removeFromAll(entry.file.name)
         reloadView()
         rebuildCards()
+    }
+
+    /** Renames a skin file (no extension), migrating the per-file stores. */
+    fun renameEntry(entry: SkinEntry, newName: String): Boolean {
+        val sanitized = newName.replace(Regex("[^A-Za-z0-9_\\- ]"), "_").trim()
+        if (sanitized.isEmpty()) return false
+        val target = File(entry.file.parentFile, "$sanitized.png")
+        if (target.path == entry.file.path) return false
+        if (target.exists()) return false
+        val oldName = entry.file.name
+        markSelfTriggered(oldName)
+        markSelfTriggered(target.name)
+        if (!entry.file.renameTo(target)) {
+            SimpleSkinSwapper.LOGGER.warn("Could not rename skin file {}.", oldName)
+            return false
+        }
+        SkinTypeStore.renameType(oldName, target.name)
+        SkinNameStore.renameKey(oldName, target.name)
+        SkinCategoriesStore.renameInAll(oldName, target.name)
+        entry.file = target
+        entry.textureId = null
+        entry.textureLoading = false
+        reloadView()
+        rebuildCards()
+        return true
+    }
+
+    internal fun openDetail(card: SkinLibraryCard) {
+        if (detail != null) return
+        val panel = SkinDetailPanel(this)
+        panel.open(card)
+        detail = panel
+        addRenderableWidget(panel)
+    }
+
+    /** Re-points the detail panel at the fresh entry after a reload, closing it if the skin is gone. */
+    private fun rebindDetail() {
+        val d = detail ?: return
+        val name = d.entryFileName ?: return
+        val fresh = entries.firstOrNull { it.file.name == name }
+        if (fresh == null) d.close(instant = true) else d.rebind(fresh)
     }
 
     // ------------------------------------------------------------------
@@ -315,24 +382,29 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     private fun refreshBandWidgets() {
         val category = selectedCategory
-        val visible = category != null && bandExpanded
-        bandNameField.visible = visible
-        bandWheelsMinus.visible = visible
-        bandWheelsPlus.visible = visible
-        bandDeleteButton.visible = visible
-        if (category != null && visible) {
+        val by = bandY()
+        val expanded = category != null && bandExpanded
+        // Widgets follow the band's scrolled position; each hides while its row is scrolled
+        // above the viewport top (vanilla widgets render outside the card scissor, so they
+        // cannot simply be clipped).
+        bandNameField.visible = expanded && by + 24 >= gridTop
+        bandWheelsMinus.visible = expanded && by + 44 >= gridTop
+        bandWheelsPlus.visible = expanded && by + 44 >= gridTop
+        bandDeleteButton.visible = expanded && by + 44 >= gridTop
+        if (expanded) {
             // Two-column layout verified by the layout_check script: swatches left,
             // name field and wheel stepper right, delete at the far right — no overlaps.
-            val by = bandY()
+            val left = gridLeft()
+            val right = gridRight()
             val swatchW = 10 * (BAND_SWATCH_SIZE + BAND_SWATCH_GAP) - BAND_SWATCH_GAP
-            val x2 = panelX + 8 + swatchW + 12
-            val nameWidth = Math.min(BAND_NAME_WIDTH, this.width - PAD - 24 - 8 - x2)
+            val x2 = left + 8 + swatchW + 12
+            val nameWidth = Math.min(BAND_NAME_WIDTH, right - 24 - 8 - x2)
             bandNameField.setWidth(nameWidth)
             bandNameField.setX(x2); bandNameField.setY(by + 24)
             if (bandNameField.value != category.name) bandNameField.value = category.name
             bandWheelsMinus.setX(x2); bandWheelsMinus.setY(by + 44)
             bandWheelsPlus.setX(x2 + 36); bandWheelsPlus.setY(by + 44)
-            bandDeleteButton.setX(this.width - PAD - 24); bandDeleteButton.setY(by + 44)
+            bandDeleteButton.setX(right - 24); bandDeleteButton.setY(by + 44)
         }
     }
 
@@ -345,6 +417,41 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         }
     }
 
+    /** Config band body, drawn at its scrolled position (the caller clips to the viewport). */
+    private fun drawConfigBand(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
+        val category = selectedCategory ?: return
+        val by = bandY()
+        // The band spans the same inner area as the card grid (same margins to the page
+        // border) and uses the same pre-darkened sprite as idle cards, so the transparent
+        // corners stay untinted.
+        val left = gridLeft()
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, CARD_SPRITE_ACCESS, left, by, gridRight() - left, bandHeight())
+        val arrow = if (bandExpanded) "▾" else "▸"
+        val wheelsLabel = Component.translatable("simpleskinswapper.screen.library.wheels").string
+        graphics.text(client.font, Component.nullToEmpty("$arrow ${category.name} · ${entries.size} · ${category.maxWheels} $wheelsLabel"), left + 8, by + (BAND_COLLAPSED_H - font.lineHeight) / 2, 0xFFFFFFFF.toInt())
+        if (bandExpanded) {
+            // Color swatch grid (10 hues × 2 rows) at the left; controls column at the right.
+            // Geometry mirrored by the layout_check script — do not move without re-running it.
+            val categoryColor = SkinCategoryPalette.parse(category.colorHex)
+            val sx0 = left + 8
+            val sy0 = by + 24
+            for (i in SkinCategoryPalette.swatches().indices) {
+                val hue = i / 2
+                val row = i % 2
+                val sx = sx0 + hue * (BAND_SWATCH_SIZE + BAND_SWATCH_GAP)
+                val y0 = sy0 + row * (BAND_SWATCH_SIZE + BAND_SWATCH_GAP)
+                val hovered = mouseX >= sx && mouseX < sx + BAND_SWATCH_SIZE && mouseY >= y0 && mouseY < y0 + BAND_SWATCH_SIZE
+                graphics.fill(sx - 1, y0 - 1, sx + BAND_SWATCH_SIZE + 1, y0 + BAND_SWATCH_SIZE + 1,
+                    if (SkinCategoryPalette.swatches()[i] == categoryColor) 0xFFFFFFFF.toInt()
+                    else if (hovered) 0xFF606060.toInt() else 0xFF202020.toInt())
+                graphics.fill(sx, y0, sx + BAND_SWATCH_SIZE, y0 + BAND_SWATCH_SIZE, SkinCategoryPalette.swatches()[i])
+            }
+            // Wheel stepper label, right of the [-] count [+] cluster
+            val x2 = sx0 + 10 * (BAND_SWATCH_SIZE + BAND_SWATCH_GAP) - BAND_SWATCH_GAP + 12
+            graphics.text(client.font, Component.translatable("simpleskinswapper.screen.library.wheels"), x2 + 58, by + 48, 0xFFB0B8C0.toInt())
+        }
+    }
+
     // ------------------------------------------------------------------
     // Tab strip geometry
     // ------------------------------------------------------------------
@@ -353,24 +460,21 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     private fun stripBottom(): Int = this.height - 28
 
-    /** Y of tab [index]: 0 = All (pinned), i>0 = category i-1. Accounts for the insertion gap. */
+    /** Y of tab [index]: 0 = All, i>0 = category i-1. All tabs scroll alike; the insertion gap shifts later tabs. */
     private fun tabY(index: Int): Int {
-        if (index == 0) return stripTop()
-        val storeIdx = index - 1
-        var y = stripTop() + TAB_H + storeIdx * TAB_H
+        var y = stripTop() + index * TAB_H
         // The insertion gap opens after category [tabInsertionIndex], shifting later tabs down.
-        if (tabDragActive && tabInsertionIndex >= 0 && storeIdx >= tabInsertionIndex) y += TAB_H
+        if (tabDragActive && tabInsertionIndex >= 0 && index >= tabInsertionIndex + 1) y += TAB_H
         return y - tabScroll.toInt()
     }
     private fun maxTabScroll(): Int =
-        Math.max(0, SkinCategoriesStore.all().size * TAB_H - (stripBottom() - stripTop() - TAB_H))
+        Math.max(0, (SkinCategoriesStore.all().size + 1) * TAB_H - (stripBottom() - stripTop()))
 
     /** Tab under the cursor, accounting for the insertion gap; null when none. 0 = All, i>0 = category i-1. */
     private fun tabAt(cursorY: Int, cursorX: Int): Int? {
         if (cursorX < STRIP_X || cursorX > STRIP_X + TAB_W + 4) return null
         if (cursorY < stripTop() || cursorY > stripBottom()) return null
-        if (cursorY < stripTop() + TAB_H) return 0
-        for (i in 1..SkinCategoriesStore.all().size) {
+        for (i in 0..SkinCategoriesStore.all().size) {
             val top = tabY(i)
             if (cursorY >= top && cursorY < top + TAB_H) return i
         }
@@ -388,39 +492,32 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     *///?}
         graphics.fill(0, 0, this.width, this.height, 0x66000000)
 
-        updateTabAutoScroll(mouseY)
-
-        // Config band background (behind its widgets, which render via super).
-        val category = selectedCategory
-        if (category != null) {
-            val by = bandY()
-            val bh = bandHeight()
-            graphics.fill(panelX, by, this.width - PAD, by + bh, 0x50101826)
-            val arrow = if (bandExpanded) "▾" else "▸"
-            val wheelsLabel = Component.translatable("simpleskinswapper.screen.library.wheels").string
-            graphics.text(client.font, Component.nullToEmpty("$arrow ${category.name} · ${entries.size} · ${category.maxWheels} $wheelsLabel"), panelX + 8, by + (BAND_COLLAPSED_H - font.lineHeight) / 2, 0xFFFFFFFF.toInt())
-            if (bandExpanded) {
-                // Color swatch grid (10 hues × 2 rows) at the left; controls column at the right.
-                // Geometry mirrored by the layout_check script — do not move without re-running it.
-                val categoryColor = SkinCategoryPalette.parse(category.colorHex)
-                val sx0 = panelX + 8
-                val sy0 = by + 24
-                for (i in SkinCategoryPalette.swatches().indices) {
-                    val hue = i / 2
-                    val row = i % 2
-                    val sx = sx0 + hue * (BAND_SWATCH_SIZE + BAND_SWATCH_GAP)
-                    val y0 = sy0 + row * (BAND_SWATCH_SIZE + BAND_SWATCH_GAP)
-                    val hovered = mouseX >= sx && mouseX < sx + BAND_SWATCH_SIZE && mouseY >= y0 && mouseY < y0 + BAND_SWATCH_SIZE
-                    graphics.fill(sx - 1, y0 - 1, sx + BAND_SWATCH_SIZE + 1, y0 + BAND_SWATCH_SIZE + 1,
-                        if (SkinCategoryPalette.swatches()[i] == categoryColor) 0xFFFFFFFF.toInt()
-                        else if (hovered) 0xFF606060.toInt() else 0xFF202020.toInt())
-                    graphics.fill(sx, y0, sx + BAND_SWATCH_SIZE, y0 + BAND_SWATCH_SIZE, SkinCategoryPalette.swatches()[i])
-                }
-                // Wheel stepper label, right of the [-] count [+] cluster
-                val x2 = sx0 + 10 * (BAND_SWATCH_SIZE + BAND_SWATCH_GAP) - BAND_SWATCH_GAP + 12
-                graphics.text(client.font, Component.translatable("simpleskinswapper.screen.library.wheels"), x2 + 58, by + 48, 0xFFB0B8C0.toInt())
-            }
+        // Fully-closed detail panels are unregistered outside of their own render pass.
+        if (detail?.isRemovePending == true) {
+            val d = detail!!
+            detail = null
+            removeWidget(d)
         }
+
+        updateTabAutoScroll(mouseY)
+        // Tab strip background + unselected tabs first: they pass under the grid page.
+        drawTabStripUnder(graphics, mouseX, mouseY)
+
+        // Book-style page panel behind the card grid (the "main page" surface), on top of the
+        // strip background, vanilla recipe-book style.
+        drawPagePanel(graphics, panelX - 6, gridTop - PAGE_BORDER, this.width - PAD - panelX + 6, gridBottom - gridTop + PAGE_BORDER * 2)
+
+        // Config band, inside the viewport: scrolls away with the content like a card row,
+        // clipped by the same page-inner rect as the cards.
+        if (selectedCategory != null) {
+            graphics.enableScissor(panelX - 6 + PAGE_BORDER, gridTop, this.width - PAD - PAGE_BORDER, gridBottom)
+            drawConfigBand(graphics, mouseX, mouseY)
+            graphics.disableScissor()
+        }
+
+        // Position + viewport-clip every card BEFORE rendering them (inside super), so the
+        // scissors and slots are never a frame behind the cursor.
+        updateCardPositions(mouseX, mouseY)
 
         //? if >=26.1 {
         super.extractRenderState(graphics, mouseX, mouseY, delta)
@@ -428,73 +525,101 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         /*super.render(graphics, mouseX, mouseY, delta)
         *///?}
 
-        updateCardPositions(mouseX, mouseY)
+        // While the detail overlay is open, the base screen stays static underneath:
+        // no tab/selection chrome may draw over it (the panel renders itself via super).
+        if (detail == null) {
+            // Selected tab sticks out over the page edge, above the cards zone.
+            drawTabStripOver(graphics, mouseX, mouseY)
 
-        drawTabStrip(graphics, mouseX, mouseY)
-
-        // "Reorder-dragged" card floats above everything else.
-        val dragged = reorderDraggingCard
-        if (dragged != null) {
-            //? if >=26.1 {
-            dragged.extractRenderState(graphics, mouseX, mouseY, delta)
-            //?} else {
-            /*dragged.render(graphics, mouseX, mouseY, delta)
-            *///?}
-        }
-
-        // Title, top-left, on the same text line as the header buttons (vanilla centers
-        // button labels at y + (height-8)/2 — same formula here for optical alignment).
-        graphics.text(client.font, Component.translatable("simpleskinswapper.title"), STRIP_X, HEADER_Y + (HEADER_HEIGHT - 8) / 2, 0xFFFFFFFF.toInt())
-
-        if (cards.isEmpty()) {
-            val messageKey = if (selectedCategory == null) {
-                "simpleskinswapper.screen.carousel.no_skins"
-            } else {
-                "simpleskinswapper.screen.library.empty_category"
+            // "Reorder-dragged" card floats above everything else.
+            val dragged = reorderDraggingCard
+            if (dragged != null) {
+                //? if >=26.1 {
+                dragged.extractRenderState(graphics, mouseX, mouseY, delta)
+                //?} else {
+                /*dragged.render(graphics, mouseX, mouseY, delta)
+                *///?}
             }
-            graphics.centeredText(
-                font, Component.translatable(messageKey),
-                (panelX + this.width - PAD) / 2, (gridTop + gridBottom) / 2 - font.lineHeight / 2, 0xFFAAAAAA.toInt()
-            )
-        }
 
-        if (confirmingCategoryDelete) {
-            drawCategoryDeleteOverlay(graphics, mouseX, mouseY, delta)
-        }
+            // Title, top-left, on the same text line as the header buttons (vanilla centers
+            // button labels at y + (height-8)/2 — same formula here for optical alignment).
+            graphics.text(client.font, Component.translatable("simpleskinswapper.title"), STRIP_X, HEADER_Y + (HEADER_HEIGHT - 8) / 2, 0xFFFFFFFF.toInt())
 
-        // Tooltip for hovered tab
-        if (tabDragCategoryIndex == -1 && reorderDraggingCard == null && !confirmingCategoryDelete) {
-            val tab = tabAt(mouseY, mouseX)
-            if (tab != null) {
-                val label = if (tab == 0) Component.translatable("simpleskinswapper.screen.library.all_skins")
-                else Component.nullToEmpty(SkinCategoriesStore.all()[tab - 1].name)
-                drawTooltip(graphics, mouseX, mouseY, label)
+            if (cards.isEmpty()) {
+                val messageKey = if (selectedCategory == null) {
+                    "simpleskinswapper.screen.carousel.no_skins"
+                } else {
+                    "simpleskinswapper.screen.library.empty_category"
+                }
+                graphics.centeredText(
+                    font, Component.translatable(messageKey),
+                    (panelX + this.width - PAD) / 2, (gridTop + gridBottom) / 2 - font.lineHeight / 2, 0xFFAAAAAA.toInt()
+                )
+            }
+
+            if (confirmingCategoryDelete) {
+                drawCategoryDeleteOverlay(graphics, mouseX, mouseY, delta)
+            }
+
+            // Tooltip for hovered tab
+            if (tabDragCategoryIndex == -1 && reorderDraggingCard == null && !confirmingCategoryDelete) {
+                val tab = tabAt(mouseY, mouseX)
+                if (tab != null) {
+                    val label = if (tab == 0) Component.translatable("simpleskinswapper.screen.library.all_skins")
+                    else Component.nullToEmpty(SkinCategoriesStore.all()[tab - 1].name)
+                    drawTooltip(graphics, mouseX, mouseY, label)
+                }
             }
         }
     }
 
-    private fun drawTabStrip(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
+    /** Tab strip background + unselected tabs, drawn before the grid page so they pass under it. */
+    private fun drawTabStripUnder(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
         val top = stripTop()
         val bottom = stripBottom()
-        graphics.fill(STRIP_X - 2, top, STRIP_X + TAB_W + 2, bottom, 0x40101420)
 
-        graphics.enableScissor(STRIP_X - 2, top, STRIP_X + TAB_W + 2, bottom)
-        // All skins tab (pinned)
-        drawTab(graphics, 0, tabY(0), mouseX, mouseY)
-        // Category tabs
-        for (i in 1..SkinCategoriesStore.all().size) {
+        // Tab zone background: the recipe-book frame sprite, darkened, its left border bleeding
+        // off the screen edge and its right side sliding underneath the grid page.
+        drawBookPanel(graphics, -PANEL_BLEED, top, STRIP_X + TAB_W + 2 + PANEL_BLEED + 8, bottom - top, lit = false)
+
+        // Unselected tabs, clipped to the strip — All Skins is a tab like the others.
+        graphics.enableScissor(STRIP_X, top, STRIP_X + TAB_W + 2, bottom)
+        for (i in 0..SkinCategoriesStore.all().size) {
             val y = tabY(i)
             if (y + TAB_H < top || y > bottom) continue
+            if (isSelectedTab(i)) continue
             drawTab(graphics, i, y, mouseX, mouseY)
         }
         graphics.disableScissor()
+    }
 
-        // Dragged tab follows the cursor vertically, semi-transparent.
+    /** Selected + dragged tab and the insertion line, drawn after the grid page so they overlap it. */
+    private fun drawTabStripOver(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
+        val top = stripTop()
+        val bottom = stripBottom()
+
+        // Selected tab: full-color book panel, flush left, its right edge tucking slightly under
+        // the grid page border. Clipped vertically to the strip so it scrolls away like the
+        // other tabs, while still overflowing to the right over the page.
+        val selected = selectedTabIndex()
+        if (selected >= 0) {
+            val y = tabY(selected)
+            if (y + TAB_H >= top && y <= bottom) {
+                graphics.enableScissor(-PANEL_BLEED, top, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT, bottom)
+                drawBookPanel(graphics, -PANEL_BLEED, y, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT + PANEL_BLEED, TAB_H, lit = true)
+                drawTabContent(graphics, selected, y)
+                graphics.disableScissor()
+            }
+        }
+
+        // Dragged tab follows the cursor vertically as a floating full-color panel,
+        // clipped to the strip zone the same way.
         if (tabDragActive && tabDragCategoryIndex > 0) {
-            val category = SkinCategoriesStore.all()[tabDragCategoryIndex - 1]
-            val y = (tabDragCursorY - TAB_H / 2).coerceAtLeast(top)
-            graphics.fill(STRIP_X, y, STRIP_X + TAB_W, y + TAB_H, 0xB02B5F9E.toInt())
-            drawCategoryTabContent(graphics, category, y, 0xB0 shl 24)
+            val y = (tabDragCursorY - TAB_H / 2).coerceIn(top, bottom - TAB_H)
+            graphics.enableScissor(-PANEL_BLEED, top, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT, bottom)
+            drawBookPanel(graphics, -PANEL_BLEED, y, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT + PANEL_BLEED, TAB_H, lit = true)
+            drawTabContent(graphics, tabDragCategoryIndex, y)
+            graphics.disableScissor()
         }
         // Insertion line: after [tabInsertionIndex] categories (pre-removal space).
         if (tabDragActive && tabInsertionIndex >= 0) {
@@ -505,15 +630,24 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         }
     }
 
+    private fun isSelectedTab(index: Int): Boolean =
+        if (index == 0) selectedCategory == null else selectedCategory === SkinCategoriesStore.all().getOrNull(index - 1)
+
+    private fun selectedTabIndex(): Int {
+        val category = selectedCategory ?: return 0
+        val idx = SkinCategoriesStore.all().indexOf(category)
+        return if (idx >= 0) idx + 1 else -1
+    }
+
     private fun drawTab(graphics: GuiGraphicsExtractor, index: Int, y: Int, mouseX: Int, mouseY: Int) {
-        val isSelected = if (index == 0) selectedCategory == null else selectedCategory === SkinCategoriesStore.all().getOrNull(index - 1)
         val hovered = mouseX >= STRIP_X && mouseX < STRIP_X + TAB_W && mouseY >= y && mouseY < y + TAB_H
-        val fill = when {
-            isSelected -> 0xEE2B5F9E.toInt()
-            hovered -> 0x802B5F9E.toInt()
-            else -> 0x661A2535.toInt()
+        if (hovered) {
+            graphics.fill(STRIP_X, y, STRIP_X + TAB_W, y + TAB_H, 0x30FFFFFF)
         }
-        graphics.fill(STRIP_X, y, STRIP_X + TAB_W, y + TAB_H, fill)
+        drawTabContent(graphics, index, y)
+    }
+
+    private fun drawTabContent(graphics: GuiGraphicsExtractor, index: Int, y: Int) {
         val label = if (index == 0) Component.translatable("simpleskinswapper.screen.library.all_skins")
         else Component.nullToEmpty(SkinCategoriesStore.all().getOrNull(index - 1)?.name ?: "")
         val nameX = if (index == 0) STRIP_X + 6 else STRIP_X + 16
@@ -534,23 +668,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                 val y0 = textY + (font.lineHeight - s) / 2
                 graphics.fill(x0, y0, x0 + s, y0 + s, SkinCategoryPalette.parse(it.colorHex))
             }
-        }
-    }
-
-    private fun drawCategoryTabContent(graphics: GuiGraphicsExtractor, category: SkinCategory, y: Int, alphaOverride: Int) {
-        val baseColor = SkinCategoryPalette.parse(category.colorHex)
-        val color = if (alphaOverride != -1) (alphaOverride and 0xFF shl 24) or (baseColor and 0xFFFFFF) else baseColor
-        val s = 8
-        val x0 = STRIP_X + 4
-        val textY = y + (TAB_H - font.lineHeight) / 2
-        val y0 = textY + (font.lineHeight - s) / 2
-        graphics.fill(x0, y0, x0 + s, y0 + s, color)
-        val textX = x0 + s + 4
-        val nameRight = STRIP_X + TAB_W - 3
-        if (nameRight - textX >= 8) {
-            graphics.enableScissor(textX, y + 2, nameRight, y + TAB_H - 2)
-            graphics.text(client.font, Component.nullToEmpty(category.name), textX, textY, 0xFFFFFFFF.toInt())
-            graphics.disableScissor()
         }
     }
 
@@ -611,6 +728,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     // ------------------------------------------------------------------
 
     private fun updateCardPositions(mouseX: Int, mouseY: Int) {
+        // Band widgets track the scrolled band position every frame.
+        refreshBandWidgets()
+
         val dragged = reorderDraggingCard
         val dragIndex = dragged?.let { cards.indexOf(it) } ?: -1
         insertionIndex = computeInsertionIndex(mouseX, mouseY)
@@ -624,11 +744,13 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             val slot = slotFor(i, dragIndex)
             if (card === dragged) {
                 card.overridePosition(reorderCursorX - reorderGrabX, reorderCursorY - reorderGrabY)
-                card.visible = true
                 continue
             }
-            // Keep the card's visible/clickable bounds inside the grid viewport.
+            // Every card renders through the same fixed viewport scissor: cards sliding in
+            // and out are smoothly half-clipped by the page border instead of popping.
+            card.clipLeft = panelX - 6 + PAGE_BORDER
             card.clipTop = gridTop
+            card.clipRight = this.width - PAD - PAGE_BORDER
             card.clipBottom = gridBottom
             val display = cardDisplay.getOrPut(card) { FloatArray(2) }
             if (display[0] == 0.0F && display[1] == 0.0F && card.x == 0 && card.y == 0) {
@@ -642,8 +764,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                 display[1] = slot.second.toFloat()
             }
             card.overridePosition(Math.round(display[0]), Math.round(display[1]))
-            val visible = display[1] + cellH > gridTop && display[1] < gridBottom
-            card.visible = visible
         }
         lastCardEaseNanos = now
     }
@@ -655,7 +775,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         if (dragIndex >= 0 && insertionIndex >= 0 && displayIndex >= insertionIndex) displayIndex++
         val col = displayIndex % cols
         val row = displayIndex / cols
-        return (gridOffsetX + col * (cellW + GRID_GAP)) to (gridTop - scrollY + row * (cellH + GRID_GAP))
+        return (gridOffsetX + col * (cellW + GRID_GAP)) to (contentStartY() - scrollY + row * (cellH + GRID_GAP))
     }
 
     /** Insertion index from the cursor in reading order, refined by which half of the cell is hovered. */
@@ -663,7 +783,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         if (reorderDraggingCard == null) return -1
         if (mouseX < gridOffsetX || mouseY < gridTop || mouseY > gridBottom) return -1
         val relCol = (mouseX - gridOffsetX) / (cellW + GRID_GAP)
-        val relRow = (mouseY - gridTop + scrollY) / (cellH + GRID_GAP)
+        val relRow = (mouseY - contentStartY() + scrollY) / (cellH + GRID_GAP)
         if (relCol < 0 || relCol >= cols || relRow < 0) return -1
         val count = cards.size - if (reorderDraggingCard != null) 1 else 0
         var idx = relRow * cols + relCol
@@ -756,7 +876,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         val count = SkinCategoriesStore.all().size
         var p = count
         for (storeIdx in 0 until count) {
-            val yTop = stripTop() + TAB_H + storeIdx * TAB_H - tabScroll.toInt()
+            val yTop = stripTop() + (storeIdx + 1) * TAB_H - tabScroll.toInt()
             if (tabDragCursorY < yTop + TAB_H / 2) {
                 p = storeIdx
                 break
@@ -770,6 +890,11 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     // ------------------------------------------------------------------
 
     override fun mouseClicked(click: MouseButtonEvent, doubled: Boolean): Boolean {
+        detail?.let { d ->
+            val handled = d.mouseClicked(click, doubled)
+            if (handled) setFocused(d)
+            return handled
+        }
         val mx = click.x().toInt()
         val my = click.y().toInt()
 
@@ -793,8 +918,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // Category band: clicking the collapsed bar toggles expansion (this branch must run
         // whether or not the band is already expanded — it used to be gated on bandExpanded,
         // which made the band impossible to open). Swatches live below the bar and are only
-        // hit-tested while expanded.
-        if (selectedCategory != null && my >= bandY() && my < bandY() + BAND_COLLAPSED_H && mx >= panelX) {
+        // hit-tested while expanded. The part of the band scrolled above the viewport top
+        // is not clickable (my >= gridTop), matching its clipped rendering.
+        if (selectedCategory != null && my >= gridTop && my >= bandY() && my < bandY() + BAND_COLLAPSED_H && mx >= gridLeft()) {
             bandExpanded = !bandExpanded
             refreshBandWidgets()
             recomputeLayout()
@@ -819,8 +945,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     private fun swatchAt(mx: Int, my: Int): Int? {
         val by = bandY()
-        if (!bandExpanded || selectedCategory == null) return null
-        val x0 = panelX + 8
+        if (!bandExpanded || selectedCategory == null || my < gridTop) return null
+        val x0 = gridLeft() + 8
         val y0 = by + 24
         if (mx < x0 || my < y0) return null
         val hue = (mx - x0) / (BAND_SWATCH_SIZE + BAND_SWATCH_GAP)
@@ -850,6 +976,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     override fun mouseDragged(click: MouseButtonEvent, offsetX: Double, offsetY: Double): Boolean {
+        detail?.let { return it.mouseDragged(click, offsetX, offsetY) }
         val mx = click.x().toInt()
         val my = click.y().toInt()
         if (tabDragCategoryIndex > 0 && click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
@@ -871,6 +998,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     override fun mouseReleased(click: MouseButtonEvent): Boolean {
+        detail?.let { return it.mouseReleased(click) }
         val mx = click.x().toInt()
         val my = click.y().toInt()
         if (tabDragCategoryIndex >= 0 && click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
@@ -901,14 +1029,25 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     override fun mouseScrolled(mouseX: Double, mouseY: Double, hozAmount: Double, vertAmount: Double): Boolean {
+        detail?.let { return it.mouseScrolled(mouseX, mouseY, hozAmount, vertAmount) }
         val mx = mouseX.toInt()
         val my = mouseY.toInt()
-        if (mx < STRIP_X + TAB_W + 4 && my >= stripTop() && my <= stripBottom()) {
+        if (mx < STRIP_X + TAB_W + TAB_SELECTED_STICKOUT && my >= stripTop() && my <= stripBottom()) {
             tabScroll = Mth.clamp(tabScroll - vertAmount.toFloat() * TAB_H, 0.0F, maxTabScroll().toFloat())
             return true
         }
         scrollY = Mth.clamp(scrollY - (vertAmount * (cellH + GRID_GAP)).toInt(), 0, maxScroll)
         return true
+    }
+
+    override fun keyPressed(event: KeyEvent): Boolean {
+        detail?.let { return it.keyPressed(event) }
+        return super.keyPressed(event)
+    }
+
+    override fun charTyped(event: CharacterEvent): Boolean {
+        detail?.let { return it.charTyped(event) }
+        return super.charTyped(event)
     }
 
     // ------------------------------------------------------------------
@@ -1102,9 +1241,22 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         private const val TAB_H = 28
         private const val TAB_DRAG_THRESHOLD = 5.0
 
+        // How far the selected tab's panel tucks under the grid page border (its right edge is
+        // this many px past the tab column).
+        private const val TAB_SELECTED_STICKOUT = 6
+
+        // Left offset the tab panels are drawn from, so their left border sits off-screen
+        // (the overlay_recipe nine-slice border is 4px).
+        private const val PANEL_BLEED = 4
+
         private const val GRID_GAP = 6
         private const val MIN_CELL_W = 64.0
         private const val MAX_COLS = 10
+
+        // Thickness of the page texture's baked border (measured: 8px of bevel on every side).
+        // The card viewport is the page rect inset by this; the grid adds a small margin inside.
+        private const val PAGE_BORDER = 8
+        private const val GRID_MARGIN = 4
         private const val MIN_CELL_H = 56
 
         private const val BAND_COLLAPSED_H = 18
@@ -1121,6 +1273,41 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         private const val MAX_TABS_PER_SEC = 2.0F
 
         private var lastCardEaseNanos = 0L
+
+        // ------------------------------------------------------------------
+        // Vanilla recipe-book textures (same blit signature on 1.21.11 and 26.x)
+        // ------------------------------------------------------------------
+
+        // The recipe hover-highlight frame, in the GUI atlas with a nine_slice mcmeta
+        // (32x32, border 4): blitSprite stretches it as a panel on its own.
+        internal val PANEL_SPRITE_ACCESS = Identifier.withDefaultNamespace("recipe_book/overlay_recipe")
+
+        // The book page panel, cropped from gui/recipe_book.png with the search icon erased
+        // (nine_slice mcmeta, border 8) — the main grid page surface.
+        private val PAGE_SPRITE = Identifier.fromNamespaceAndPath("simpleskinswapper", "library/page")
+
+        // Idle card frame: the tab-zone sprite with its darkening baked in per pixel, so the
+        // transparent corners stay transparent (a flat fill would tint them).
+        internal val CARD_SPRITE_ACCESS = Identifier.fromNamespaceAndPath("simpleskinswapper", "library/card")
+
+        /** The recipe-book frame sprite as a panel: full color when lit, darkened otherwise. */
+        private fun drawBookPanel(graphics: GuiGraphicsExtractor, x: Int, y: Int, w: Int, h: Int, lit: Boolean) {
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, PANEL_SPRITE_ACCESS, x, y, w, h)
+            if (!lit) graphics.fill(x, y, x + w, y + h, 0x66000000)
+        }
+
+        /** The main grid page: the custom book-page texture (no search icon), full color. */
+        private fun drawPagePanel(graphics: GuiGraphicsExtractor, x: Int, y: Int, w: Int, h: Int) {
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, PAGE_SPRITE, x, y, w, h)
+        }
+
+        /** The clickable-recipe frame wrapped around a skin card (highlight variant on hover). */
+        internal fun drawCardFrame(graphics: GuiGraphicsExtractor, x: Int, y: Int, w: Int, h: Int, hovered: Boolean) {
+            // Idle: the dedicated darkened sprite (grayscale of the tab-zone look, transparent
+            // corners preserved). Hovered: the full-color sprite, like a selected tab.
+            val sprite = if (hovered) PANEL_SPRITE_ACCESS else CARD_SPRITE_ACCESS
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x, y, w, h)
+        }
 
         // Vanilla EditBox default text color; restored after the invalid-account error flash.
         private val DEFAULT_TEXT_COLOR = 0xFFE0E0E0.toInt()

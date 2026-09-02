@@ -8,68 +8,61 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 
-object SkinTypeStore {
+/** Persists per-skin display names (skins/names.json, filename -> display name). */
+object SkinNameStore {
 
     private val GSON = GsonBuilder().setPrettyPrinting().create()
     private val MAP_TYPE = object : TypeToken<Map<String, String>>() {}.type
 
-    private fun typesFile(): Path =
-        FabricLoader.getInstance().gameDir.resolve("skins").resolve("types.json")
+    private fun namesFile(): Path =
+        FabricLoader.getInstance().gameDir.resolve("skins").resolve("names.json")
 
     private fun load(): MutableMap<String, String> {
-        val path = typesFile()
+        val path = namesFile()
         if (!Files.exists(path)) return HashMap()
         return try {
             val json = Files.readString(path)
             GSON.fromJson<MutableMap<String, String>>(json, MAP_TYPE) ?: HashMap()
         } catch (e: IOException) {
-            SimpleSkinSwapper.LOGGER.warn("Could not read types.json: {}", e.message)
+            SimpleSkinSwapper.LOGGER.warn("Could not read names.json: {}", e.message)
             HashMap()
         }
     }
 
     private fun save(map: Map<String, String>) {
-        val path = typesFile()
+        val path = namesFile()
         try {
             Files.createDirectories(path.parent)
             Files.writeString(path, GSON.toJson(map))
         } catch (e: IOException) {
-            SimpleSkinSwapper.LOGGER.warn("Could not write types.json: {}", e.message)
+            SimpleSkinSwapper.LOGGER.warn("Could not write names.json: {}", e.message)
         }
     }
 
-    /** Returns the stored type for a skin file, falling back to the auto-detected one. */
+    /** Returns the stored display name for a skin file, or null when it uses its file name. */
     @JvmStatic
-    fun getType(filename: String, detected: SkinType): SkinType {
-        val stored = load()[filename]
-        if (stored == null) {
-            // First access: persist the detected value
-            setType(filename, detected)
-            return detected
-        }
-        return if (stored == "slim") SkinType.SLIM else SkinType.CLASSIC
-    }
+    fun getName(filename: String): String? = load()[filename]
 
-    /** Stores the user-chosen type for a skin file. */
+    /** Stores the display name for a skin file; a blank name removes the override. */
     @JvmStatic
-    fun setType(filename: String, type: SkinType) {
+    fun setName(filename: String, name: String) {
         val map = load()
-        map[filename] = type.mojangVariant
+        if (name.isBlank()) map.remove(filename) else map[filename] = name
         save(map)
     }
 
-    /** Removes the stored type for a skin file, e.g. when the file is deleted. */
+    /** Removes the stored name for a skin file, e.g. when the file is deleted. */
     @JvmStatic
-    fun removeType(filename: String) {
+    fun removeName(filename: String) {
         val map = load()
         if (map.remove(filename) != null) {
             save(map)
         }
     }
 
-    /** Moves a stored type from the old file name to the new one after a file rename. */
+    /** Moves a stored name from the old file name to the new one after a file rename. */
     @JvmStatic
-    fun renameType(oldFilename: String, newFilename: String) {
+    fun renameKey(oldFilename: String, newFilename: String) {
         if (oldFilename == newFilename) return
         val map = load()
         val value = map.remove(oldFilename) ?: return

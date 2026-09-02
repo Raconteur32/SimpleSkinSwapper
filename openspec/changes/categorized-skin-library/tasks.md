@@ -7,7 +7,7 @@
 
 ## 2. Library screen shell
 
-- [x] 2.1 Create `SkinLibraryScreen` replacing `SkinCarouselScreen` (file deleted, open hooks updated): left tab strip (pinned "All skins" + category tabs in order, click/right-click select, tooltip, selected style), grid panel, footer/header with import file, import account, delete entry, Done. Verify: opens from the existing entry points on 26.3, tabs switch views, import/delete flows work.
+- [x] 2.1 Create `SkinLibraryScreen` replacing `SkinCarouselScreen` (file deleted, open hooks updated): left tab strip (an "All skins" tab first, scrolling like the others + category tabs in order, click/right-click select, tooltip, selected style), grid panel, footer/header with import file, import account, delete entry, Done. Verify: opens from the existing entry points on 26.3, tabs switch views, import/delete flows work.
 - [x] 2.2 Implement the grid layout pure function + rendering: columns clamp 3..8 by panel width, portrait cells centered, reading order left→right/top→bottom, vertical scroll one row per wheel notch with clamp, per-frame culling of fully invisible cards. Verify: order matches category list, culling does not crash at panel edges, wheel scrolls by row.
 - [x] 2.3 GUI scale adaptation: strip/grid/band/footer fit at small logical resolutions with minimum sizes; preferred layout unchanged at common scales. Verify: 960×540 unchanged look, ~480×270 usable without overlap.
 
@@ -21,7 +21,7 @@
 ## 4. Tab drag & category config
 
 - [x] 4.1 Tab drag reorder: 5 px click-vs-drag threshold, insertion gap between remaining tabs, edge auto-scroll (16 px band, linear ramp, ~2 tabs/s max) with continuously recomputed insertion index; persist category order on drop. Verify: reorder persists; overflowing strip auto-scrolls both directions; click still selects.
-- [x] 4.2 Config band above the grid for a selected category (collapsed by default, one open at a time, none on All skins): 10×2 palette swatches, allocation stepper including 0, EditBox rename, delete with confirmation prompt (skins become uncategorized); write-through on each change; band stays open while its tab is dragged. Verify: all four controls mutate store + UI live; prompt blocks deletion until confirmed.
+- [x] 4.2 Config band inside the card zone for a selected category — scrolls away with the content, pushes the grid when expanded (collapsed by default, one open at a time, none on All skins; constant screen layout): 10×2 palette swatches, allocation stepper including 0, EditBox rename, delete with confirmation prompt (skins become uncategorized); write-through on each change; band stays open while its tab is dragged. Verify: all four controls mutate store + UI live; prompt blocks deletion until confirmed.
 
 ## 5. Wheel integration
 
@@ -32,3 +32,12 @@
 
 - [x] 6.1 Full build all four versions (1.21.11, 26.1.2, 26.2, 26.3), zero warnings; stonecutter guards reviewed on touched files. Verify: `./gradlew build` clean.
 - [ ] 6.2 Manual pass in game (user-run): library navigation, drags (rotate/reorder/cross-category/tab), config band, wheel composition + colored dots, restart persistence. Verify: checklist against the spec scenarios.
+
+## 7. Skin detail overlay
+
+- [x] 7.1 Plain card click scales the card up (animated rect lerp, ~0.15 s) into a large panel inset 24 px from every screen edge; base screen stays visible around it; clicking outside the panel or ESC closes it (animated shrink). Verify: open/close from several cards; base screen visible on all four sides.
+- [x] 7.2 Detail layout: bulk skin preview on the right (drag to rotate), thin vertical separator in the middle, management controls on the left. Verify: zones never overlap at min window size.
+- [x] 7.3 File rename field (sanitized, committed on Enter/blur/click-away, stores migrated: types.json, names.json, categories.json; texture reloaded; detail re-bound to the fresh entry). Verify: rename persists on disk and after restart; old name gone from all stores.
+- [x] 7.4 Display name field defaulting to the file name; a set value replaces the file name in the card preview and wheel labels; clearing it restores the file name (skins/names.json). Verify: live card label update in both directions.
+- [x] 7.5 Wide/Slim switch built from the library sprites: thin darkened-card body (shorter than the knob, barely longer), full-color overlay square knob sliding over the active side's head (Steve left / Alex right); persists via types.json. Verify: toggle persists; knob side matches applied model.
+- [x] 7.6 Two-step Delete button (arm then confirm) deleting the file and cleaning all stores; closes the overlay. Verify: file gone, stores cleaned, grid updates.

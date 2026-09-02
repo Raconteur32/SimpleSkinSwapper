@@ -2,14 +2,14 @@
 
 ## ADDED Requirements
 
-### Requirement: The library screen shows a vertical category tab strip with a pinned All skins tab
+### Requirement: The library screen shows a vertical category tab strip with an All skins tab
 
-The library screen SHALL display a vertical tab strip on the left side of the window. The strip SHALL always show an "All skins" tab pinned at the top that lists every skin in the skins folder, followed by one tab per category in category order. Clicking a tab SHALL select it; right-clicking a tab SHALL also select it; hovering a tab SHALL show its name as a tooltip. The selected tab SHALL be visually distinct from the others.
+The library screen SHALL display a vertical tab strip on the left side of the window. The strip SHALL show an "All skins" tab as the first tab — a tab like the others: it scrolls with the strip and is never pinned to the screen — listing every skin in the skins folder with no configuration band, followed by one tab per category in category order. Clicking a tab SHALL select it; right-clicking a tab SHALL also select it; hovering a tab SHALL show its name as a tooltip. The selected tab SHALL be visually distinct from the others and SHALL be clipped to the strip zone when scrolled out of it.
 
 #### Scenario: All skins is always first
 
 - **WHEN** the library opens with any number of categories
-- **THEN** the "All skins" tab appears above all category tabs and cannot be reordered or removed
+- **THEN** the "All skins" tab appears before all category tabs in reading order and cannot be reordered or removed
 
 #### Scenario: Selection by right click
 
@@ -19,7 +19,7 @@ The library screen SHALL display a vertical tab strip on the left side of the wi
 #### Scenario: Tab strip overflows
 
 - **WHEN** there are more categories than fit vertically in the strip
-- **THEN** the strip scrolls (wheel over the strip) so every category tab remains reachable, while the All skins tab stays pinned
+- **THEN** the strip scrolls (wheel over the strip) so every tab, All skins included, remains reachable; a selected tab scrolled out of the strip zone is clipped at the zone border
 
 ### Requirement: Category tabs can be reordered by dragging with edge auto-scroll
 
@@ -106,9 +106,9 @@ Each card SHALL display its position in the current list (1-based). Cards whose 
 - **WHEN** a card is dragged from position 12 to position 5 in the same category
 - **THEN** position numbers and allocation markers update to the new order
 
-### Requirement: A collapsible config band above the grid configures the selected category
+### Requirement: A collapsible config band inside the card zone configures the selected category
 
-When a category tab is selected, a collapsible band SHALL appear above the grid, closed by default. Expanding it SHALL show: the palette color swatches for the category, a stepper to change the wheel allocation (including 0), a field to rename the category, and a delete action. Deleting SHALL require an explicit confirmation prompt. At most one band SHALL be open at a time, and the All skins view SHALL show no band. Changes SHALL apply immediately to the cards and markers.
+When a category tab is selected, a collapsible band SHALL appear at the top of the card viewport, closed by default, aligned on the same inner margins as the cards. It SHALL scroll away with the content like a card row and its expansion SHALL push the grid down inside the viewport; the screen layout SHALL stay constant between the All skins view and category views. Expanding it SHALL show: the palette color swatches for the category, a stepper to change the wheel allocation (including 0), a field to rename the category, and a delete action. Deleting SHALL require an explicit confirmation prompt. At most one band SHALL be open at a time, and the All skins view SHALL show no band. Changes SHALL apply immediately to the cards and markers.
 
 #### Scenario: Open and configure
 
@@ -152,6 +152,35 @@ The library screen SHALL remain fully usable at any GUI scale: the tab strip, gr
 
 - **WHEN** the library opens at a logical size large enough for the preferred layout
 - **THEN** tabs, cells, and controls take their preferred dimensions
+
+### Requirement: Clicking a skin card opens a detail overlay
+
+A plain click on a skin card SHALL open a detail overlay: the card animates scaling up into a large rectangle inset from every screen edge, with the base screen still visible around it. The overlay SHALL show the skin preview in bulk on the right of a thin separator, and management controls on the left: file rename, display name, a wide/slim switch, and a delete action. Clicking outside the panel or pressing ESC SHALL close the overlay.
+
+#### Scenario: Open from a plain click
+
+- **WHEN** the user clicks a card body without dragging
+- **THEN** the card scales up into the large detail rectangle and the base screen remains visible around it
+
+#### Scenario: File rename propagates
+
+- **WHEN** the user renames the skin from the detail overlay and confirms
+- **THEN** the skin file is renamed on disk and every per-file store (type, display name, category membership) follows the new name
+
+#### Scenario: Display name replaces the file name
+
+- **WHEN** the user sets a display name for the skin
+- **THEN** the card preview shows the display name instead of the file name; clearing it restores the file name
+
+#### Scenario: Wide/slim switch
+
+- **WHEN** the user activates the switch in the detail overlay
+- **THEN** the square knob slides over the newly selected side (Steve for wide, Alex for slim) and the choice persists for the skin file
+
+#### Scenario: Delete with confirmation
+
+- **WHEN** the user presses delete once then confirms
+- **THEN** the skin file is deleted, its store entries are cleaned, and the overlay closes
 
 ### Requirement: Card previews animate on hover and settle back smoothly
 

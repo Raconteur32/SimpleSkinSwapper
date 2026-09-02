@@ -6,7 +6,7 @@ The skin library is a single flat, arbitrary-ordered list (the carousel): as the
 
 ## What Changes
 
-- **BREAKING**: the carousel screen (horizontal card strip + reorder arrows) is removed and replaced by a full-screen **Skin Library**: vertical category tab strip on the left (pinned "All skins" tab, scrollable strip) and a responsive grid of skin cards (reading order left→right, top→bottom) that scrolls vertically.
+- **BREAKING**: the carousel screen (horizontal card strip + reorder arrows) is removed and replaced by a full-screen **Skin Library**: vertical category tab strip on the left (an "All skins" tab first, scrolling like the others, scrollable strip) and a responsive grid of skin cards (reading order left→right, top→bottom) that scrolls vertically.
 - New **category** concept: name, color (fixed 20-color palette), max wheel allocation (0 = excluded from the wheel), ordered skin list. Persisted in `categories.json` with per-category ordered file lists (same file allowed in several categories later). Uncategorized skins remain visible in "All skins".
 - Card interactions: drag-to-rotate on the model (unchanged), reorder by dragging the card frame or a dedicated handle (⋮⋮), index number + category-color marker showing which cards are inside the wheel allocation, cross-category move by dropping on a tab.
 - Category tab strip: click/right-click to select, drag to reorder with edge auto-scroll when dragging past the visible strip, drop target for cross-category moves.
