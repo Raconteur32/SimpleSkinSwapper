@@ -9,7 +9,7 @@
 ## 2. Wave 1 — potential-bugs
 
 - [x] 2.1 Enable the `potential-bugs` ruleset (keeping only genuinely applicable rules active), run `./gradlew detekt`, fix every finding
-- [x] 2.2 Verify `./gradlew build` still passes on all 4 versions, commit "detekt: adopt potential-bugs rules"
+- [x] 2.2 Verify `./gradlew build` s till passes on all 4 versions, commit "detekt: adopt potential-bugs rules"
 
 ## 3. Wave 2 — naming
 
