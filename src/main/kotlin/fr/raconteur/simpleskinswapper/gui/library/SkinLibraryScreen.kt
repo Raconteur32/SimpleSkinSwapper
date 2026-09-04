@@ -2,7 +2,6 @@ package fr.raconteur.simpleskinswapper.gui.library
 
 import com.mojang.blaze3d.platform.InputConstants
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
-import fr.raconteur.simpleskinswapper.changeskin.AccountSkinFetcher
 import fr.raconteur.simpleskinswapper.gui.EdgeSafeButtonWidget
 import fr.raconteur.simpleskinswapper.gui.SkinNameStore
 import fr.raconteur.simpleskinswapper.gui.SkinEntry
@@ -12,7 +11,6 @@ import fr.raconteur.simpleskinswapper.gui.config.YaclConfigScreen
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.components.Button
-import net.minecraft.client.gui.components.EditBox
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.input.MouseButtonEvent
 import net.minecraft.client.input.CharacterEvent
@@ -114,12 +112,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     private var maxScroll = 0
 
     // Widgets
-    private lateinit var accountField: EditBox
-    private lateinit var addFromFileButton: Button
-    private lateinit var addFromAccountButton: Button
     private val watcher = LibraryFileWatcher { this.init() }
-    private var pendingAccountUsername = ""
-    private var invalidAccountRevertAtMs = 0L
 
     // ------------------------------------------------------------------
     // Init / layout
@@ -128,47 +121,12 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     override fun init() {
         super.init()
         reloadView()
-        initHeaderRow()
         initBandAndFooter()
         rebuildCards()
         recomputeLayout()
         reattachOverlays()
         watcher.stop()
         watcher.start()
-    }
-
-    /** Header row (over the grid panel): account field + import buttons, clamped so the
-     *  row never reaches the title zone at the top-left (verified by layout_check script). */
-    private fun initHeaderRow() {
-        val addFileWidth = font.width(Component.translatable("simpleskinswapper.screen.carousel.add_from_file")) + 20
-        val addAccountWidth = font.width(Component.translatable("simpleskinswapper.screen.carousel.add_from_account")) + 20
-        val titleZoneLimit = STRIP_X + 110 + 4
-        val accountWidth = Math.min(
-            120,
-            Math.min(
-                this.width / 4,
-                this.width - PAD - addFileWidth - 6 - addAccountWidth - 6 - titleZoneLimit
-            )
-        ).coerceAtLeast(MIN_FIELD_WIDTH)
-        var x = this.width - PAD - addFileWidth
-        addFromFileButton = Button.builder(
-            Component.translatable("simpleskinswapper.screen.carousel.add_from_file")
-        ) { addSkinFromFile() }.bounds(x, HEADER_Y, addFileWidth, HEADER_HEIGHT).build()
-        x -= addAccountWidth + 6
-        addFromAccountButton = Button.builder(
-            Component.translatable("simpleskinswapper.screen.carousel.add_from_account")
-        ) { addSkinFromAccount() }.bounds(x, HEADER_Y, addAccountWidth, HEADER_HEIGHT).build()
-        x -= accountWidth + 6
-        accountField = EditBox(
-            font, x, HEADER_Y, accountWidth, HEADER_HEIGHT,
-            Component.translatable("simpleskinswapper.screen.carousel.account_name")
-        )
-        accountField.setHint(Component.translatable("simpleskinswapper.screen.carousel.account_name"))
-        accountField.setResponder { text -> addFromAccountButton.active = text.isNotBlank() }
-        addFromAccountButton.active = false
-        addRenderableWidget(accountField)
-        addRenderableWidget(addFromAccountButton)
-        addRenderableWidget(addFromFileButton)
     }
 
     /** Band widgets, page footer and the category-creation button under the tab strip. */
@@ -280,8 +238,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     private fun contentStartY(): Int =
         gridTop + GRID_MARGIN + (if (selectedCategory != null) band.height(selectedCategory != null) + GRID_GAP else 0)
 
-    /** Import row (y=8, height 20) plus a 4px margin. */
-    private fun contentTop(): Int = HEADER_Y + HEADER_HEIGHT + 4
+    /** Title zone bottom: the title draws alone at the top-left, the page starts below it. */
+    private fun contentTop(): Int = TITLE_ZONE_BOTTOM
 
     private val panelX: Int get() = STRIP_X + TAB_W + 8
 
@@ -500,7 +458,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
             // Title, top-left, on the same text line as the header buttons (vanilla centers
             // button labels at y + (height-8)/2 — same formula here for optical alignment).
-            graphics.text(client.font, Component.translatable("simpleskinswapper.title"), STRIP_X, HEADER_Y + (HEADER_HEIGHT - 8) / 2, 0xFFFFFFFF.toInt())
+            graphics.text(client.font, Component.translatable("simpleskinswapper.title"), STRIP_X, TITLE_Y, 0xFFFFFFFF.toInt())
 
             if (cards.isEmpty()) {
                 val messageKey = if (selectedCategory == null) {
@@ -927,19 +885,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     override fun tick() {
         super.tick()
-
-        if (invalidAccountRevertAtMs != 0L && System.currentTimeMillis() >= invalidAccountRevertAtMs) {
-            invalidAccountRevertAtMs = 0L
-            accountField.setTextColor(DEFAULT_TEXT_COLOR)
-            accountField.setValue(pendingAccountUsername)
-            addFromAccountButton.active = accountField.value.isNotBlank()
-        }
-
         watcher.pollChanges()
-    }
-
-    private fun addSkinFromFile() {
-        pickSkinFile { importSkinFile(it) }
     }
 
     /** Opens the native PNG picker and hands the result to [onPicked] on the main thread. */
@@ -993,70 +939,10 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
     //?}
 
-    private fun importSkinFile(source: File) {
-        try {
-            val skinsDir = FabricLoader.getInstance().gameDir.resolve("skins")
-            Files.createDirectories(skinsDir)
-            val dest = AccountSkinFetcher.uniqueFile(skinsDir.resolve(source.name))
-            watcher.markSelfTriggered(dest.fileName.toString())
-            Files.copy(source.toPath(), dest)
-            addImportedEntry(dest.toFile())
-        } catch (e: IOException) {
-            SimpleSkinSwapper.LOGGER.warn("Could not import skin file {}: {}", source.name, e.message)
-        }
-    }
-
-    private fun addSkinFromAccount() {
-        val username = accountField.value
-        if (username.isBlank()) return
-
-        val skinsDir = FabricLoader.getInstance().gameDir.resolve("skins")
-        val destination: Path
-        try {
-            Files.createDirectories(skinsDir)
-            destination = AccountSkinFetcher.uniqueFile(
-                skinsDir.resolve(AccountSkinFetcher.sanitizeFilename(username) + ".png")
-            )
-        } catch (e: IOException) {
-            SimpleSkinSwapper.LOGGER.warn("Could not prepare skin destination for {}: {}", username, e.message)
-            return
-        }
-        val destName = destination.fileName.toString()
-        watcher.markSelfTriggered(destName)
-
-        addFromAccountButton.active = false
-        AccountSkinFetcher.fetch(
-            username, destination,
-            { file ->
-                addImportedEntry(file)
-                addFromAccountButton.active = accountField.value.isNotBlank()
-            },
-            {
-                watcher.unmarkSelfTriggered(destName)
-                showInvalidAccount(username)
-            }
-        )
-    }
-
-    private fun showInvalidAccount(previousText: String) {
-        pendingAccountUsername = previousText
-        accountField.setTextColor(ERROR_COLOR)
-        accountField.setValue(Component.translatable("simpleskinswapper.screen.carousel.invalid_account").string)
-        invalidAccountRevertAtMs = System.currentTimeMillis() + INVALID_ACCOUNT_MESSAGE_MS
-        addFromAccountButton.active = accountField.value.isNotBlank()
-    }
-
-    private fun addImportedEntry(file: File) {
-        // Imported skins appear unassigned in All skins; the category store is untouched.
-        reloadView()
-        rebuildCards()
-    }
-
     companion object {
         private const val PAD = 4
-        private const val HEADER_Y = 8
-        private const val HEADER_HEIGHT = 20
-        private const val MIN_FIELD_WIDTH = 40
+        private const val TITLE_Y = 8
+        private const val TITLE_ZONE_BOTTOM = 20
 
         internal const val STRIP_X = 4
         internal const val TAB_W = 100
@@ -1122,10 +1008,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x, y, w, h)
         }
 
-        // Vanilla EditBox default text color; restored after the invalid-account error flash.
-        private val DEFAULT_TEXT_COLOR = 0xFFE0E0E0.toInt()
-        private val ERROR_COLOR = 0xFFFF5555.toInt()
-        private const val INVALID_ACCOUNT_MESSAGE_MS = 1500L
         private const val WHEEL_SIZE = 10
     }
 }
