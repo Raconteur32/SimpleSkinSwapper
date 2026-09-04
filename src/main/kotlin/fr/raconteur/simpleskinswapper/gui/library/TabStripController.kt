@@ -10,6 +10,7 @@ import net.minecraft.util.Mth
 class   TabStripController(
     internal val stripTop: () -> Int,
     internal val stripBottom: () -> Int,
+    private val tabH: () -> Int,
 ) {
 
     // Press/drag state (-1 = none, 0 = All, >0 = category index + 1).
@@ -79,23 +80,23 @@ class   TabStripController(
 
     /** Y of tab [index]: 0 = All, i>0 = category i-1. All tabs scroll alike; the insertion gap shifts later tabs. */
     internal fun tabY(index: Int): Int {
-        var y = stripTop() + index * SkinLibraryScreen.TAB_H
+        var y = stripTop() + index * tabH()
         // The insertion gap opens after category [tabInsertionIndex], shifting later tabs down.
-        if (tabDragActive && tabInsertionIndex >= 0 && index >= tabInsertionIndex + 1) y += SkinLibraryScreen.TAB_H
+        if (tabDragActive && tabInsertionIndex >= 0 && index >= tabInsertionIndex + 1) y += tabH()
         return y - tabScroll.toInt()
     }
 
     internal fun maxTabScroll(): Int {
         // Whole-tab scroll steps: the range is a multiple of TAB_H, so no tab is ever
         // caught half-hidden at the scroll limit (the strip shows whole tabs only).
-        val visibleTabs = Math.max(1, (stripBottom() - stripTop()) / SkinLibraryScreen.TAB_H)
-        return Math.max(0, SkinCategoriesStore.all().size + 2 - visibleTabs) * SkinLibraryScreen.TAB_H
+        val visibleTabs = Math.max(1, (stripBottom() - stripTop()) / tabH())
+        return Math.max(0, SkinCategoriesStore.all().size + 2 - visibleTabs) * tabH()
     }
 
     /** Bottom edge aligned to whole tabs: tabs clip here, never half-shown. The strip
      *  zone below this line is frame-only background (breathing room, no tab pixels). */
     internal fun stripAlignedBottom(): Int =
-        stripTop() + Math.max(1, (stripBottom() - stripTop()) / SkinLibraryScreen.TAB_H) * SkinLibraryScreen.TAB_H
+        stripTop() + Math.max(1, (stripBottom() - stripTop()) / tabH()) * tabH()
 
     /** Y of the add-category entry: the strip slot after the last category tab. */
     internal fun addEntryY(): Int = tabY(SkinCategoriesStore.all().size + 1)
@@ -105,7 +106,7 @@ class   TabStripController(
         if (cursorX < SkinLibraryScreen.STRIP_X || cursorX > SkinLibraryScreen.STRIP_X + SkinLibraryScreen.TAB_W + 4) return false
         if (cursorY < stripTop() || cursorY >= stripAlignedBottom()) return false
         val top = addEntryY()
-        return cursorY >= top && cursorY < top + SkinLibraryScreen.TAB_H
+        return cursorY >= top && cursorY < top + tabH()
     }
 
     /** Tab under the cursor, accounting for the insertion gap; null when none. 0 = All, i>0 = category i-1. */
@@ -114,7 +115,7 @@ class   TabStripController(
         if (cursorY < stripTop() || cursorY >= stripAlignedBottom()) return null
         for (i in 0..SkinCategoriesStore.all().size) {
             val top = tabY(i)
-            if (cursorY >= top && cursorY < top + SkinLibraryScreen.TAB_H) return i
+            if (cursorY >= top && cursorY < top + tabH()) return i
         }
         return null
     }
@@ -133,13 +134,13 @@ class   TabStripController(
         val top = stripTop()
         val bottom = stripBottom()
         var speed = 0.0F
-        if (mouseY > bottom - AUTO_SCROLL_BAND && mouseY <= bottom + SkinLibraryScreen.TAB_H) {
+        if (mouseY > bottom - AUTO_SCROLL_BAND && mouseY <= bottom + tabH()) {
             speed = -MAX_TABS_PER_SEC * (1.0F - (bottom - mouseY) / AUTO_SCROLL_BAND.toFloat())
-        } else if (mouseY < top + SkinLibraryScreen.TAB_H + AUTO_SCROLL_BAND && mouseY >= top && tabScroll > 0.0F) {
-            speed = MAX_TABS_PER_SEC * (1.0F - (mouseY - top - SkinLibraryScreen.TAB_H) / AUTO_SCROLL_BAND.toFloat())
+        } else if (mouseY < top + tabH() + AUTO_SCROLL_BAND && mouseY >= top && tabScroll > 0.0F) {
+            speed = MAX_TABS_PER_SEC * (1.0F - (mouseY - top - tabH()) / AUTO_SCROLL_BAND.toFloat())
         }
         if (speed != 0.0F) {
-            tabScroll = Mth.clamp(tabScroll + speed * SkinLibraryScreen.TAB_H * dt, 0.0F, maxTabScroll().toFloat())
+            tabScroll = Mth.clamp(tabScroll + speed * tabH() * dt, 0.0F, maxTabScroll().toFloat())
         }
     }
 
@@ -148,8 +149,8 @@ class   TabStripController(
         val count = SkinCategoriesStore.all().size
         var p = count
         for (storeIdx in 0 until count) {
-            val yTop = stripTop() + (storeIdx + 1) * SkinLibraryScreen.TAB_H - tabScroll.toInt()
-            if (tabDragCursorY < yTop + SkinLibraryScreen.TAB_H / 2) {
+            val yTop = stripTop() + (storeIdx + 1) * tabH() - tabScroll.toInt()
+            if (tabDragCursorY < yTop + tabH() / 2) {
                 p = storeIdx
                 break
             }
@@ -168,7 +169,7 @@ class   TabStripController(
         data object None : Release()
     }
 
-    internal fun insertionLineY(): Int = stripTop() + SkinLibraryScreen.TAB_H + tabInsertionIndex * SkinLibraryScreen.TAB_H - tabScroll.toInt()
+    internal fun insertionLineY(): Int = stripTop() + tabH() + tabInsertionIndex * tabH() - tabScroll.toInt()
 
     private companion object {
         const val TAB_DRAG_THRESHOLD = 5.0

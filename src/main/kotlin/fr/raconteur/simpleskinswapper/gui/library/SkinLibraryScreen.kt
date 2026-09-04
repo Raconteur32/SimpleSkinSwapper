@@ -99,7 +99,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     private val cardDisplay = IdentityHashMap<SkinLibraryCard, FloatArray>()
 
     // Tab strip scroll/drag/insertion state machine.
-    private val tabs = TabStripController({ gridTop }, { gridBottom })
+    private val tabs = TabStripController({ gridTop }, { gridBottom }, { tabH })
 
     // Grid scroll + layout (recomputed in recomputeLayout()).
     internal var scrollY = 0
@@ -109,6 +109,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     private var gridOffsetX = 0
     internal var gridTop = 0
     private var gridBottom = 0
+    /** Dynamic tab height: the strip splits into whole tabs of at least tabHMin px. */
+    internal var tabH = tabHMin
     private var maxScroll = 0
 
     // Widgets
@@ -195,6 +197,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // the page) — switching category or expanding the band never moves the layout.
         gridTop = contentTop() + BAND_GRID_MARGIN
         gridBottom = this.height - FOOTER_BAND
+        val stripHeight = gridBottom - gridTop
+        val visibleTabs = Math.max(1, stripHeight / tabHMin)
+        tabH = stripHeight / visibleTabs
         // The grid lives inside the page's baked border (8px, measured on the texture)
         // plus a small breathing margin on every side — cards never touch the border.
         val gridLeft = gridLeft()
@@ -508,7 +513,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         graphics.enableScissor(STRIP_X, top, STRIP_X + TAB_W + 2, tabBottom)
         for (i in 0..SkinCategoriesStore.all().size) {
             val y = tabs.tabY(i)
-            if (y + TAB_H < top || y > tabBottom) continue
+            if (y + tabH < top || y > tabBottom) continue
             if (isSelectedTab(i)) continue
             drawTab(graphics, i, y, mouseX, mouseY)
         }
@@ -528,9 +533,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         val selected = selectedTabIndex()
         if (selected >= 0) {
             val y = tabs.tabY(selected)
-            if (y + TAB_H >= top && y <= tabBottom) {
+            if (y + tabH >= top && y <= tabBottom) {
                 graphics.enableScissor(-PANEL_BLEED, top, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT, tabBottom)
-                drawBookPanel(graphics, -PANEL_BLEED, y, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT + PANEL_BLEED, TAB_H, lit = true)
+                drawBookPanel(graphics, -PANEL_BLEED, y, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT + PANEL_BLEED, tabH, lit = true)
                 drawTabContent(graphics, selected, y)
                 graphics.disableScissor()
             }
@@ -539,9 +544,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // Dragged tab follows the cursor vertically as a floating full-color panel,
         // clipped to the strip zone the same way.
         if (tabs.tabDragActive && tabs.tabDragCategoryIndex > 0) {
-            val y = (tabs.tabDragCursorY - TAB_H / 2).coerceIn(top, tabBottom - TAB_H)
+            val y = (tabs.tabDragCursorY - tabH / 2).coerceIn(top, tabBottom - tabH)
             graphics.enableScissor(-PANEL_BLEED, top, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT, tabBottom)
-            drawBookPanel(graphics, -PANEL_BLEED, y, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT + PANEL_BLEED, TAB_H, lit = true)
+            drawBookPanel(graphics, -PANEL_BLEED, y, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT + PANEL_BLEED, tabH, lit = true)
             drawTabContent(graphics, tabs.tabDragCategoryIndex, y)
             graphics.disableScissor()
         }
@@ -559,14 +564,14 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     private fun drawAddCategoryEntry(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
         val top = tabs.stripTop()
         val y = tabs.addEntryY()
-        if (y + TAB_H < top || y > tabs.stripAlignedBottom()) return
+        if (y + tabH < top || y > tabs.stripAlignedBottom()) return
         val outline = if (tabs.addEntryAt(mouseY, mouseX)) 0xFFC5C5C5.toInt() else 0xFF999999.toInt()
         val right = STRIP_X + TAB_W
         graphics.fill(STRIP_X, y, right, y + 1, outline)
-        graphics.fill(STRIP_X, y + TAB_H - 1, right, y + TAB_H, outline)
-        graphics.fill(STRIP_X, y, STRIP_X + 1, y + TAB_H, outline)
-        graphics.fill(right - 1, y, right, y + TAB_H, outline)
-        graphics.centeredText(font, Component.literal("+"), STRIP_X + TAB_W / 2, y + (TAB_H - font.lineHeight) / 2, outline)
+        graphics.fill(STRIP_X, y + tabH - 1, right, y + tabH, outline)
+        graphics.fill(STRIP_X, y, STRIP_X + 1, y + tabH, outline)
+        graphics.fill(right - 1, y, right, y + tabH, outline)
+        graphics.centeredText(font, Component.literal("+"), STRIP_X + TAB_W / 2, y + (tabH - font.lineHeight) / 2, outline)
     }
 
     private fun isSelectedTab(index: Int): Boolean =
@@ -579,9 +584,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     private fun drawTab(graphics: GuiGraphicsExtractor, index: Int, y: Int, mouseX: Int, mouseY: Int) {
-        val hovered = mouseX >= STRIP_X && mouseX < STRIP_X + TAB_W && mouseY >= y && mouseY < y + TAB_H
+        val hovered = mouseX >= STRIP_X && mouseX < STRIP_X + TAB_W && mouseY >= y && mouseY < y + tabH
         if (hovered) {
-            graphics.fill(STRIP_X, y, STRIP_X + TAB_W, y + TAB_H, 0x30FFFFFF)
+            graphics.fill(STRIP_X, y, STRIP_X + TAB_W, y + tabH, 0x30FFFFFF)
         }
         drawTabContent(graphics, index, y)
     }
@@ -591,10 +596,10 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         else Component.nullToEmpty(SkinCategoriesStore.all().getOrNull(index - 1)?.name ?: "")
         val nameX = if (index == 0) STRIP_X + 6 else STRIP_X + 16
         val nameRight = STRIP_X + TAB_W - 3
-        val textY = y + (TAB_H - font.lineHeight) / 2
+        val textY = y + (tabH - font.lineHeight) / 2
         // Clip the name to the tab; guard the scissor (zero-size scissors crash MC 26.2).
         if (nameRight - nameX >= 8) {
-            graphics.enableScissor(nameX, y + 2, nameRight, y + TAB_H - 2)
+            graphics.enableScissor(nameX, y + 2, nameRight, y + tabH - 2)
             graphics.text(client.font, Component.nullToEmpty(label.string), nameX, textY, 0xFFFFFFFF.toInt())
             graphics.disableScissor()
         }
@@ -906,7 +911,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         val mx = mouseX.toInt()
         val my = mouseY.toInt()
         if (mx < STRIP_X + TAB_W + TAB_SELECTED_STICKOUT && my >= tabs.stripTop() && my <= tabs.stripBottom()) {
-            tabs.scrollBy(vertAmount.toFloat() * TAB_H)
+            tabs.scrollBy(vertAmount.toFloat() * tabH)
             return true
         }
         scrollY = Mth.clamp(scrollY - (vertAmount * (cellH + GRID_GAP)).toInt(), 0, maxScroll)
@@ -1003,7 +1008,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
         internal const val STRIP_X = 4
         internal const val TAB_W = 100
-        internal const val TAB_H = 28
+        internal const val tabHMin = 28
 
         // How far the selected tab's panel tucks under the grid page border (its right edge is
         // this many px past the tab column).
