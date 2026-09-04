@@ -7,7 +7,7 @@ import net.minecraft.util.Mth
  * Selection is applied by the screen via [Release] — the controller owns no selection state.
  * Tab indexes are 0 = All, i>0 = category i-1 (same convention everywhere).
  */
-class TabStripController(
+class   TabStripController(
     internal val stripTop: () -> Int,
     internal val stripBottom: () -> Int,
 ) {

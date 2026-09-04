@@ -65,6 +65,17 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     // Card reorder drag (started by a card's frame/handle zone).
     internal var reorderDraggingCard: SkinLibraryCard? = null
     internal var dragRotatingCard: SkinLibraryCard? = null
+    private val cardDrag = CardDragEngine(
+        cols = { cols },
+        cellW = { cellW },
+        cellH = { cellH },
+        gridOffsetX = { gridOffsetX },
+        gridGap = { GRID_GAP },
+        contentStartY = { contentStartY() },
+        scrollY = { scrollY },
+        gridTop = { gridTop },
+        gridBottom = { gridBottom },
+    )
 
     // Open skin detail overlay (null = closed). Registered as a widget while open.
     internal var detail: SkinDetailPanel? = null
@@ -75,11 +86,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     // Trailing "+" pseudo-card shown after the last card of every list.
     private var addCard: SkinAddCard? = null
     private val addCardDisplay = IdentityHashMap<SkinAddCard, FloatArray>()
-    private var reorderGrabX = 0
-    private var reorderGrabY = 0
-    private var reorderCursorX = 0
-    private var reorderCursorY = 0
-    private var insertionIndex = -1
     private val cardDisplay = IdentityHashMap<SkinLibraryCard, FloatArray>()
 
     // Tab strip scroll/drag/insertion state machine.
@@ -779,7 +785,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
         val dragged = reorderDraggingCard
         val dragIndex = dragged?.let { cards.indexOf(it) } ?: -1
-        insertionIndex = computeInsertionIndex(mouseX, mouseY)
+        cardDrag.updateInsertionIndex(cards.size, mouseX, mouseY)
 
         val now = System.nanoTime()
         val dt = if (lastCardEaseNanos == 0L) 1.0F else ((now - lastCardEaseNanos) / 1_000_000_000.0F).coerceAtMost(0.1F)
@@ -787,9 +793,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
         for (i in cards.indices) {
             val card = cards[i]
-            val slot = slotFor(i, dragIndex)
+            val slot = cardDrag.slotFor(i, dragIndex)
             if (card === dragged) {
-                card.overridePosition(reorderCursorX - reorderGrabX, reorderCursorY - reorderGrabY)
+                card.overridePosition(cardDrag.cursorX - cardDrag.grabX, cardDrag.cursorY - cardDrag.grabY)
                 continue
             }
             // Every card renders through the same fixed viewport scissor: cards sliding in
@@ -799,18 +805,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             card.clipRight = this.width - PAD - PAGE_BORDER
             card.clipBottom = gridBottom
             val display = cardDisplay.getOrPut(card) { FloatArray(2) }
-            val unpositioned = display[0] == 0.0F && display[1] == 0.0F
-            if (unpositioned && card.x == 0 && card.y == 0) {
-                display[0] = slot.first.toFloat()
-                display[1] = slot.second.toFloat()
-            }
-            display[0] = Mth.lerp(t, display[0], slot.first.toFloat())
-            display[1] = Mth.lerp(t, display[1], slot.second.toFloat())
-            if (Math.abs(display[0] - slot.first) < 0.5F && Math.abs(display[1] - slot.second) < 0.5F) {
-                display[0] = slot.first.toFloat()
-                display[1] = slot.second.toFloat()
-            }
-            card.overridePosition(Math.round(display[0]), Math.round(display[1]))
+            val (ex, ey) = cardDrag.easeToward(display, slot, t, card.x == 0 && card.y == 0)
+            card.overridePosition(ex, ey)
         }
 
         // The trailing "+" card slides like a card: it sits one slot after the last skin
@@ -826,47 +822,12 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             ac.clipTop = gridTop
             ac.clipRight = this.width - PAD - PAGE_BORDER
             ac.clipBottom = gridBottom
-            val slot = slotFor(cards.size, dragIndex)
+            val slot = cardDrag.slotFor(cards.size, dragIndex)
             val display = addCardDisplay.getOrPut(ac) { FloatArray(2) }
-            val unpositioned = display[0] == 0.0F && display[1] == 0.0F
-            if (unpositioned && ac.x == 0 && ac.y == 0) {
-                display[0] = slot.first.toFloat()
-                display[1] = slot.second.toFloat()
-            }
-            display[0] = Mth.lerp(t, display[0], slot.first.toFloat())
-            display[1] = Mth.lerp(t, display[1], slot.second.toFloat())
-            if (Math.abs(display[0] - slot.first) < 0.5F && Math.abs(display[1] - slot.second) < 0.5F) {
-                display[0] = slot.first.toFloat()
-                display[1] = slot.second.toFloat()
-            }
-            ac.overridePosition(Math.round(display[0]), Math.round(display[1]))
+            val (ex, ey) = cardDrag.easeToward(display, slot, t, ac.x == 0 && ac.y == 0)
+            ac.overridePosition(ex, ey)
         }
         lastCardEaseNanos = now
-    }
-
-    /** Slot (x, y) for card [index], skipping the dragged card's slot and reserving the insertion gap. */
-    private fun slotFor(index: Int, dragIndex: Int): Pair<Int, Int> {
-        var displayIndex = index
-        if (dragIndex >= 0 && index > dragIndex) displayIndex--
-        if (dragIndex >= 0 && insertionIndex >= 0 && displayIndex >= insertionIndex) displayIndex++
-        val col = displayIndex % cols
-        val row = displayIndex / cols
-        return (gridOffsetX + col * (cellW + GRID_GAP)) to (contentStartY() - scrollY + row * (cellH + GRID_GAP))
-    }
-
-    /** Insertion index from the cursor in reading order, refined by which half of the cell is hovered. */
-    private fun computeInsertionIndex(mouseX: Int, mouseY: Int): Int {
-        if (reorderDraggingCard == null) return -1
-        if (mouseX < gridOffsetX || mouseY < gridTop || mouseY > gridBottom) return -1
-        val relCol = (mouseX - gridOffsetX) / (cellW + GRID_GAP)
-        val relRow = (mouseY - contentStartY() + scrollY) / (cellH + GRID_GAP)
-        if (relCol < 0 || relCol >= cols || relRow < 0) return -1
-        val count = cards.size - if (reorderDraggingCard != null) 1 else 0
-        var idx = relRow * cols + relCol
-        if (idx > count) idx = count
-        val cellLeft = gridOffsetX + relCol * (cellW + GRID_GAP)
-        if (mouseX > cellLeft + cellW / 2) idx++
-        return idx
     }
 
     // ------------------------------------------------------------------
@@ -874,13 +835,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     // ------------------------------------------------------------------
 
     internal fun beginCardReorder(card: SkinLibraryCard, mouseX: Int, mouseY: Int) {
+        cardDrag.begin(card, mouseX, mouseY)
         reorderDraggingCard = card
-        reorderGrabX = mouseX - card.x
-        reorderGrabY = mouseY - card.y
-        reorderCursorX = mouseX
-        reorderCursorY = mouseY
-        // Unregistration is deferred to the end of mouseClicked: removing a child widget while
-        // the screen is still iterating its children would risk a ConcurrentModificationException.
     }
 
     private fun finishCardReorder(mouseX: Int, mouseY: Int) {
@@ -907,16 +863,17 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
         // Grid drop = reorder within the current category (the All view has no explicit order).
         val category = selectedCategory
-        if (category != null && insertionIndex in 0..category.skins.size) {
+        if (category != null && cardDrag.insertionIndex in 0..category.skins.size) {
             val from = category.skins.indexOf(card.entry.file.name)
             if (from >= 0) {
-                var to = insertionIndex
+                var to = cardDrag.insertionIndex
                 if (to > from) to--
                 category.skins.removeAt(from)
                 category.skins.add(to.coerceIn(0, category.skins.size), card.entry.file.name)
                 SkinCategoriesStore.save()
             }
         }
+        cardDrag.stop()
         rebuildCards()
     }
 
@@ -1038,8 +995,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             return true
         }
         if (reorderDraggingCard != null && click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
-            reorderCursorX = mx
-            reorderCursorY = my
+            cardDrag.dragTo(mx, my)
             return true
         }
         return super.mouseDragged(click, offsetX, offsetY)
