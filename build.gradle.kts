@@ -6,6 +6,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
 	id("dev.kikugie.loom-back-compat")
 	kotlin("jvm")
+	kotlin("plugin.serialization") version "2.4.10"
 	`maven-publish`
 }
 
@@ -100,6 +101,10 @@ dependencies {
 
 	// Fabric Language Kotlin
 	modImplementation("net.fabricmc:fabric-language-kotlin:1.13.13+kotlin.2.4.10")
+
+	// Kotlinx serialization: compile only — the runtime jar ships inside Fabric Language
+	// Kotlin (kotlinx-serialization-json 1.11.0), so nothing extra is embedded.
+	implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 
 	// ModMenu integration — compile-only for the published jar, but present in dev runtime
 	// so the ModMenu config entrypoint can be tested with runClient.
