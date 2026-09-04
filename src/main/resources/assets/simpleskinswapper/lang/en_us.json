@@ -64,5 +64,6 @@
   "simpleskinswapper.screen.add.from_mcname": "Search",
   "simpleskinswapper.screen.add.username": "Account name",
   "simpleskinswapper.screen.add.none": "No skin selected",
-  "simpleskinswapper.screen.add.confirm": "Add"
+  "simpleskinswapper.screen.add.confirm": "Add",
+  "simpleskinswapper.screen.library.add_category": "New Category"
 }
