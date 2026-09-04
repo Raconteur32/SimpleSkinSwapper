@@ -201,12 +201,12 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // the page) — switching category or expanding the band never moves the layout.
         gridTop = contentTop() + BAND_GRID_MARGIN
         gridBottom = this.height - FOOTER_BAND
-        // Tab strip zone = the card page's vertical span (page border included, so the
-        // strip's tab band and the page share both edges). The band tiles that zone with
-        // whole slots — density ~28px, or the actual slot count when the list is shorter
-        // than the strip — and centers the rounding remainder instead of showing it.
-        val zoneTop = gridTop - PAGE_BORDER
-        val zoneHeight = gridBottom + PAGE_BORDER - zoneTop
+        // Tab strip zone = the strip's own recessed footprint ([gridTop, gridBottom] —
+        // 8px inside the card page so the strip reads as behind the page). The band tiles
+        // that zone with whole slots — density ~28px, or the actual slot count when the
+        // list is shorter — and centers the rounding remainder instead of showing it.
+        val zoneTop = gridTop
+        val zoneHeight = gridBottom - zoneTop
         val slots = SkinCategoriesStore.all().size + 2
         val densitySlots = Math.max(1, Math.round(zoneHeight / 28f))
         val fillSlots = Math.min(slots, densitySlots)
@@ -525,11 +525,10 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         val bottom = tabs.stripBottom()
         val tabBottom = tabs.stripAlignedBottom()
 
-        // Tab zone background: the recipe-book frame sprite spanning the card page's full
-        // vertical span (page border included), darkened, bleeding off the screen edge on
-        // the left and sliding under the grid page on the right. The tab band is centered
-        // inside; the frame-only margins above and below shrink to the rounding remainder.
-        drawBookPanel(graphics, -PANEL_BLEED, gridTop - PAGE_BORDER, STRIP_X + TAB_W + 2 + PANEL_BLEED + 8, gridBottom + PAGE_BORDER - (gridTop - PAGE_BORDER), lit = false)
+        // Tab zone background: the recipe-book frame sprite spanning the strip's recessed
+        // footprint, darkened, bleeding off the screen edge on the left and sliding under
+        // the grid page on the right. The tab band is centered inside it.
+        drawBookPanel(graphics, -PANEL_BLEED, gridTop, STRIP_X + TAB_W + 2 + PANEL_BLEED + 8, gridBottom - gridTop, lit = false)
 
         // Unselected tabs, clipped to the strip — All Skins is a tab like the others.
         graphics.enableScissor(-PANEL_BLEED, top, STRIP_X + TAB_W + 2, tabBottom)
