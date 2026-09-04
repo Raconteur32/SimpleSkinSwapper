@@ -24,10 +24,10 @@
 
 ## 5. SkinLibraryScreen decomposition
 
-- [ ] 5.1 Extract `TabStripController` (strip layout, hit-testing, drag-reorder, auto-scroll); build + commit
-- [ ] 5.2 Extract `CardDragController` (reorder drag, insertion index, easing, rotate handoff, add-card slotting); build + commit
-- [ ] 5.3 Extract `CategoryBand` (wheels stepper, swatch picker, rename/delete confirm); build + commit
-- [ ] 5.4 Extract `LibraryFileWatcher` (WatchService loop, self-trigger suppression); build + commit
+- [x] 5.1 Extract `TabStripController` (strip layout, hit-testing, drag-reorder, auto-scroll); build + commit
+- [x] 5.2 Extract `CardDragController` (reorder drag, insertion index, easing, rotate handoff, add-card slotting); build + commit
+- [x] 5.3 Extract `CategoryBand` (wheels stepper, swatch picker, rename/delete confirm); build + commit
+- [x] 5.4 Extract `LibraryFileWatcher` (WatchService loop, self-trigger suppression); build + commit
 - [x] 5.5 Screen keeps orchestration only; flag the in-game pass (tabs drag, card reorder, band, watcher)
 
 ## 6. Lock the gains
