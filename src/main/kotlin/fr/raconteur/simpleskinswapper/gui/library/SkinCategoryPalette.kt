@@ -19,10 +19,6 @@ object SkinCategoryPalette {
     /** Default color for new categories: blue dye wool color. */
     const val DEFAULT_HEX = "#3C44AA"
 
-    /** Flat color list for pickers (vanilla dye order). */
-    @JvmStatic
-    fun swatches(): List<Int> = ENTRIES.map { it.argb }
-
     @JvmStatic
     fun toHex(argb: Int): String = String.format(java.util.Locale.ROOT, "#%06X", argb and 0xFFFFFF)
 

@@ -68,7 +68,7 @@ internal class CategoryBand(private val screen: SkinLibraryScreen) {
             // name field and wheel stepper right, delete at the far right — no overlaps.
             val left = screen.gridLeft()
             val right = screen.gridRight()
-            val swatchW = 10 * (BAND_SWATCH_SIZE + BAND_SWATCH_GAP) - BAND_SWATCH_GAP
+            val swatchW = 8 * (BAND_SWATCH_SIZE + BAND_SWATCH_GAP) - BAND_SWATCH_GAP
             val x2 = left + 8 + swatchW + 12
             val nameWidth = Math.min(BAND_NAME_WIDTH, right - 24 - 8 - x2)
             nameField.setWidth(nameWidth)
@@ -118,10 +118,23 @@ internal class CategoryBand(private val screen: SkinLibraryScreen) {
         if (mouseX < x0 || mouseY < y0) return null
         val hue = (mouseX - x0) / (BAND_SWATCH_SIZE + BAND_SWATCH_GAP)
         val row = (mouseY - y0) / (BAND_SWATCH_SIZE + BAND_SWATCH_GAP)
-        if (hue !in 0..9 || row !in 0..1) return null
-        val swatches = SkinCategoryPalette.swatches()
+        if (hue !in 0..7 || row !in 0..1) return null
         val idx = hue * 2 + row
-        return if (idx in swatches.indices) swatches[idx] else null
+        return SkinCategoryPalette.ENTRIES.getOrNull(idx)?.argb
+    }
+
+    /** Vanilla dye item name tooltip for the hovered picker cell; null when none. */
+    fun hoveredDyeTooltip(mouseX: Int, mouseY: Int): Component? {
+        val by = y()
+        if (!expanded || screen.selectedCategory == null || mouseY < screen.gridTop) return null
+        val x0 = screen.gridLeft() + 8
+        val y0 = by + 24
+        if (mouseX < x0 || mouseY < y0) return null
+        val hue = (mouseX - x0) / (BAND_SWATCH_SIZE + BAND_SWATCH_GAP)
+        val row = (mouseY - y0) / (BAND_SWATCH_SIZE + BAND_SWATCH_GAP)
+        if (hue !in 0..7 || row !in 0..1) return null
+        val entry = SkinCategoryPalette.ENTRIES.getOrNull(hue * 2 + row) ?: return null
+        return Component.translatable("item.minecraft.${entry.dyeName}_dye")
     }
 
     /** Band body, drawn at its scrolled position (the caller clips to the viewport). */
@@ -137,24 +150,24 @@ internal class CategoryBand(private val screen: SkinLibraryScreen) {
         val wheelsLabel = Component.translatable("simpleskinswapper.screen.library.wheels").string
         graphics.text(client.font, Component.nullToEmpty("$arrow ${category.name} · $entriesCount · ${category.maxWheels} $wheelsLabel"), left + 8, by + (BAND_COLLAPSED_H - client.font.lineHeight) / 2, 0xFFFFFFFF.toInt())
         if (expanded) {
-            // Color swatch grid (10 hues × 2 rows) at the left; controls column at the right.
+            // Dye icon grid (8 columns × 2 rows) at the left; controls column at the right.
             // Geometry mirrored by the layout_check script — do not move without re-running it.
             val categoryColor = SkinCategoryPalette.parse(category.colorHex)
             val sx0 = left + 8
             val sy0 = by + 24
-            for (i in SkinCategoryPalette.swatches().indices) {
+            for ((i, entry) in SkinCategoryPalette.ENTRIES.withIndex()) {
                 val hue = i / 2
                 val row = i % 2
                 val sx = sx0 + hue * (BAND_SWATCH_SIZE + BAND_SWATCH_GAP)
                 val y0 = sy0 + row * (BAND_SWATCH_SIZE + BAND_SWATCH_GAP)
                 val hovered = mouseX >= sx && mouseX < sx + BAND_SWATCH_SIZE && mouseY >= y0 && mouseY < y0 + BAND_SWATCH_SIZE
                 graphics.fill(sx - 1, y0 - 1, sx + BAND_SWATCH_SIZE + 1, y0 + BAND_SWATCH_SIZE + 1,
-                    if (SkinCategoryPalette.swatches()[i] == categoryColor) 0xFFFFFFFF.toInt()
+                    if (entry.argb == categoryColor) 0xFFFFFFFF.toInt()
                     else if (hovered) 0xFF606060.toInt() else 0xFF202020.toInt())
-                graphics.fill(sx, y0, sx + BAND_SWATCH_SIZE, y0 + BAND_SWATCH_SIZE, SkinCategoryPalette.swatches()[i])
+                DyeIcons.draw(graphics, entry.dyeName, sx, y0, BAND_SWATCH_SIZE)
             }
             // Wheel stepper label, right of the [-] count [+] cluster
-            val x2 = sx0 + 10 * (BAND_SWATCH_SIZE + BAND_SWATCH_GAP) - BAND_SWATCH_GAP + 12
+            val x2 = sx0 + 8 * (BAND_SWATCH_SIZE + BAND_SWATCH_GAP) - BAND_SWATCH_GAP + 12
             graphics.text(client.font, Component.translatable("simpleskinswapper.screen.library.wheels"), x2 + 58, by + 48, 0xFFB0B8C0.toInt())
         }
     }
