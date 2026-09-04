@@ -748,10 +748,23 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     // Input
     // ------------------------------------------------------------------
 
-    // Complexity debt: click routing across band, cards, tabs and overlays — deferred
-    // to the SkinLibraryScreen Extract Class refactoring change.
-    @Suppress("CyclomaticComplexMethod")
     override fun mouseClicked(click: MouseButtonEvent, doubled: Boolean): Boolean {
+        handleOverlayClick(click, doubled)?.let { return it }
+
+        val mx = click.x().toInt()
+        val my = click.y().toInt()
+        if (handleChromeClick(mx, my, click, doubled)) return true
+
+        // Grid wheel-scroll area click-through: let children (cards, widgets) handle the rest.
+        val result = super.mouseClicked(click, doubled)
+        // Deferred: unregister the reorder-dragged card so it only renders via the manual
+        // floating pass (and no longer swallows mouse input) once child iteration is over.
+        reorderDraggingCard?.let { removeWidget(it) }
+        return result
+    }
+
+    /** Overlay panels own the click entirely while open; `null` means no overlay consumed it. */
+    private fun handleOverlayClick(click: MouseButtonEvent, doubled: Boolean): Boolean? {
         detail?.let { d ->
             val handled = d.mouseClicked(click, doubled)
             if (handled) setFocused(d)
@@ -762,13 +775,13 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             if (handled) setFocused(d)
             return handled
         }
-        val mx = click.x().toInt()
-        val my = click.y().toInt()
+        return null
+    }
 
+    /** Non-card chrome: delete confirmation, tab strip, category band, empty-category zone. */
+    private fun handleChromeClick(mx: Int, my: Int, click: MouseButtonEvent, doubled: Boolean): Boolean {
         if (band.confirmingDelete) {
-            if (band.confirmOverlayButton.mouseClicked(click, doubled) || band.cancelOverlayButton.mouseClicked(click, doubled)) {
-                return true
-            }
+            handleDeleteConfirmClick(click, doubled)
             return true
         }
 
@@ -792,13 +805,14 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             openAddPanel()
             return true
         }
+        return false
+    }
 
-        // Grid wheel-scroll area click-through: let children (cards, widgets) handle the rest.
-        val result = super.mouseClicked(click, doubled)
-        // Deferred: unregister the reorder-dragged card so it only renders via the manual
-        // floating pass (and no longer swallows mouse input) once child iteration is over.
-        reorderDraggingCard?.let { removeWidget(it) }
-        return result
+    /** While the delete confirmation overlay is up it swallows every click. */
+    private fun handleDeleteConfirmClick(click: MouseButtonEvent, doubled: Boolean) {
+        if (band.confirmOverlayButton.mouseClicked(click, doubled) || band.cancelOverlayButton.mouseClicked(click, doubled)) {
+            return
+        }
     }
 
     internal fun confirmCategoryDelete() {
