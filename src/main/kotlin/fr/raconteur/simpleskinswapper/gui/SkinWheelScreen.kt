@@ -81,18 +81,7 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
         val cy = this.height / 2.0f
 
         if (wheelCount == 0) {
-            val key = if (byName.isEmpty()) "simpleskinswapper.screen.carousel.no_skins"
-            else "simpleskinswapper.screen.wheel.empty"
-            context.centeredText(
-                font,
-                Component.translatable(key),
-                cx.toInt(), cy.toInt(), COLOR_TEXT
-            )
-            //? if >=26.1 {
-            super.extractRenderState(context, mouseX, mouseY, delta)
-            //?} else {
-            /*super.render(context, mouseX, mouseY, delta)
-            *///?}
+            drawEmptyState(context, cx, cy, mouseX, mouseY, delta)
             return
         }
 
@@ -125,47 +114,71 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
             )
         }
 
-        // Pagination feedback below the wheel: dots for few wheels, a counter beyond.
-        // Multi-category compositions color each dot after its owning category, and dots
-        // become clickable shortcuts to a category's first wheel.
-        hoverDot = -1
-        if (atRest && wheelCount > 1) {
-            val fy = cy + OUTER_RADIUS + font.lineHeight + 4
-            if (wheelCount <= 9) {
-                val spacing = 12
-                val startX = cx - (wheelCount - 1) * spacing / 2.0f
-                val multiCategory = wheelCategories.distinctBy { it.name }.size > 1
-                paginationDots.clear()
-                for (d in 0..<wheelCount) {
-                    val dx = startX + d * spacing
-                    paginationDots.add(dx to fy)
-                    if (Math.hypot((mouseX - dx).toDouble(), (mouseY - fy).toDouble()) <= DOT_HIT_RADIUS) hoverDot = d
-                    val dotColor = when {
-                        multiCategory && d == activeWheel -> SkinCategoryPalette.parse(wheelCategories[d].colorHex)
-                        multiCategory -> (0x80 shl 24) or (SkinCategoryPalette.parse(wheelCategories[d].colorHex) and 0xFFFFFF)
-                        d == activeWheel -> COLOR_TEXT
-                        else -> COLOR_PAGINATION_DIM
-                    }
-                    fillCircle(context, dx, fy, if (d == activeWheel) 2.5f else 2.0f, dotColor)
-                }
-                if (hoverDot >= 0) {
-                    drawTooltip(context, mouseX, mouseY,
-                        Component.nullToEmpty(wheelCategories[hoverDot].name))
-                }
-            } else {
-                context.centeredText(
-                    font,
-                    Component.nullToEmpty("${activeWheel + 1}/$wheelCount"),
-                    cx.toInt(), (fy - font.lineHeight / 2).toInt(), COLOR_TEXT
-                )
-            }
-        }
+        drawPagination(context, cx, cy, mouseX, mouseY, atRest, activeWheel)
 
         //? if >=26.1 {
         super.extractRenderState(context, mouseX, mouseY, delta)
         //?} else {
         /*super.render(context, mouseX, mouseY, delta)
         *///?}
+    }
+
+    private fun drawEmptyState(
+        context: GuiGraphicsExtractor, cx: Float, cy: Float, mouseX: Int, mouseY: Int, delta: Float
+    ) {
+        val key = if (byName.isEmpty()) "simpleskinswapper.screen.carousel.no_skins"
+        else "simpleskinswapper.screen.wheel.empty"
+        context.centeredText(
+            font,
+            Component.translatable(key),
+            cx.toInt(), cy.toInt(), COLOR_TEXT
+        )
+        //? if >=26.1 {
+        super.extractRenderState(context, mouseX, mouseY, delta)
+        //?} else {
+        /*super.render(context, mouseX, mouseY, delta)
+        *///?}
+    }
+
+    /**
+     * Pagination feedback below the wheel: dots for few wheels, a counter beyond.
+     * Multi-category compositions color each dot after its owning category, and dots
+     * become clickable shortcuts to a category's first wheel.
+     */
+    private fun drawPagination(
+        context: GuiGraphicsExtractor, cx: Float, cy: Float, mouseX: Int, mouseY: Int, atRest: Boolean, activeWheel: Int
+    ) {
+        hoverDot = -1
+        if (!atRest || wheelCount <= 1) return
+        val fy = cy + OUTER_RADIUS + font.lineHeight + 4
+        if (wheelCount <= 9) {
+            val spacing = 12
+            val startX = cx - (wheelCount - 1) * spacing / 2.0f
+            val multiCategory = wheelCategories.distinctBy { it.name }.size > 1
+            paginationDots.clear()
+            for (d in 0..<wheelCount) {
+                val dx = startX + d * spacing
+                paginationDots.add(dx to fy)
+                if (Math.hypot((mouseX - dx).toDouble(), (mouseY - fy).toDouble()) <= DOT_HIT_RADIUS) hoverDot = d
+                val dotColor = when {
+                    multiCategory && d == activeWheel -> SkinCategoryPalette.parse(wheelCategories[d].colorHex)
+                    multiCategory -> (0x80 shl 24) or (SkinCategoryPalette.parse(wheelCategories[d].colorHex) and 0xFFFFFF)
+                    d == activeWheel -> COLOR_TEXT
+                    else -> COLOR_PAGINATION_DIM
+                }
+                fillCircle(context, dx, fy, if (d == activeWheel) 2.5f else 2.0f, dotColor)
+            }
+            if (hoverDot >= 0) {
+                drawTooltip(context, mouseX, mouseY,
+                    Component.nullToEmpty(wheelCategories[hoverDot].name))
+            }
+        } else {
+            context.centeredText(
+                font,
+                Component.nullToEmpty("${activeWheel + 1}/$wheelCount"),
+                cx.toInt(), (fy - font.lineHeight / 2).toInt(), COLOR_TEXT
+            )
+        }
     }
 
     // -------------------------------------------------------------------------
