@@ -309,71 +309,84 @@ class SkinLibraryCard(
         val clipped = !floating && onScreen
         if (clipped) graphics.enableScissor(clipLeft, clipTop, clipRight, clipBottom)
 
-        val allocationColor = parent.allocationColorFor(this)
         if (onScreen || floating) {
-            drawBackground(graphics, hovered = !parent.reorderDraggingCard.let { it != null && it !== this } && isMouseOverCard(mouseX, mouseY), allocated = allocationColor != null, allocationColor = allocationColor ?: 0)
-            drawHandle(graphics, mouseX, mouseY)
-
-            for (child in cardButtons) {
-                //? if >=26.1 {
-                child.extractRenderState(graphics, mouseX, mouseY, delta)
-                //?} else {
-                /*child.render(graphics, mouseX, mouseY, delta)
-                *///?}
-            }
+            drawCardChrome(graphics, mouseX, mouseY, delta)
         }
 
         updateSpringBack()
         updateHoverAnimation(mouseX, mouseY)
 
         if (onScreen || floating) {
-            val previewTop = y + HEADER_HEIGHT + 2
-            val previewBottom = y + height - BUTTON_HEIGHT - BUTTON_MARGIN * 2
-            val centerY = previewCenterY()
-
-            // Position number: left flank of the preview area, vertically centered; tinted with
-            // the category color while the card sits inside the wheel allocation (single-line
-            // form: stonecutter rewrites .text(client.font, Component for <26.1).
-            graphics.text(client.font, Component.nullToEmpty((parent.indexOfCard(this) + 1).toString()), x + 5, centerY - 4, allocationColor ?: 0xFF909090.toInt())
-
-            val margin = client.font.lineHeight / 2
-            val nameColor = if (this.active) 0xFFFFFFFF.toInt() else 0xFF808080.toInt()
-            val textWidth = client.font.width(entry.displayName)
-            val textX = x + (width - textWidth) / 2
-            val textY = y + margin
-            // The whole header line belongs to the name; number and handle live on the flanks.
-            val nameLeft = x + 4
-            val nameRight = x + width - 4
-            // Guard the scissor: a zero/negative-size scissor rectangle crashes MC 26.2.
-            if (nameRight - nameLeft >= 8) {
-                graphics.enableScissor(nameLeft, textY, nameRight, textY + client.font.lineHeight)
-                graphics.text(client.font, Component.nullToEmpty(entry.displayName), textX, textY, nameColor)
-                graphics.disableScissor()
-            } else {
-                graphics.text(client.font, Component.nullToEmpty(entry.displayName), textX, textY, nameColor)
-            }
-
-            entry.ensureTextureLoaded()
-
-            val previewLeft = x + 1
-            val previewRight = x + width - 1
-
-            val textureId = entry.textureId
-            if (textureId != null) {
-                val size = ((previewBottom - previewTop) * 0.5f).toInt()
-                val skinTextures = PlayerSkin(
-                    ClientAsset.DownloadedTexture(textureId, ""), null, null,
-                    if (entry.skinType == SkinType.SLIM) PlayerModelType.SLIM else PlayerModelType.WIDE,
-                    true
-                )
-                SkinRenderer.renderPlayerRotatable(
-                    graphics, intArrayOf(previewLeft, previewTop, previewRight, previewBottom),
-                    size, skinTextures, previewYaw, previewPitch, hoverAnimFactor
-                )
-            }
+            drawCardHeader(graphics)
+            drawCardPreview(graphics)
         }
 
         if (clipped) graphics.disableScissor()
+    }
+
+    private fun drawCardChrome(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
+        val allocationColor = parent.allocationColorFor(this)
+        drawBackground(graphics, hovered = !parent.reorderDraggingCard.let { it != null && it !== this } && isMouseOverCard(mouseX, mouseY), allocated = allocationColor != null, allocationColor = allocationColor ?: 0)
+        drawHandle(graphics, mouseX, mouseY)
+
+        for (child in cardButtons) {
+            //? if >=26.1 {
+            child.extractRenderState(graphics, mouseX, mouseY, delta)
+            //?} else {
+            /*child.render(graphics, mouseX, mouseY, delta)
+            *///?}
+        }
+    }
+
+    private fun drawCardHeader(graphics: GuiGraphicsExtractor) {
+        val previewCenterY = previewCenterY()
+
+        // Position number: left flank of the preview area, vertically centered; tinted with
+        // the category color while the card sits inside the wheel allocation (single-line
+        // form: stonecutter rewrites .text(client.font, Component for <26.1).
+        graphics.text(client.font, Component.nullToEmpty((parent.indexOfCard(this) + 1).toString()), x + 5, previewCenterY - 4, allocationTextColor())
+
+        val margin = client.font.lineHeight / 2
+        val nameColor = if (this.active) 0xFFFFFFFF.toInt() else 0xFF808080.toInt()
+        val textWidth = client.font.width(entry.displayName)
+        val textX = x + (width - textWidth) / 2
+        val textY = y + margin
+        // The whole header line belongs to the name; number and handle live on the flanks.
+        val nameLeft = x + 4
+        val nameRight = x + width - 4
+        // Guard the scissor: a zero/negative-size scissor rectangle crashes MC 26.2.
+        if (nameRight - nameLeft >= 8) {
+            graphics.enableScissor(nameLeft, textY, nameRight, textY + client.font.lineHeight)
+            graphics.text(client.font, Component.nullToEmpty(entry.displayName), textX, textY, nameColor)
+            graphics.disableScissor()
+        } else {
+            graphics.text(client.font, Component.nullToEmpty(entry.displayName), textX, textY, nameColor)
+        }
+    }
+
+    private fun allocationTextColor(): Int = parent.allocationColorFor(this) ?: 0xFF909090.toInt()
+
+    private fun drawCardPreview(graphics: GuiGraphicsExtractor) {
+        entry.ensureTextureLoaded()
+
+        val previewTop = y + HEADER_HEIGHT + 2
+        val previewBottom = y + height - BUTTON_HEIGHT - BUTTON_MARGIN * 2
+        val previewLeft = x + 1
+        val previewRight = x + width - 1
+
+        val textureId = entry.textureId
+        if (textureId != null) {
+            val size = ((previewBottom - previewTop) * 0.5f).toInt()
+            val skinTextures = PlayerSkin(
+                ClientAsset.DownloadedTexture(textureId, ""), null, null,
+                if (entry.skinType == SkinType.SLIM) PlayerModelType.SLIM else PlayerModelType.WIDE,
+                true
+            )
+            SkinRenderer.renderPlayerRotatable(
+                graphics, intArrayOf(previewLeft, previewTop, previewRight, previewBottom),
+                size, skinTextures, previewYaw, previewPitch, hoverAnimFactor
+            )
+        }
     }
 
     companion object {
