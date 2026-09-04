@@ -80,17 +80,21 @@ class   TabStripController(
 
     /** Y of tab [index]: 0 = All, i>0 = category i-1. All tabs scroll alike; the insertion gap shifts later tabs. */
     internal fun tabY(index: Int): Int {
-        var y = stripTop() + index * tabH()
+        var y = stripTop() + index * slotH()
         // The insertion gap opens after category [tabInsertionIndex], shifting later tabs down.
-        if (tabDragActive && tabInsertionIndex >= 0 && index >= tabInsertionIndex + 1) y += tabH()
+        if (tabDragActive && tabInsertionIndex >= 0 && index >= tabInsertionIndex + 1) y += slotH()
         return y - tabScroll.toInt()
     }
 
     internal fun maxTabScroll(): Int {
-        // Whole-tab scroll steps: the range is a multiple of TAB_H, so no tab is ever
+        // Whole-slot scroll steps: the range is a multiple of slotH, so no tab is ever
         // caught half-hidden at the scroll limit (the strip shows whole tabs only).
-        val visibleTabs = Math.max(1, (stripBottom() - stripTop()) / tabH())
-        return Math.max(0, SkinCategoriesStore.all().size + 2 - visibleTabs) * tabH()
+        val slots = SkinCategoriesStore.all().size + 2
+        val contentH = (slots - 1) * slotH() + tabH()
+        val alignedH = stripAlignedBottom() - stripTop()
+        if (contentH <= alignedH) return 0
+        val over = contentH - alignedH
+        return ((over + slotH() - 1) / slotH()) * slotH()
     }
 
     /** Bottom edge aligned to whole tabs: tabs clip here, never half-shown. The strip
@@ -109,11 +113,16 @@ class   TabStripController(
         return cursorY >= top && cursorY < top + tabH()
     }
 
-    /** Tab under the cursor, accounting for the insertion gap; null when none. 0 = All, i>0 = category i-1. */
+    /** Spacing between consecutive tab slots: tabs overlap by [TAB_OVERLAP] px so each
+     *  panel's top border covers the one above — the drawn-last (lower) tab wins clicks. */
+    internal fun slotH(): Int = tabH() - TAB_OVERLAP
+
+    /** Tab under the cursor, accounting for the insertion gap; null when none. 0 = All, i>0 = category i-1.
+     *  Scanned bottom-up: lower tabs draw on top, so their overlap band is theirs to click. */
     internal fun tabAt(cursorY: Int, cursorX: Int): Int? {
         if (cursorX < SkinLibraryScreen.STRIP_X || cursorX > SkinLibraryScreen.STRIP_X + SkinLibraryScreen.TAB_W + 4) return null
         if (cursorY < stripTop() || cursorY >= stripAlignedBottom()) return null
-        for (i in 0..SkinCategoriesStore.all().size) {
+        for (i in SkinCategoriesStore.all().size downTo 0) {
             val top = tabY(i)
             if (cursorY >= top && cursorY < top + tabH()) return i
         }
@@ -140,7 +149,7 @@ class   TabStripController(
             speed = MAX_TABS_PER_SEC * (1.0F - (mouseY - top - tabH()) / AUTO_SCROLL_BAND.toFloat())
         }
         if (speed != 0.0F) {
-            tabScroll = Mth.clamp(tabScroll + speed * tabH() * dt, 0.0F, maxTabScroll().toFloat())
+            tabScroll = Mth.clamp(tabScroll + speed * slotH() * dt, 0.0F, maxTabScroll().toFloat())
         }
     }
 
@@ -149,7 +158,7 @@ class   TabStripController(
         val count = SkinCategoriesStore.all().size
         var p = count
         for (storeIdx in 0 until count) {
-            val yTop = stripTop() + (storeIdx + 1) * tabH() - tabScroll.toInt()
+            val yTop = stripTop() + (storeIdx + 1) * slotH() - tabScroll.toInt()
             if (tabDragCursorY < yTop + tabH() / 2) {
                 p = storeIdx
                 break
@@ -169,10 +178,11 @@ class   TabStripController(
         data object None : Release()
     }
 
-    internal fun insertionLineY(): Int = stripTop() + tabH() + tabInsertionIndex * tabH() - tabScroll.toInt()
+    internal fun insertionLineY(): Int = stripTop() + (tabInsertionIndex + 1) * slotH() - tabScroll.toInt()
 
     private companion object {
         const val TAB_DRAG_THRESHOLD = 5.0
+        const val TAB_OVERLAP = 2
         const val AUTO_SCROLL_BAND = 16
         const val MAX_TABS_PER_SEC = 2.0F
     }
