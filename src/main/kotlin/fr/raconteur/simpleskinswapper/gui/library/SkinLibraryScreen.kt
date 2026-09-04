@@ -498,16 +498,17 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     private fun drawTabStripUnder(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
         val top = tabs.stripTop()
         val bottom = tabs.stripBottom()
+        val tabBottom = tabs.stripAlignedBottom()
 
         // Tab zone background: the recipe-book frame sprite, darkened, its left border bleeding
         // off the screen edge and its right side sliding underneath the grid page.
         drawBookPanel(graphics, -PANEL_BLEED, top, STRIP_X + TAB_W + 2 + PANEL_BLEED + 8, bottom - top, lit = false)
 
         // Unselected tabs, clipped to the strip — All Skins is a tab like the others.
-        graphics.enableScissor(STRIP_X, top, STRIP_X + TAB_W + 2, bottom)
+        graphics.enableScissor(STRIP_X, top, STRIP_X + TAB_W + 2, tabBottom)
         for (i in 0..SkinCategoriesStore.all().size) {
             val y = tabs.tabY(i)
-            if (y + TAB_H < top || y > bottom) continue
+            if (y + TAB_H < top || y > tabBottom) continue
             if (isSelectedTab(i)) continue
             drawTab(graphics, i, y, mouseX, mouseY)
         }
@@ -519,6 +520,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     private fun drawTabStripOver(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
         val top = tabs.stripTop()
         val bottom = tabs.stripBottom()
+        val tabBottom = tabs.stripAlignedBottom()
 
         // Selected tab: full-color book panel, flush left, its right edge tucking slightly under
         // the grid page border. Clipped vertically to the strip so it scrolls away like the
@@ -526,8 +528,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         val selected = selectedTabIndex()
         if (selected >= 0) {
             val y = tabs.tabY(selected)
-            if (y + TAB_H >= top && y <= bottom) {
-                graphics.enableScissor(-PANEL_BLEED, top, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT, bottom)
+            if (y + TAB_H >= top && y <= tabBottom) {
+                graphics.enableScissor(-PANEL_BLEED, top, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT, tabBottom)
                 drawBookPanel(graphics, -PANEL_BLEED, y, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT + PANEL_BLEED, TAB_H, lit = true)
                 drawTabContent(graphics, selected, y)
                 graphics.disableScissor()
@@ -537,8 +539,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // Dragged tab follows the cursor vertically as a floating full-color panel,
         // clipped to the strip zone the same way.
         if (tabs.tabDragActive && tabs.tabDragCategoryIndex > 0) {
-            val y = (tabs.tabDragCursorY - TAB_H / 2).coerceIn(top, bottom - TAB_H)
-            graphics.enableScissor(-PANEL_BLEED, top, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT, bottom)
+            val y = (tabs.tabDragCursorY - TAB_H / 2).coerceIn(top, tabBottom - TAB_H)
+            graphics.enableScissor(-PANEL_BLEED, top, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT, tabBottom)
             drawBookPanel(graphics, -PANEL_BLEED, y, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT + PANEL_BLEED, TAB_H, lit = true)
             drawTabContent(graphics, tabs.tabDragCategoryIndex, y)
             graphics.disableScissor()
@@ -546,7 +548,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // Insertion line: after [tabInsertionIndex] categories (pre-removal space).
         if (tabs.tabDragActive && tabs.tabInsertionIndex >= 0) {
             val lineY = tabs.insertionLineY()
-            if (lineY >= top && lineY <= bottom) {
+            if (lineY >= top && lineY <= tabBottom) {
                 graphics.fill(STRIP_X, lineY - 1, STRIP_X + TAB_W, lineY + 1, 0xFFFFFFFF.toInt())
             }
         }
@@ -556,9 +558,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
      *  and a centered "+"; the outline brightens on hover. Not a vanilla button. */
     private fun drawAddCategoryEntry(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
         val top = tabs.stripTop()
-        val bottom = tabs.stripBottom()
         val y = tabs.addEntryY()
-        if (y + TAB_H < top || y > bottom) return
+        if (y + TAB_H < top || y > tabs.stripAlignedBottom()) return
         val outline = if (tabs.addEntryAt(mouseY, mouseX)) 0xFFC5C5C5.toInt() else 0xFF999999.toInt()
         val right = STRIP_X + TAB_W
         graphics.fill(STRIP_X, y, right, y + 1, outline)

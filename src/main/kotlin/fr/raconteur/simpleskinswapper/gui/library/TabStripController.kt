@@ -92,13 +92,18 @@ class   TabStripController(
         return Math.max(0, SkinCategoriesStore.all().size + 2 - visibleTabs) * SkinLibraryScreen.TAB_H
     }
 
+    /** Bottom edge aligned to whole tabs: tabs clip here, never half-shown. The strip
+     *  zone below this line is frame-only background (breathing room, no tab pixels). */
+    internal fun stripAlignedBottom(): Int =
+        stripTop() + Math.max(1, (stripBottom() - stripTop()) / SkinLibraryScreen.TAB_H) * SkinLibraryScreen.TAB_H
+
     /** Y of the add-category entry: the strip slot after the last category tab. */
     internal fun addEntryY(): Int = tabY(SkinCategoriesStore.all().size + 1)
 
     /** True when the cursor sits on the add-category entry slot at the end of the strip. */
     internal fun addEntryAt(cursorY: Int, cursorX: Int): Boolean {
         if (cursorX < SkinLibraryScreen.STRIP_X || cursorX > SkinLibraryScreen.STRIP_X + SkinLibraryScreen.TAB_W + 4) return false
-        if (cursorY < stripTop() || cursorY > stripBottom()) return false
+        if (cursorY < stripTop() || cursorY >= stripAlignedBottom()) return false
         val top = addEntryY()
         return cursorY >= top && cursorY < top + SkinLibraryScreen.TAB_H
     }
@@ -106,7 +111,7 @@ class   TabStripController(
     /** Tab under the cursor, accounting for the insertion gap; null when none. 0 = All, i>0 = category i-1. */
     internal fun tabAt(cursorY: Int, cursorX: Int): Int? {
         if (cursorX < SkinLibraryScreen.STRIP_X || cursorX > SkinLibraryScreen.STRIP_X + SkinLibraryScreen.TAB_W + 4) return null
-        if (cursorY < stripTop() || cursorY > stripBottom()) return null
+        if (cursorY < stripTop() || cursorY >= stripAlignedBottom()) return null
         for (i in 0..SkinCategoriesStore.all().size) {
             val top = tabY(i)
             if (cursorY >= top && cursorY < top + SkinLibraryScreen.TAB_H) return i
