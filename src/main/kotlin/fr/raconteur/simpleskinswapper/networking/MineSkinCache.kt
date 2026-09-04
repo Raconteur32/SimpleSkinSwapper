@@ -22,13 +22,15 @@ object MineSkinCache {
     private fun load(): JsonObject {
         cache?.let { return it }
         var loaded: JsonObject? = null
+        // Deliberate total guard: a corrupt cache file degrades to an empty cache.
+        @Suppress("TooGenericExceptionCaught")
         try {
             if (Files.exists(CACHE_FILE)) {
                 val content = Files.readString(CACHE_FILE)
                 loaded = GSON.fromJson(content, JsonObject::class.java)
             }
-        } catch (e: Exception) {
-            SimpleSkinSwapper.LOGGER.warn("MineSkinCache: failed to load cache: {}", e.message)
+        } catch (ignored: Exception) {
+            SimpleSkinSwapper.LOGGER.warn("MineSkinCache: failed to load cache", ignored)
         }
         if (loaded == null) loaded = JsonObject()
         cache = loaded
@@ -47,14 +49,16 @@ object MineSkinCache {
     @JvmStatic
     fun fileHash(file: File): String? {
         return try {
-            val bytes = Files.readAllBytes(file.toPath())
+            // Deliberate total guard: an unreadable file yields null (hashes are only a cache key).
+        @Suppress("TooGenericExceptionCaught")
+        val bytes = Files.readAllBytes(file.toPath())
             val digest = MessageDigest.getInstance("SHA-256")
             val hash = digest.digest(bytes)
             val sb = StringBuilder()
             for (b in hash) sb.append("%02x".format(b))
             sb.toString()
-        } catch (e: Exception) {
-            SimpleSkinSwapper.LOGGER.warn("MineSkinCache: failed to hash file: {}", e.message)
+        } catch (ignored: Exception) {
+            SimpleSkinSwapper.LOGGER.warn("MineSkinCache: failed to hash file", ignored)
             null
         }
     }
@@ -63,6 +67,8 @@ object MineSkinCache {
     fun get(fileHash: String): Property? {
         val data = load()
         if (!data.has(fileHash)) return null
+        // Deliberate total guard: a corrupt entry yields null and is re-fetched later.
+        @Suppress("TooGenericExceptionCaught")
         return try {
             val entry = data.getAsJsonObject(fileHash)
             val value = entry.get("texture").asString
@@ -70,8 +76,8 @@ object MineSkinCache {
                 entry.get("signature").asString else null
             SimpleSkinSwapper.LOGGER.info("MineSkinCache: cache hit for {}", fileHash.substring(0, 8))
             Property("textures", value, signature)
-        } catch (e: Exception) {
-            SimpleSkinSwapper.LOGGER.warn("MineSkinCache: corrupted entry for {}: {}", fileHash, e.message)
+        } catch (ignored: Exception) {
+            SimpleSkinSwapper.LOGGER.warn("MineSkinCache: corrupted entry for {}", fileHash, ignored)
             null
         }
     }

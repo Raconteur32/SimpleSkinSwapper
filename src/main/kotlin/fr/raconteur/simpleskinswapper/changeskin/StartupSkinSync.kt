@@ -10,6 +10,7 @@ import fr.raconteur.simpleskinswapper.gui.SkinUtils
 import fr.raconteur.simpleskinswapper.networking.MineSkinCache
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.client.Minecraft
+import java.io.IOException
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -32,6 +33,9 @@ object StartupSkinSync {
         thread.start()
     }
 
+    // Deliberate total guard: one malformed response (IO, JSON shape, NPE on a missing
+    // field) must not crash startup; log and keep the stored selection.
+    @Suppress("TooGenericExceptionCaught")
     private fun sync() {
         try {
             val client = Minecraft.getInstance()
@@ -100,6 +104,8 @@ object StartupSkinSync {
         }
     }
 
+    // Deliberate total guard: a failed profile lookup returns null (log keeps the stack).
+    @Suppress("TooGenericExceptionCaught")
     internal fun fetchMojangProperty(uuid: UUID): Property? {
         try {
             val uuidStr = uuid.toString().replace("-", "")
@@ -121,8 +127,8 @@ object StartupSkinSync {
                     return Property("textures", value, sig)
                 }
             }
-        } catch (e: Exception) {
-            SimpleSkinSwapper.LOGGER.warn("StartupSkinSync: fetchMojangProperty failed: {}", e.message)
+        } catch (ignored: Exception) {
+            SimpleSkinSwapper.LOGGER.warn("StartupSkinSync: fetchMojangProperty failed", ignored)
         }
         return null
     }
@@ -132,6 +138,8 @@ object StartupSkinSync {
      * The URL is content-addressed on Mojang's CDN, so identical PNGs share the same URL.
      */
     @JvmStatic
+    // Malformed base64 or unexpected JSON shape yields null by contract (content-addressed URL lookup).
+    @Suppress("TooGenericExceptionCaught")
     fun extractSkinUrl(base64Value: String): String? {
         return try {
             val json = String(Base64.getDecoder().decode(base64Value))
@@ -139,7 +147,7 @@ object StartupSkinSync {
             obj.getAsJsonObject("textures")
                 .getAsJsonObject("SKIN")
                 .get("url").asString
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
@@ -177,8 +185,8 @@ object StartupSkinSync {
             val resp = HTTP.send(req, HttpResponse.BodyHandlers.ofByteArray())
             if (resp.statusCode() == 200) return resp.body()
             SimpleSkinSwapper.LOGGER.warn("StartupSkinSync: download HTTP {}.", resp.statusCode())
-        } catch (e: Exception) {
-            SimpleSkinSwapper.LOGGER.warn("StartupSkinSync: download failed: {}", e.message)
+        } catch (e: IOException) {
+            SimpleSkinSwapper.LOGGER.warn("StartupSkinSync: download failed", e)
         }
         return null
     }

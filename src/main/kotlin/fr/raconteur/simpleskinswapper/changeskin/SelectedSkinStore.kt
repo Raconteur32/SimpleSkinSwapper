@@ -61,6 +61,9 @@ object SelectedSkinStore {
     fun getPreviewSkinType(): SkinType? = previewSkinType
 
     @Synchronized
+    // Deliberate total guard: the selected-skin file is hand-editable, so any malformed
+    // content (IO, JSON shape, NPE) must degrade to "no stored selection", not crash.
+    @Suppress("TooGenericExceptionCaught")
     private fun ensureLoaded() {
         if (loaded) return
         loaded = true

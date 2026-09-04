@@ -26,6 +26,9 @@ object MineSkinUploader {
      * Uploads the skin file via WebSocket to the MineSkin proxy and returns
      * a texture Property (value + signature), or null on failure.
      */
+    // Deliberate total guard: connect, queue wait and future resolution must never
+    // crash the upload thread; log and return null.
+    @Suppress("TooGenericExceptionCaught")
     @JvmStatic
     fun upload(skinFile: File, variant: String): Property? {
         val fileHash = MineSkinCache.fileHash(skinFile)
@@ -86,6 +89,8 @@ object MineSkinUploader {
             ws.request(1)
         }
 
+        // Deliberate total guard: a malformed MineSkin answer must not kill the socket thread.
+        @Suppress("TooGenericExceptionCaught")
         override fun onText(ws: WebSocket, data: CharSequence, last: Boolean): CompletableFuture<*>? {
             SimpleSkinSwapper.LOGGER.info("MineSkin: received response: {}", data)
             ws.sendClose(WebSocket.NORMAL_CLOSURE, "done")
@@ -96,8 +101,8 @@ object MineSkinUploader {
                     body.get("textureSignature").asString else null
                 SimpleSkinSwapper.LOGGER.info("MineSkin: texture property parsed OK (signature: {})", sig != null)
                 channel.offer(Optional.of(Property("textures", value, sig)))
-            } catch (e: Exception) {
-                SimpleSkinSwapper.LOGGER.warn("MineSkin: could not parse response: {}", e.message)
+            } catch (ignored: Exception) {
+                SimpleSkinSwapper.LOGGER.warn("MineSkin: could not parse response", ignored)
                 channel.offer(Optional.empty())
             }
             return null

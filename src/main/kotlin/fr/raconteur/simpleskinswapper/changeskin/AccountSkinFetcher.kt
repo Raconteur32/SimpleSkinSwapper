@@ -5,6 +5,7 @@ import com.google.gson.JsonObject
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
 import net.minecraft.client.Minecraft
 import java.io.File
+import java.io.IOException
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -66,12 +67,14 @@ object AccountSkinFetcher {
 
             val file = destination.toFile()
             client.execute { onSuccess.accept(file) }
-        } catch (e: Exception) {
+        } catch (e: IOException) {
             SimpleSkinSwapper.LOGGER.warn("AccountSkinFetcher failed: {}", e.message)
             client.execute(onFailure)
         }
     }
 
+    // Deliberate total guard: any lookup/parsing failure yields null (log keeps the stack).
+    @Suppress("TooGenericExceptionCaught")
     private fun fetchUuid(username: String): UUID? {
         return try {
             val uri = URI.create("https://api.mojang.com/users/profiles/minecraft/$username")
@@ -86,8 +89,8 @@ object AccountSkinFetcher {
                     Regex("(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})"), "$1-$2-$3-$4-$5"
                 )
             )
-        } catch (e: Exception) {
-            SimpleSkinSwapper.LOGGER.warn("AccountSkinFetcher: username lookup failed: {}", e.message)
+        } catch (ignored: Exception) {
+            SimpleSkinSwapper.LOGGER.warn("AccountSkinFetcher: username lookup failed", ignored)
             null
         }
     }

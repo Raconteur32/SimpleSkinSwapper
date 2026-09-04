@@ -144,6 +144,9 @@ object SkinCategoriesStore {
         }
     }
 
+    // Deliberate total guard: categories.json is hand-editable; any malformed content
+    // (IO, JSON shape, NPE) must reset to defaults, not crash.
+    @Suppress("TooGenericExceptionCaught")
     private fun ensureLoaded() {
         if (loaded) return
         loaded = true

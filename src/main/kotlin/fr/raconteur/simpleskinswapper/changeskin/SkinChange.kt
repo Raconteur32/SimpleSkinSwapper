@@ -11,6 +11,7 @@ import org.apache.http.entity.mime.MultipartEntityBuilder
 import org.apache.http.entity.mime.content.FileBody
 import org.apache.http.impl.client.HttpClients
 import java.io.File
+import java.io.IOException
 import java.util.function.Consumer
 
 object SkinChange {
@@ -54,7 +55,7 @@ object SkinChange {
                         SimpleSkinSwapper.LOGGER.warn("Mojang upload failed (HTTP {}).", statusCode)
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: IOException) {
                 SimpleSkinSwapper.LOGGER.warn("Mojang upload error: {}", e.message)
             }
 

@@ -112,6 +112,8 @@ class SimpleSkinSwapperConfig {
             }
         }
 
+        // Hand-edited config: any malformed content falls back to defaults (see catch below).
+        @Suppress("TooGenericExceptionCaught")
         private fun load(): SimpleSkinSwapperConfig {
             val configFile = getConfigFile()
             if (configFile.exists()) {
