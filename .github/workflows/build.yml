@@ -27,3 +27,8 @@ jobs:
         # The IDE only type-checks the active Stonecutter version; the root
         # `build` task compiles all version projects (1.21.11, 26.1.2, 26.2, 26.3).
         run: ./gradlew build
+
+      - name: detektAll
+        # Per-version rule gate: lints the stonecutter-generated tree of every version,
+        # including the old-version branches the src/main/kotlin pass cannot see.
+        run: ./gradlew detektAll
