@@ -108,3 +108,29 @@ exceptions:
     active: true
   TooGenericExceptionThrown:
     active: true
+
+style:
+  active: true
+  # Each rule below was verified to actually run without type resolution (probe-tested at
+  # adoption). TR-only rules (VarCouldBeVal, MayBeConst-like nullability checks, UseOrEmpty,
+  # UseIsNullOrEmpty, UseRequireNotNull, UselessCallOnNotNull, ObjectLiteralToLambda) are
+  # deliberately absent: they silently no-op without a classpath, and a ledger entry that
+  # never runs is false confidence. Revisit if detekt gains a typed run.
+  UnusedPrivateMember:
+    active: true
+  UnusedPrivateProperty:
+    active: true
+  WildcardImport:
+    active: true
+  UseCheckOrError:
+    active: true
+  UseRequire:
+    active: true
+  UtilityClassWithPublicConstructor:
+    active: true
+  MayBeConst:
+    active: true
+  ModifierOrder:
+    active: true
+  EqualsNullCall:
+    active: true
