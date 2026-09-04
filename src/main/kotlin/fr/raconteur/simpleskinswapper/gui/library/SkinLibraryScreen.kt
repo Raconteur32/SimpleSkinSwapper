@@ -460,25 +460,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             // button labels at y + (height-8)/2 — same formula here for optical alignment).
             graphics.text(client.font, Component.translatable("simpleskinswapper.title"), STRIP_X, TITLE_Y, 0xFFFFFFFF.toInt())
 
-            if (cards.isEmpty()) {
-                val messageKey = if (selectedCategory == null) {
-                    "simpleskinswapper.screen.carousel.no_skins"
-                } else {
-                    "simpleskinswapper.screen.library.empty_category"
-                }
-                // A "\n" in the translation splits the message into centered lines (the
-                // empty-category hint reads better balanced on two lines).
-                val lines = Component.translatable(messageKey).string.split("\n")
-                val lineHeight = font.lineHeight + 1
-                var lineY = (gridTop + gridBottom) / 2 - (lines.size * lineHeight) / 2
-                for (line in lines) {
-                    graphics.centeredText(
-                        font, Component.literal(line),
-                        (panelX + this.width - PAD) / 2, lineY, 0xFFAAAAAA.toInt()
-                    )
-                    lineY += lineHeight
-                }
-            }
+            drawEmptyStateMessage(graphics)
 
             if (band.confirmingDelete) {
                 band.drawDeleteOverlay(graphics, mouseX, mouseY, delta)
@@ -492,7 +474,31 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                     else Component.nullToEmpty(SkinCategoriesStore.all()[tab - 1].name)
                     drawTooltip(graphics, mouseX, mouseY, label)
                 }
+                // Tooltip for hovered dye picker cell in the expanded band
+                band.hoveredDyeTooltip(mouseX, mouseY)?.let { drawTooltip(graphics, mouseX, mouseY, it) }
             }
+        }
+    }
+
+    /** Centered hint when the current view has no skins (never added, or empty category). */
+    private fun drawEmptyStateMessage(graphics: GuiGraphicsExtractor) {
+        if (cards.isNotEmpty()) return
+        val messageKey = if (selectedCategory == null) {
+            "simpleskinswapper.screen.carousel.no_skins"
+        } else {
+            "simpleskinswapper.screen.library.empty_category"
+        }
+        // A "\n" in the translation splits the message into centered lines (the
+        // empty-category hint reads better balanced on two lines).
+        val lines = Component.translatable(messageKey).string.split("\n")
+        val lineHeight = font.lineHeight + 1
+        var lineY = (gridTop + gridBottom) / 2 - (lines.size * lineHeight) / 2
+        for (line in lines) {
+            graphics.centeredText(
+                font, Component.literal(line),
+                (panelX + this.width - PAD) / 2, lineY, 0xFFAAAAAA.toInt()
+            )
+            lineY += lineHeight
         }
     }
 
