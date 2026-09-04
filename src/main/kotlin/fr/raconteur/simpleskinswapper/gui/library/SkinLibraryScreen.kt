@@ -559,22 +559,16 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         }
     }
 
-    /** Add-category entry: the strip's last slot, strip background with a gray outline
-     *  and a centered "+"; the outline brightens on hover. Not a vanilla button. */
+    /** Add-category entry: the strip's last slot, rendered as a pseudo-tab — its own
+     *  unlit panel with a centered "+" (brightening on hover), no frame, no vanilla button. */
     private fun drawAddCategoryEntry(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
         val top = tabs.stripTop()
         val y = tabs.addEntryY()
         if (y + tabH < top || y > tabs.stripAlignedBottom()) return
-        val outline = if (tabs.addEntryAt(mouseY, mouseX)) 0xFFC5C5C5.toInt() else 0xFF999999.toInt()
-        // Inset one pixel from the slot so the frame doesn't touch its neighbours' edges.
-        val left = STRIP_X + 1
-        val right = STRIP_X + TAB_W - 1
-        val bottom = y + tabH - 1
-        graphics.fill(left, y + 1, right, y + 2, outline)
-        graphics.fill(left, bottom - 1, right, bottom, outline)
-        graphics.fill(left, y + 1, left + 1, bottom, outline)
-        graphics.fill(right - 1, y + 1, right, bottom, outline)
-        graphics.centeredText(font, Component.literal("+"), STRIP_X + TAB_W / 2, y + (tabH - font.lineHeight) / 2, outline)
+        val hovered = tabs.addEntryAt(mouseY, mouseX)
+        val glyph = if (hovered) 0xFFC5C5C5.toInt() else 0xFF999999.toInt()
+        drawBookPanel(graphics, -PANEL_BLEED, y, STRIP_X + TAB_W + 2 + PANEL_BLEED, tabH, lit = false)
+        graphics.centeredText(font, Component.literal("+"), STRIP_X + TAB_W / 2, y + (tabH - font.lineHeight) / 2, glyph)
     }
 
     private fun isSelectedTab(index: Int): Boolean =
@@ -587,6 +581,10 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     private fun drawTab(graphics: GuiGraphicsExtractor, index: Int, y: Int) {
+        // Each unselected tab wears its own panel (same dressing as the selected one, but
+        // flush with the strip's right edge instead of tucking under the page), so the
+        // panel borders read as separators instead of one big background.
+        drawBookPanel(graphics, -PANEL_BLEED, y, STRIP_X + TAB_W + 2 + PANEL_BLEED, tabH, lit = false)
         drawTabContent(graphics, index, y)
     }
 
