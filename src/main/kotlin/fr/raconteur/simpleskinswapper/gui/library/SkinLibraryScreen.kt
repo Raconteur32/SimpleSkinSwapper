@@ -109,8 +109,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     private var gridOffsetX = 0
     internal var gridTop = 0
     private var gridBottom = 0
-    /** Dynamic tab height: the strip splits into whole tabs of at least tabHMin px. */
-    internal var tabH = tabHMin
+    /** Dynamic tab height: whole tabs tiling the strip (~28px density, stretched when
+     *  the category list is shorter than the strip). */
+    internal var tabH = 28
     private var maxScroll = 0
 
     // Widgets
@@ -199,10 +200,19 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         gridBottom = this.height - FOOTER_BAND
         val stripHeight = gridBottom - gridTop
         val slots = SkinCategoriesStore.all().size + 2
-        // Overlap-aware fill: content height is (slots-1)*slotH + tabH; solving for a
-        // full strip gives tabH = (H + overlap*(slots-1)) / slots — no upper clamp, so
-        // few categories mean taller tabs rather than a dead margin below.
-        tabH = ((stripHeight + TAB_OVERLAP * (slots - 1)) / slots).coerceAtLeast(tabHMin)
+        // Overlap-aware fill in BOTH regimes: tile the strip with k whole tabs (k from a
+        // ~28px density), or with the actual slot count when there are fewer of them than
+        // fit — either way content height lands on the strip height (remainder < k px).
+        val densitySlots = Math.max(1, Math.round(stripHeight / 28f))
+        val fillSlots = Math.min(slots, densitySlots)
+        tabH = (stripHeight + TAB_OVERLAP * (fillSlots - 1)) / fillSlots
+        // TEMP-DEBUG: strip geometry audit for the tab-fill regression
+        fr.raconteur.simpleskinswapper.SimpleSkinSwapper.LOGGER.info(
+            "[StripDebug] top={} bottom={} H={} slots={} tabH={} slotH={} contentH={} alignedBottom={} maxScroll={}",
+            gridTop, gridBottom, stripHeight, slots, tabH, tabH - TAB_OVERLAP,
+            (slots - 1) * (tabH - TAB_OVERLAP) + tabH,
+            tabs.stripAlignedBottom(), tabs.maxTabScroll()
+        )
         // The grid lives inside the page's baked border (8px, measured on the texture)
         // plus a small breathing margin on every side — cards never touch the border.
         val gridLeft = gridLeft()

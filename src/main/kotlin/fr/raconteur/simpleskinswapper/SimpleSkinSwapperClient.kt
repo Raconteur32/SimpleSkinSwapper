@@ -64,6 +64,19 @@ class SimpleSkinSwapperClient : ClientModInitializer {
                 /*client.setScreen(SkinLibraryScreen(client.screen))
                 *///?}
             }
+            // TEMP-DEBUG: auto-open the library screen for automated GUI testing
+            //? if >=26.2 {
+            if (debugAutoOpenLibrary && client.gui.screen() is net.minecraft.client.gui.screens.TitleScreen) {
+            //?} else {
+            /*if (debugAutoOpenLibrary && client.screen is net.minecraft.client.gui.screens.TitleScreen) {
+            *///?}
+                debugAutoOpenLibrary = false
+                //? if >=26.2 {
+                client.gui.setScreen(SkinLibraryScreen(client.gui.screen()))
+                //?} else {
+                /*client.setScreen(SkinLibraryScreen(client.screen))
+                *///?}
+            }
             if (openWheelKey?.consumeClick() == true) {
                 //? if >=26.2 {
                 client.gui.setScreen(SkinWheelScreen(client.gui.screen()))
@@ -88,5 +101,9 @@ class SimpleSkinSwapperClient : ClientModInitializer {
         // TEMP-DEBUG: set by -Dsss.debugConfig=1 for automated GUI testing
         @JvmField
         var debugAutoOpenConfig: Boolean = System.getProperty("sss.debugConfig") != null
+
+        // TEMP-DEBUG: set by SSS_DEBUG_LIBRARY=1 in the environment for automated GUI testing
+        @JvmField
+        var debugAutoOpenLibrary: Boolean = System.getenv("SSS_DEBUG_LIBRARY") != null
     }
 }
