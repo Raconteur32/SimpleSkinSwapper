@@ -164,19 +164,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                 .bounds(left + (bw + 4) * 2, footerY, bw, 20).build()
         )
 
-        // Category creation: pinned under the tab strip, aligned on the footer row (same
-        // height, same row) and sized to stay clear of the panel-centered footer buttons.
-        addRenderableWidget(
-            Button.builder(Component.literal("+")) {
-                val category = SkinCategoriesStore.addCategory(
-                    Component.translatable("simpleskinswapper.screen.library.add_category").string,
-                    SkinCategoryPalette.DEFAULT_HEX
-                )
-                selectCategory(category)
-                band.expanded = true
-                band.refreshWidgets()
-            }.bounds(STRIP_X, this.height - 24, TAB_W + 4, 20).build()
-        )
+        // Category creation lives in the tab strip itself (add-category entry, drawn and
+        // hit-tested by the strip) — no vanilla widget, no ghost styling to fight.
 
         // Category deletion confirm overlay buttons live in the band: they are routed by
         // handleChromeClick while confirmingDelete and rendered only by the band's
@@ -519,6 +508,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             if (isSelectedTab(i)) continue
             drawTab(graphics, i, y, mouseX, mouseY)
         }
+        drawAddCategoryEntry(graphics, mouseX, mouseY)
         graphics.disableScissor()
     }
 
@@ -557,6 +547,22 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                 graphics.fill(STRIP_X, lineY - 1, STRIP_X + TAB_W, lineY + 1, 0xFFFFFFFF.toInt())
             }
         }
+    }
+
+    /** Add-category entry: the strip's last slot, strip background with a gray outline
+     *  and a centered "+"; the outline brightens on hover. Not a vanilla button. */
+    private fun drawAddCategoryEntry(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
+        val top = tabs.stripTop()
+        val bottom = tabs.stripBottom()
+        val y = tabs.addEntryY()
+        if (y + TAB_H < top || y > bottom) return
+        val outline = if (tabs.addEntryAt(mouseY, mouseX)) 0xFFC5C5C5.toInt() else 0xFF999999.toInt()
+        val right = STRIP_X + TAB_W
+        graphics.fill(STRIP_X, y, right, y + 1, outline)
+        graphics.fill(STRIP_X, y + TAB_H - 1, right, y + TAB_H, outline)
+        graphics.fill(STRIP_X, y, STRIP_X + 1, y + TAB_H, outline)
+        graphics.fill(right - 1, y, right, y + TAB_H, outline)
+        graphics.centeredText(font, Component.literal("+"), STRIP_X + TAB_W / 2, y + (TAB_H - font.lineHeight) / 2, outline)
     }
 
     private fun isSelectedTab(index: Int): Boolean =
@@ -777,6 +783,12 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             return true
         }
 
+        // Add-category entry: immediate creation on click, no drag semantics.
+        if (click.button() == InputConstants.MOUSE_BUTTON_LEFT && tabs.addEntryAt(my, mx)) {
+            createCategory()
+            return true
+        }
+
         // Category band: bar click toggles expansion, swatch click recolors. The part of
         // the band scrolled above the viewport top is not clickable, matching its clipping.
         if (band.handleBarClick(mx, my)) return true
@@ -815,6 +827,23 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             SkinCategoriesStore.removeCategory(category)
             selectCategory(null)
         }
+    }
+
+    private fun createCategory() {
+        val category = SkinCategoriesStore.addCategory(nextDefaultCategoryName(), SkinCategoryPalette.DEFAULT_HEX)
+        selectCategory(category)
+        band.expanded = true
+        band.refreshWidgets()
+    }
+
+    /** "New Category", incremented to the first free suffix among live category names. */
+    private fun nextDefaultCategoryName(): String {
+        val base = Component.translatable("simpleskinswapper.screen.library.add_category").string
+        val taken = SkinCategoriesStore.all().mapTo(HashSet()) { it.name }
+        if (base !in taken) return base
+        var n = 2
+        while ("$base $n" in taken) n++
+        return "$base $n"
     }
 
     private fun selectCategory(category: SkinCategory?) {

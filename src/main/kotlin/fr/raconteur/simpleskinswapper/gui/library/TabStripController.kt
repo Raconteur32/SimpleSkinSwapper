@@ -86,7 +86,18 @@ class   TabStripController(
     }
 
     internal fun maxTabScroll(): Int =
-        Math.max(0, (SkinCategoriesStore.all().size + 1) * SkinLibraryScreen.TAB_H - (stripBottom() - stripTop()))
+        Math.max(0, (SkinCategoriesStore.all().size + 2) * SkinLibraryScreen.TAB_H - (stripBottom() - stripTop()))
+
+    /** Y of the add-category entry: the strip slot after the last category tab. */
+    internal fun addEntryY(): Int = tabY(SkinCategoriesStore.all().size + 1)
+
+    /** True when the cursor sits on the add-category entry slot at the end of the strip. */
+    internal fun addEntryAt(cursorY: Int, cursorX: Int): Boolean {
+        if (cursorX < SkinLibraryScreen.STRIP_X || cursorX > SkinLibraryScreen.STRIP_X + SkinLibraryScreen.TAB_W + 4) return false
+        if (cursorY < stripTop() || cursorY > stripBottom()) return false
+        val top = addEntryY()
+        return cursorY >= top && cursorY < top + SkinLibraryScreen.TAB_H
+    }
 
     /** Tab under the cursor, accounting for the insertion gap; null when none. 0 = All, i>0 = category i-1. */
     internal fun tabAt(cursorY: Int, cursorX: Int): Int? {
