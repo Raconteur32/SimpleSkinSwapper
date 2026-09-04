@@ -1,62 +1,38 @@
 package fr.raconteur.simpleskinswapper.gui
 
-import com.google.gson.GsonBuilder
-import com.google.gson.reflect.TypeToken
-import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
+import fr.raconteur.simpleskinswapper.data.JsonFileStore
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import net.fabricmc.loader.api.FabricLoader
-import java.io.IOException
-import java.nio.file.Files
-import java.nio.file.Path
 
 /** Persists per-skin display names (skins/names.json, filename -> display name). */
 object SkinNameStore {
 
-    private val GSON = GsonBuilder().setPrettyPrinting().create()
-    private val MAP_TYPE = object : TypeToken<Map<String, String>>() {}.type
-
-    private fun namesFile(): Path =
-        FabricLoader.getInstance().gameDir.resolve("skins").resolve("names.json")
-
-    private fun load(): MutableMap<String, String> {
-        val path = namesFile()
-        if (!Files.exists(path)) return HashMap()
-        return try {
-            val json = Files.readString(path)
-            GSON.fromJson<MutableMap<String, String>>(json, MAP_TYPE) ?: HashMap()
-        } catch (e: IOException) {
-            SimpleSkinSwapper.LOGGER.warn("Could not read names.json: {}", e.message)
-            HashMap()
-        }
-    }
-
-    private fun save(map: Map<String, String>) {
-        val path = namesFile()
-        try {
-            Files.createDirectories(path.parent)
-            Files.writeString(path, GSON.toJson(map))
-        } catch (e: IOException) {
-            SimpleSkinSwapper.LOGGER.warn("Could not write names.json: {}", e.message)
-        }
-    }
+    private val store = JsonFileStore(
+        fileLabel = "names.json",
+        path = { FabricLoader.getInstance().gameDir.resolve("skins").resolve("names.json") },
+        serializer = MapSerializer(String.serializer(), String.serializer()),
+        fresh = { linkedMapOf() },
+    )
 
     /** Returns the stored display name for a skin file, or null when it uses its file name. */
     @JvmStatic
-    fun getName(filename: String): String? = load()[filename]
+    fun getName(filename: String): String? = store.load()[filename]
 
     /** Stores the display name for a skin file; a blank name removes the override. */
     @JvmStatic
     fun setName(filename: String, name: String) {
-        val map = load()
+        val map = store.load().toMutableMap()
         if (name.isBlank()) map.remove(filename) else map[filename] = name
-        save(map)
+        store.save(map)
     }
 
     /** Removes the stored name for a skin file, e.g. when the file is deleted. */
     @JvmStatic
     fun removeName(filename: String) {
-        val map = load()
+        val map = store.load().toMutableMap()
         if (map.remove(filename) != null) {
-            save(map)
+            store.save(map)
         }
     }
 
@@ -64,9 +40,9 @@ object SkinNameStore {
     @JvmStatic
     fun renameKey(oldFilename: String, newFilename: String) {
         if (oldFilename == newFilename) return
-        val map = load()
+        val map = store.load().toMutableMap()
         val value = map.remove(oldFilename) ?: return
         map[newFilename] = value
-        save(map)
+        store.save(map)
     }
 }

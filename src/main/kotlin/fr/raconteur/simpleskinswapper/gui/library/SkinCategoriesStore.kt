@@ -1,13 +1,8 @@
 package fr.raconteur.simpleskinswapper.gui.library
 
-import com.google.gson.GsonBuilder
-import com.google.gson.JsonObject
-import com.google.gson.JsonParser
-import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
+import fr.raconteur.simpleskinswapper.data.JsonFileStore
+import kotlinx.serialization.Serializable
 import net.fabricmc.loader.api.FabricLoader
-import java.io.IOException
-import java.nio.file.Files
-import java.nio.file.Path
 
 /** One user-defined skin group: display name, palette color, wheel allocation, ordered skin files. */
 class SkinCategory(
@@ -25,7 +20,24 @@ class SkinCategory(
  */
 object SkinCategoriesStore {
 
-    private val GSON = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create()
+    /** On-disk shape of categories.json; fields stay lenient to match the Gson-era semantics. */
+    @Serializable
+    internal data class CategoryDto(
+        val name: String? = null,
+        val color: String? = null,
+        val maxWheels: Int? = null,
+        val skins: List<String>? = null,
+    )
+
+    @Serializable
+    internal data class CategoriesFileDto(val categories: List<CategoryDto>? = null)
+
+    private val store = JsonFileStore(
+        fileLabel = "categories.json",
+        path = { FabricLoader.getInstance().gameDir.resolve("skins").resolve("categories.json") },
+        serializer = CategoriesFileDto.serializer(),
+        fresh = { CategoriesFileDto() },
+    )
     private val categories = ArrayList<SkinCategory>()
     private var loaded = false
 
@@ -123,52 +135,20 @@ object SkinCategoriesStore {
 
     @JvmStatic
     fun save() {
-        val root = JsonObject()
-        val array = com.google.gson.JsonArray()
-        for (category in categories) {
-            val entry = JsonObject()
-            entry.addProperty("name", category.name)
-            entry.addProperty("color", category.colorHex)
-            entry.addProperty("maxWheels", category.maxWheels)
-            val skins = com.google.gson.JsonArray()
-            for (name in category.skins) skins.add(name)
-            entry.add("skins", skins)
-            array.add(entry)
-        }
-        root.add("categories", array)
-        try {
-            Files.createDirectories(storeFile().parent)
-            Files.writeString(storeFile(), GSON.toJson(root))
-        } catch (e: IOException) {
-            SimpleSkinSwapper.LOGGER.warn("Could not save skin categories: {}", e.message)
-        }
+        store.save(CategoriesFileDto(categories.map {
+            CategoryDto(name = it.name, color = it.colorHex, maxWheels = it.maxWheels, skins = it.skins.toList())
+        }))
     }
 
-    // Deliberate total guard: categories.json is hand-editable; any malformed content
-    // (IO, JSON shape, NPE) must reset to defaults, not crash.
-    @Suppress("TooGenericExceptionCaught")
     private fun ensureLoaded() {
         if (loaded) return
         loaded = true
-        val file = storeFile()
-        if (!Files.exists(file)) return
-        try {
-            val root = JsonParser.parseString(Files.readString(file)).asJsonObject
-            val array = root.getAsJsonArray("categories") ?: return
-            for (element in array) {
-                val entry = element.asJsonObject
-                val name = entry.get("name")?.asString ?: continue
-                val color = entry.get("color")?.asString ?: SkinCategoryPalette.DEFAULT_HEX
-                val maxWheels = entry.get("maxWheels")?.asInt ?: 0
-                val skins = ArrayList<String>()
-                entry.getAsJsonArray("skins")?.forEach { skins.add(it.asString) }
-                categories.add(SkinCategory(name, color, maxWheels.coerceAtLeast(0), skins))
-            }
-        } catch (e: Exception) {
-            SimpleSkinSwapper.LOGGER.warn("Could not read skin categories: {}", e.message)
-            categories.clear()
+        for (dto in store.load().categories ?: emptyList()) {
+            // Entries without a name are skipped; the other fields fall back like before.
+            val name = dto.name ?: continue
+            val color = dto.color ?: SkinCategoryPalette.DEFAULT_HEX
+            val maxWheels = (dto.maxWheels ?: 0).coerceAtLeast(0)
+            categories.add(SkinCategory(name, color, maxWheels, ArrayList(dto.skins ?: emptyList())))
         }
     }
-
-    private fun storeFile(): Path = FabricLoader.getInstance().gameDir.resolve("skins").resolve("categories.json")
 }
