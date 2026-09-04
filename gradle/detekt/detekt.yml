@@ -51,3 +51,35 @@ potential-bugs:
     active: true
   WrongEqualsTypeParameter:
     active: true
+
+naming:
+  active: true
+  ClassNaming:
+    active: true
+  ConstructorParameterNaming:
+    active: true
+  EnumNaming:
+    active: true
+  FunctionNaming:
+    active: true
+    # IPlayerSkinUpdatable declares a mixin injection anchor whose `$` name is fixed by
+    # the mixin target and cannot follow Kotlin conventions.
+    excludes: ['**/IPlayerSkinUpdatable.kt']
+  FunctionParameterNaming:
+    active: true
+  InvalidPackageDeclaration:
+    active: true
+  MatchingDeclarationName:
+    active: true
+  MemberNameEqualsClassName:
+    active: true
+  NoNameShadowing:
+    active: true
+  ObjectPropertyNaming:
+    active: true
+  PackageNaming:
+    active: true
+  TopLevelPropertyNaming:
+    active: true
+  VariableNaming:
+    active: true
