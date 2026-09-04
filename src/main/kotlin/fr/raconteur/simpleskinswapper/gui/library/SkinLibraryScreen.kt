@@ -99,7 +99,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     private val cardDisplay = IdentityHashMap<SkinLibraryCard, FloatArray>()
 
     // Tab strip scroll/drag/insertion state machine.
-    private val tabs = TabStripController({ gridTop }, { gridBottom }, { tabH })
+    private val tabs = TabStripController({ stripZoneTop }, { stripZoneBottom }, { tabH })
 
     // Grid scroll + layout (recomputed in recomputeLayout()).
     internal var scrollY = 0
@@ -112,6 +112,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     /** Dynamic tab height: whole tabs tiling the strip (~28px density, stretched when
      *  the category list is shorter than the strip). */
     internal var tabH = 28
+    /** Tab strip display band: whole-slot band centered in the card page's vertical span. */
+    private var stripZoneTop = 0
+    private var stripZoneBottom = 0
     private var maxScroll = 0
 
     // Widgets
@@ -198,20 +201,24 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // the page) — switching category or expanding the band never moves the layout.
         gridTop = contentTop() + BAND_GRID_MARGIN
         gridBottom = this.height - FOOTER_BAND
-        val stripHeight = gridBottom - gridTop
+        // Tab strip zone = the card page's vertical span (page border included, so the
+        // strip's tab band and the page share both edges). The band tiles that zone with
+        // whole slots — density ~28px, or the actual slot count when the list is shorter
+        // than the strip — and centers the rounding remainder instead of showing it.
+        val zoneTop = gridTop - PAGE_BORDER
+        val zoneHeight = gridBottom + PAGE_BORDER - zoneTop
         val slots = SkinCategoriesStore.all().size + 2
-        // Overlap-aware fill in BOTH regimes: tile the strip with k whole tabs (k from a
-        // ~28px density), or with the actual slot count when there are fewer of them than
-        // fit — either way content height lands on the strip height (remainder < k px).
-        val densitySlots = Math.max(1, Math.round(stripHeight / 28f))
+        val densitySlots = Math.max(1, Math.round(zoneHeight / 28f))
         val fillSlots = Math.min(slots, densitySlots)
-        tabH = (stripHeight + TAB_OVERLAP * (fillSlots - 1)) / fillSlots
+        tabH = (zoneHeight + TAB_OVERLAP * (fillSlots - 1)) / fillSlots
+        val bandH = (fillSlots - 1) * (tabH - TAB_OVERLAP) + tabH
+        stripZoneTop = zoneTop + (zoneHeight - bandH) / 2
+        stripZoneBottom = stripZoneTop + bandH
         // TEMP-DEBUG: strip geometry audit for the tab-fill regression
         fr.raconteur.simpleskinswapper.SimpleSkinSwapper.LOGGER.info(
-            "[StripDebug] top={} bottom={} H={} slots={} tabH={} slotH={} contentH={} alignedBottom={} maxScroll={}",
-            gridTop, gridBottom, stripHeight, slots, tabH, tabH - TAB_OVERLAP,
-            (slots - 1) * (tabH - TAB_OVERLAP) + tabH,
-            tabs.stripAlignedBottom(), tabs.maxTabScroll()
+            "[StripDebug] zone={}..{} band={}..{} slots={} tabH={} contentH={} maxScroll={}",
+            zoneTop, gridBottom + PAGE_BORDER, stripZoneTop, stripZoneBottom, slots, tabH,
+            (slots - 1) * (tabH - TAB_OVERLAP) + tabH, tabs.maxTabScroll()
         )
         // The grid lives inside the page's baked border (8px, measured on the texture)
         // plus a small breathing margin on every side — cards never touch the border.
@@ -518,9 +525,11 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         val bottom = tabs.stripBottom()
         val tabBottom = tabs.stripAlignedBottom()
 
-        // Tab zone background: the recipe-book frame sprite, darkened, its left border bleeding
-        // off the screen edge and its right side sliding underneath the grid page.
-        drawBookPanel(graphics, -PANEL_BLEED, top, STRIP_X + TAB_W + 2 + PANEL_BLEED + 8, bottom - top, lit = false)
+        // Tab zone background: the recipe-book frame sprite spanning the card page's full
+        // vertical span (page border included), darkened, bleeding off the screen edge on
+        // the left and sliding under the grid page on the right. The tab band is centered
+        // inside; the frame-only margins above and below shrink to the rounding remainder.
+        drawBookPanel(graphics, -PANEL_BLEED, gridTop - PAGE_BORDER, STRIP_X + TAB_W + 2 + PANEL_BLEED + 8, gridBottom + PAGE_BORDER - (gridTop - PAGE_BORDER), lit = false)
 
         // Unselected tabs, clipped to the strip — All Skins is a tab like the others.
         graphics.enableScissor(-PANEL_BLEED, top, STRIP_X + TAB_W + 2, tabBottom)
