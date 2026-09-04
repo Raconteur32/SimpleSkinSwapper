@@ -1045,12 +1045,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         private const val GRID_MARGIN = 4
         private const val MIN_CELL_H = 56
 
-        private const val BAND_COLLAPSED_H = 18
-        private const val BAND_EXPANDED_H = 72
-        private const val BAND_NAME_WIDTH = 140
-        private const val BAND_FIELD_HEIGHT = 16
-        private const val BAND_SWATCH_SIZE = 12
-        private const val BAND_SWATCH_GAP = 2
         private const val BAND_GRID_MARGIN = 6
 
         // Card slot easing + tab strip auto-scroll
