@@ -552,7 +552,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         val selected = selectedTabIndex()
         if (selected >= 0) {
             val y = tabs.tabY(selected)
-            if (y + tabH >= top && y <= tabBottom) {
+            // Whole tabs only, mirrored from the under pass: a selected tab scrolled
+            // half out of the band's top must not dangle its overlap border inside.
+            if (y >= top && y + tabH <= tabBottom) {
                 graphics.enableScissor(-PANEL_BLEED, top, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT, tabBottom)
                 drawBookPanel(graphics, -PANEL_BLEED, y, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT + PANEL_BLEED, tabH, lit = true)
                 drawTabContent(graphics, selected, y)
