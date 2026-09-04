@@ -389,6 +389,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             Files.copy(source.toPath(), target, StandardCopyOption.REPLACE_EXISTING)
             SkinTypeStore.setType(target.fileName.toString(), type)
             if (display.isNotBlank()) SkinNameStore.setName(target.fileName.toString(), display)
+            // Adding from a selected category files the skin into it; from All skins the
+            // skin stays unassigned (see the add-flow spec scenarios).
+            selectedCategory?.let { SkinCategoriesStore.assignSkin(it, target.fileName.toString()) }
             reloadView()
             rebuildCards()
             true
