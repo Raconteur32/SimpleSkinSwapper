@@ -16,8 +16,10 @@ object SkinCategoryPalette {
         Entry(dye.getName(), 0xFF000000.toInt() or dye.mapColor.col)
     }
 
-    /** Default color for new categories: blue dye wool color. */
-    const val DEFAULT_HEX = "#3C44AA"
+    /** Default color for new categories: the white dye's wool color, derived from the
+     *  same entry list the picker highlights against — never off-palette. */
+    @JvmField
+    val DEFAULT_HEX: String = toHex(ENTRIES.first { it.dyeName == "white" }.argb)
 
     @JvmStatic
     fun toHex(argb: Int): String = String.format(java.util.Locale.ROOT, "#%06X", argb and 0xFFFFFF)

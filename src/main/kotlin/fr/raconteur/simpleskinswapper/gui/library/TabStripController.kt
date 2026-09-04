@@ -85,8 +85,12 @@ class   TabStripController(
         return y - tabScroll.toInt()
     }
 
-    internal fun maxTabScroll(): Int =
-        Math.max(0, (SkinCategoriesStore.all().size + 2) * SkinLibraryScreen.TAB_H - (stripBottom() - stripTop()))
+    internal fun maxTabScroll(): Int {
+        // Whole-tab scroll steps: the range is a multiple of TAB_H, so no tab is ever
+        // caught half-hidden at the scroll limit (the strip shows whole tabs only).
+        val visibleTabs = Math.max(1, (stripBottom() - stripTop()) / SkinLibraryScreen.TAB_H)
+        return Math.max(0, SkinCategoriesStore.all().size + 2 - visibleTabs) * SkinLibraryScreen.TAB_H
+    }
 
     /** Y of the add-category entry: the strip slot after the last category tab. */
     internal fun addEntryY(): Int = tabY(SkinCategoriesStore.all().size + 1)

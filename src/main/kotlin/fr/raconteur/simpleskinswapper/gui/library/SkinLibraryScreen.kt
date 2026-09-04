@@ -99,7 +99,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     private val cardDisplay = IdentityHashMap<SkinLibraryCard, FloatArray>()
 
     // Tab strip scroll/drag/insertion state machine.
-    private val tabs = TabStripController({ gridTop }, { this.height - 28 })
+    private val tabs = TabStripController({ gridTop }, { gridBottom })
 
     // Grid scroll + layout (recomputed in recomputeLayout()).
     internal var scrollY = 0
@@ -136,15 +136,14 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         addRenderableWidget(band.wheelsPlus)
         addRenderableWidget(band.deleteButton)
 
-        // Footer spread across the grid panel: open folder left, config center, done right.
-        // Same 110px vanilla buttons, wider breathing room, and the grid stops above the
-        // reserved footer band (see gridBottom) instead of crowding this row.
+        // Footer spread across the full screen width: open folder left, config center,
+        // done right. Same 110px vanilla buttons; the grid stops above the reserved
+        // footer band (see gridBottom) and the strip's free bottom edge gives them room.
         val footerY = this.height - 24
         val bw = 110
-        val panelW = this.width - PAD - panelX
-        val btnLeft = panelX + 2
-        val btnCenter = panelX + (panelW - bw) / 2
-        val btnRight = panelX + panelW - bw - 2
+        val btnLeft = PAD
+        val btnCenter = (this.width - bw) / 2
+        val btnRight = this.width - bw - PAD
         addRenderableWidget(
             Button.builder(
                 Component.translatable("simpleskinswapper.screen.carousel.open_folder")

@@ -166,8 +166,10 @@ internal class CategoryBand(private val screen: SkinLibraryScreen) {
                     else if (hovered) 0xFF606060.toInt() else 0xFF202020.toInt())
                 DyeIcons.draw(graphics, entry.dyeName, sx, y0, BAND_SWATCH_SIZE)
             }
-            // Wheel stepper label, right of the [-] count [+] cluster
+            // Wheel stepper: [-] count [+] cluster with the live count between the buttons,
+            // then the label right of the cluster.
             val x2 = sx0 + 8 * (BAND_SWATCH_SIZE + BAND_SWATCH_GAP) - BAND_SWATCH_GAP + 12
+            graphics.centeredText(client.font, Component.literal("${category.maxWheels}"), x2 + 28, by + 44 + (BAND_FIELD_HEIGHT - client.font.lineHeight) / 2, 0xFFFFFFFF.toInt())
             graphics.text(client.font, Component.translatable("simpleskinswapper.screen.library.wheels"), x2 + 58, by + 48, 0xFFB0B8C0.toInt())
         }
     }
