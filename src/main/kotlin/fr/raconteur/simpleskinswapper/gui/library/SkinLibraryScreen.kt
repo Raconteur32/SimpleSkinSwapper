@@ -220,9 +220,10 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             }.bounds(STRIP_X, this.height - 24, TAB_W + 4, 20).build()
         )
 
-        // Category deletion confirm overlay buttons live in the band (rendered + routed manually).
-        addRenderableWidget(band.confirmOverlayButton)
-        addRenderableWidget(band.cancelOverlayButton)
+        // Category deletion confirm overlay buttons live in the band: they are routed by
+        // handleChromeClick while confirmingDelete and rendered only by the band's
+        // confirm-overlay draw — never registered as screen widgets, or vanilla would
+        // render and leave them clickable at their stale position (the ghost-Cancel bug).
     }
 
     /** init() also runs on window resize (rebuildWidgets clears every widget first):
