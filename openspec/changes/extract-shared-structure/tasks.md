@@ -19,8 +19,8 @@
 
 ## 4. Overlay base extraction
 
-- [ ] 4.1 Extract `AbstractSkinOverlayPanel` (lifecycle, ESC/Enter, click-away blur/commit, column layout, switch widget) from the `SkinAddPanel`/`SkinDetailPanel` clone; panels keep only their specific content
-- [ ] 4.2 Build all 4 versions, flag both overlays for the in-game pass, commit
+- [x] 4.1 Extract `AbstractSkinOverlayPanel` (lifecycle, ESC/Enter, click-away blur/commit, column layout, switch widget) from the `SkinAddPanel`/`SkinDetailPanel` clone; panels keep only their specific content
+- [x] 4.2 Build all 4 versions, flag both overlays for the in-game pass, commit
 
 ## 5. SkinLibraryScreen decomposition
 

@@ -38,9 +38,7 @@ import java.io.IOException
 import java.nio.file.FileSystems
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardWatchEventKinds
 import java.nio.file.StandardCopyOption
-import java.nio.file.WatchService
 import java.util.IdentityHashMap
 
 /**
@@ -117,8 +115,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     private lateinit var bandWheelsPlus: EdgeSafeButtonWidget
     private lateinit var bandDeleteButton: EdgeSafeButtonWidget
 
-    private val selfTriggeredFiles = HashMap<String, Long>()
-    private var watchService: WatchService? = null
+    private val watcher = LibraryFileWatcher { this.init() }
     private var pendingAccountUsername = ""
     private var invalidAccountRevertAtMs = 0L
 
@@ -248,8 +245,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             addRenderableWidget(it)
         }
 
-        stopWatching()
-        startWatching()
+        watcher.stop()
+        watcher.start()
     }
 
     private fun recomputeLayout() {
@@ -349,9 +346,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     fun deleteEntry(entry: SkinEntry) {
-        markSelfTriggered(entry.file.name)
+        watcher.markSelfTriggered(entry.file.name)
         if (!entry.file.delete()) {
-            selfTriggeredFiles.remove(entry.file.name)
+            watcher.unmarkSelfTriggered(entry.file.name)
             SimpleSkinSwapper.LOGGER.warn("Could not delete skin file {}.", entry.file.name)
             return
         }
@@ -370,8 +367,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         if (target.path == entry.file.path) return false
         if (target.exists()) return false
         val oldName = entry.file.name
-        markSelfTriggered(oldName)
-        markSelfTriggered(target.name)
+        watcher.markSelfTriggered(oldName)
+        watcher.markSelfTriggered(target.name)
         if (!entry.file.renameTo(target)) {
             SimpleSkinSwapper.LOGGER.warn("Could not rename skin file {}.", oldName)
             return false
@@ -425,7 +422,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             Files.createDirectories(skinsDir)
             val target = skinsDir.resolve("$sanitized.png")
             if (Files.exists(target)) return false
-            markSelfTriggered(target.fileName.toString())
+            watcher.markSelfTriggered(target.fileName.toString())
             Files.copy(source.toPath(), target, StandardCopyOption.REPLACE_EXISTING)
             SkinTypeStore.setType(target.fileName.toString(), type)
             if (display.isNotBlank()) SkinNameStore.setName(target.fileName.toString(), display)
@@ -1188,7 +1185,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     // ------------------------------------------------------------------
 
     override fun onClose() {
-        stopWatching()
+        watcher.stop()
         //? if >=26.2 {
         this.minecraft.gui.setScreen(parent)
         //?} else {
@@ -1206,52 +1203,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             addFromAccountButton.active = accountField.value.isNotBlank()
         }
 
-        val service = watchService ?: return
-        val key = service.poll() ?: return
-        var changed = false
-        val now = System.currentTimeMillis()
-        for (event in key.pollEvents()) {
-            val p = event.context() as? Path ?: continue
-            if (!p.toString().lowercase().endsWith(".png")) continue
-            val expiry = selfTriggeredFiles[p.toString()]
-            if (expiry != null && now < expiry) continue
-            changed = true
-        }
-        key.reset()
-        if (changed) {
-            this.init()
-        }
-    }
-
-    private fun startWatching() {
-        val skinsDir = FabricLoader.getInstance().gameDir.resolve("skins")
-        try {
-            val service = FileSystems.getDefault().newWatchService()
-            skinsDir.register(
-                service,
-                StandardWatchEventKinds.ENTRY_CREATE,
-                StandardWatchEventKinds.ENTRY_DELETE,
-                StandardWatchEventKinds.ENTRY_MODIFY
-            )
-            watchService = service
-        } catch (e: IOException) {
-            SimpleSkinSwapper.LOGGER.warn("Could not watch skins folder: {}", e.message)
-            watchService = null
-        }
-    }
-
-    private fun stopWatching() {
-        watchService?.let {
-            try {
-                it.close()
-            } catch (ignored: IOException) {
-            }
-            watchService = null
-        }
-    }
-
-    private fun markSelfTriggered(filename: String) {
-        selfTriggeredFiles[filename] = System.currentTimeMillis() + SELF_TRIGGERED_GRACE_MS
+        watcher.pollChanges()
     }
 
     private fun addSkinFromFile() {
@@ -1314,7 +1266,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             val skinsDir = FabricLoader.getInstance().gameDir.resolve("skins")
             Files.createDirectories(skinsDir)
             val dest = AccountSkinFetcher.uniqueFile(skinsDir.resolve(source.name))
-            markSelfTriggered(dest.fileName.toString())
+            watcher.markSelfTriggered(dest.fileName.toString())
             Files.copy(source.toPath(), dest)
             addImportedEntry(dest.toFile())
         } catch (e: IOException) {
@@ -1338,7 +1290,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             return
         }
         val destName = destination.fileName.toString()
-        markSelfTriggered(destName)
+        watcher.markSelfTriggered(destName)
 
         addFromAccountButton.active = false
         AccountSkinFetcher.fetch(
@@ -1348,7 +1300,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                 addFromAccountButton.active = accountField.value.isNotBlank()
             },
             {
-                selfTriggeredFiles.remove(destName)
+                watcher.unmarkSelfTriggered(destName)
                 showInvalidAccount(username)
             }
         )
@@ -1451,7 +1403,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         private val DEFAULT_TEXT_COLOR = 0xFFE0E0E0.toInt()
         private val ERROR_COLOR = 0xFFFF5555.toInt()
         private const val INVALID_ACCOUNT_MESSAGE_MS = 1500L
-        private const val SELF_TRIGGERED_GRACE_MS = 1000L
         private const val WHEEL_SIZE = 10
     }
 }
