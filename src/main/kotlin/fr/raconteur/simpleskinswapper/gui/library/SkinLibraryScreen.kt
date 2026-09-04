@@ -927,7 +927,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         val mx = mouseX.toInt()
         val my = mouseY.toInt()
         if (mx < STRIP_X + TAB_W + TAB_SELECTED_STICKOUT && my >= tabs.stripTop() && my <= tabs.stripBottom()) {
-            tabs.scrollBy(vertAmount.toFloat() * tabH)
+            // One wheel notch = one slot: the wheel must step in slotH units or every
+            // notch misaligns the stack by (tabH - overlap) against its own grid.
+            tabs.scrollBy(vertAmount.toFloat() * tabs.slotH())
             return true
         }
         scrollY = Mth.clamp(scrollY - (vertAmount * (cellH + GRID_GAP)).toInt(), 0, maxScroll)
