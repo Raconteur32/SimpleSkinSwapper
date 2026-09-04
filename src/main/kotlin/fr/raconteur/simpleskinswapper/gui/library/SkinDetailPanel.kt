@@ -1,35 +1,17 @@
 package fr.raconteur.simpleskinswapper.gui.library
 
-import com.mojang.blaze3d.platform.InputConstants
 import fr.raconteur.simpleskinswapper.changeskin.SkinChange
 import fr.raconteur.simpleskinswapper.changeskin.SkinSwapperState
 import fr.raconteur.simpleskinswapper.gui.EdgeSafeButtonWidget
 import fr.raconteur.simpleskinswapper.gui.SkinEntry
 import fr.raconteur.simpleskinswapper.gui.SkinNameStore
-import fr.raconteur.simpleskinswapper.gui.SkinRenderer
 import fr.raconteur.simpleskinswapper.gui.SkinType
-import fr.raconteur.simpleskinswapper.gui.SkinUtils
 import fr.raconteur.simpleskinswapper.gui.SkinTypeStore
 import fr.raconteur.simpleskinswapper.overlayMessage
-import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.ComponentPath
 import net.minecraft.client.gui.GuiGraphicsExtractor
-import net.minecraft.client.gui.components.AbstractWidget
 import net.minecraft.client.gui.components.EditBox
-import net.minecraft.client.gui.components.events.ContainerEventHandler
 import net.minecraft.client.gui.components.events.GuiEventListener
-import net.minecraft.client.gui.narration.NarrationElementOutput
-import net.minecraft.client.gui.navigation.FocusNavigationEvent
-import net.minecraft.client.input.CharacterEvent
-import net.minecraft.client.input.KeyEvent
-import net.minecraft.client.input.MouseButtonEvent
-import net.minecraft.client.renderer.RenderPipelines
-import net.minecraft.core.ClientAsset
 import net.minecraft.network.chat.Component
-import net.minecraft.resources.Identifier
-import net.minecraft.util.Mth
-import net.minecraft.world.entity.player.PlayerModelType
-import net.minecraft.world.entity.player.PlayerSkin
 
 /**
  * Full-screen detail overlay for one skin. Opens as an animated scale-up of the clicked
@@ -39,14 +21,8 @@ import net.minecraft.world.entity.player.PlayerSkin
  * sliding over the active side's head: Steve left, Alex right) and a two-step delete.
  */
 class SkinDetailPanel(
-    private val parent: SkinLibraryScreen
-) : AbstractWidget(0, 0, 0, 0, Component.empty()), ContainerEventHandler, SkinOverlayPanel {
-
-    private val client: Minecraft = Minecraft.getInstance()
-
-    private val panelChildren = ArrayList<GuiEventListener>()
-    private var focusedChild: GuiEventListener? = null
-    private var dragging = false
+    parent: SkinLibraryScreen
+) : AbstractSkinOverlayPanel(parent) {
 
     private val fileNameField: EditBox
     private val displayNameField: EditBox
@@ -55,21 +31,6 @@ class SkinDetailPanel(
     private var deleteArmed = false
 
     private var entry: SkinEntry? = null
-    private var sourceX = 0
-    private var sourceY = 0
-    private var sourceW = 0
-    private var sourceH = 0
-
-    /** 0 = collapsed to the card rect, 1 = fully open. */
-    private var progress = 0f
-    private var closing = false
-    private var removePending = false
-    private var lastAnimNanos = 0L
-
-    private var rotatingPreview = false
-    private var previewYaw = 25f
-    private var previewPitch = 0f
-    private var lastSpringNanos = 0L
 
     init {
         fileNameField = EditBox(
@@ -110,43 +71,14 @@ class SkinDetailPanel(
     /** Starts the scale-up animation from [card]'s current rect to the full detail rect. */
     fun open(card: SkinLibraryCard) {
         entry = card.entry
-        sourceX = card.x
-        sourceY = card.y
-        sourceW = card.width
-        sourceH = card.height
-        progress = 0f
-        closing = false
-        removePending = false
-        lastAnimNanos = 0L
         deleteArmed = false
         deleteButton.message = deleteLabel()
 
         val e = entry!!
         fileNameField.setValue(e.baseName)
         displayNameField.setValue(e.displayNameOverride ?: "")
-        previewYaw = 25f
-        previewPitch = 0f
 
-        setX(0)
-        setY(0)
-        setWidth(parent.width)
-        setHeight(parent.height)
-    }
-
-    fun close(instant: Boolean = false) {
-        // Closing is the ultimate blur: commit a pending file rename (ESC, click outside).
-        // Instant closes skip it — they are programmatic (delete / entry gone).
-        if (!instant) commitRename()
-        setFocused(null)
-        rotatingPreview = false
-        if (instant) {
-            removePending = true
-            return
-        }
-        if (!closing) {
-            closing = true
-            lastAnimNanos = 0L
-        }
+        openFrom(card.x, card.y, card.width, card.height)
     }
 
     /** Re-points the panel at a fresh entry after a reload (file renamed / list rebuilt). */
@@ -156,61 +88,20 @@ class SkinDetailPanel(
         displayNameField.setValue(fresh.displayNameOverride ?: "")
     }
 
-    /** Keeps the widget bounds in sync when the window is resized while open. */
-    override fun onScreenResized(width: Int, height: Int) {
-        setWidth(width)
-        setHeight(height)
-    }
-
     val entryFileName: String?
         get() = entry?.file?.name
-
-    override val isRemovePending: Boolean
-        get() = removePending
 
     // ------------------------------------------------------------------
     // Layout
     // ------------------------------------------------------------------
 
-    /** Current animated panel rect (x, y, w, h). */
-    private fun rect(): IntArray {
-        val t = targetRect()
-        val x = Mth.lerp(progress, sourceX.toFloat(), t[0].toFloat())
-        val y = Mth.lerp(progress, sourceY.toFloat(), t[1].toFloat())
-        val w = Mth.lerp(progress, sourceW.toFloat(), t[2].toFloat())
-        val h = Mth.lerp(progress, sourceH.toFloat(), t[3].toFloat())
-        return intArrayOf(x.toInt(), y.toInt(), w.toInt(), h.toInt())
-    }
-
-    /** Nearly the whole screen; the base screen stays visible around it. */
-    private fun targetRect(): IntArray = intArrayOf(
-        DETAIL_MARGIN, DETAIL_MARGIN,
-        parent.width - DETAIL_MARGIN * 2, parent.height - DETAIL_MARGIN * 2
-    )
-
-    private fun leftWidth(t: IntArray): Int = (t[2] * 0.45f).toInt() - PANEL_PAD - SEPARATOR_GAP + PANEL_PAD
-
-    private fun splitX(t: IntArray): Int = t[0] + (t[2] * 0.45f).toInt()
-
-    private fun previewRect(t: IntArray): IntArray = intArrayOf(
-        splitX(t) + SEPARATOR_GAP, t[1] + PANEL_PAD,
-        t[0] + t[2] - PANEL_PAD, t[1] + t[3] - PANEL_PAD
-    )
-
     private fun labelY(row: Int): Int = targetRect()[1] + PANEL_PAD + row * (LABEL_LINE + FIELD_HEIGHT + ROW_GAP)
 
     /** Top of the switch row: one ROW_GAP below the display-name field — the left column
      *  keeps the same 10 px rhythm between every element (field, switch, buttons). */
-    private fun switchRowY(): Int = labelY(1) + LABEL_LINE + FIELD_HEIGHT + ROW_GAP
+    override fun switchRowY(): Int = labelY(1) + LABEL_LINE + FIELD_HEIGHT + ROW_GAP
 
-    private fun switchRect(t: IntArray): IntArray = intArrayOf(
-        // Indented so the flanking heads (head + gap on each side) stay inside the panel.
-        t[0] + PANEL_PAD + HEAD + HEAD_GAP,
-        switchRowY(),
-        SWITCH_BODY_W, SWITCH_BODY_H
-    )
-
-    private fun repositionChildren() {
+    override fun repositionChildren() {
         val t = targetRect()
         val leftW = leftWidth(t)
         fileNameField.setWidth(leftW)
@@ -225,23 +116,6 @@ class SkinDetailPanel(
     // ------------------------------------------------------------------
     // Actions
     // ------------------------------------------------------------------
-
-    private fun isOnSwitch(mouseX: Int, mouseY: Int): Boolean {
-        val s = switchRect(targetRect())
-        return mouseX >= s[0] - HEAD_GAP - HEAD && mouseX < s[0] + s[2] + HEAD_GAP + HEAD &&
-            mouseY >= s[1] - SWITCH_KNOB / 2 - 2 && mouseY < s[1] + s[3] + SWITCH_KNOB / 2 + 2
-    }
-
-    /** Knob x for the current type: over Steve (left) when classic, over Alex (right) when slim. */
-    private fun knobX(e: SkinEntry, s: IntArray): Int =
-        if (e.skinType == SkinType.CLASSIC) s[0] - 4
-        else s[0] + s[2] - SWITCH_KNOB + 4
-
-    private fun toggleType() {
-        val e = entry ?: return
-        e.skinType = if (e.skinType == SkinType.CLASSIC) SkinType.SLIM else SkinType.CLASSIC
-        SkinTypeStore.setType(e.file.name, e.skinType)
-    }
 
     private fun onDeleteClicked() {
         val e = entry ?: return
@@ -296,91 +170,26 @@ class SkinDetailPanel(
         }
     }
 
-    // ------------------------------------------------------------------
-    // Ticking
-    // ------------------------------------------------------------------
-
-    /** Eases the preview back to its rest pose when released (same feel as the cards). */
-    private fun updateSpringBack() {
-        val now = System.nanoTime()
-        val dt = if (lastSpringNanos == 0L) 0f else (now - lastSpringNanos) / 1_000_000_000f
-        lastSpringNanos = now
-        if (dt == 0f) return
-
-        if (rotatingPreview || (previewYaw == REST_YAW && previewPitch == REST_PITCH)) return
-
-        val t = 1.0F - Math.exp((-SPRING_RETURN_SPEED * dt).toDouble()).toFloat()
-        previewYaw = Mth.lerp(t, previewYaw, REST_YAW)
-        previewPitch = Mth.lerp(t, previewPitch, REST_PITCH)
-        if (Math.abs(previewYaw - REST_YAW) < SPRING_SNAP_EPSILON) previewYaw = REST_YAW
-        if (Math.abs(previewPitch - REST_PITCH) < SPRING_SNAP_EPSILON) previewPitch = REST_PITCH
-    }
-
-    private fun tickAnimation() {
-        val now = System.nanoTime()
-        val dt = if (lastAnimNanos == 0L) 0f else ((now - lastAnimNanos) / 1_000_000_000f).coerceAtMost(0.1f)
-        lastAnimNanos = now
-        if (dt == 0f) return
-        progress = Mth.clamp(progress + (if (closing) -dt else dt) * OPEN_SPEED, 0f, 1f)
-        // The screen unregisters the panel (detail = null + removeWidget) once it sees
-        // isRemovePending — this field must stay reachable until then.
-        if (closing && progress <= 0f) removePending = true
-    }
+    private fun isOnDelete(mx: Int, my: Int): Boolean =
+        mx >= deleteButton.x && mx < deleteButton.x + deleteButton.width &&
+            my >= deleteButton.y && my < deleteButton.y + deleteButton.height
 
     // ------------------------------------------------------------------
     // Rendering
     // ------------------------------------------------------------------
 
-    //? if >=26.1 {
-    override fun extractWidgetRenderState(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
-    //?} else {
-    /*override fun renderWidget(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
-    *///?}
+    override fun drawContent(graphics: GuiGraphicsExtractor, t: IntArray, mouseX: Int, mouseY: Int) {
         val e = entry ?: return
-        tickAnimation()
-        updateSpringBack()
-        repositionChildren()
-        val r = rect()
-        // The big card: same dark frame sprite as idle cards, nine-sliced to any size.
-        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, SkinLibraryScreen.CARD_SPRITE_ACCESS, r[0], r[1], r[2], r[3])
-        if (progress < 0.999f) return
-
-        val t = targetRect()
-        // Thin separator between the controls column and the preview.
-        graphics.fill(splitX(t) - 1, t[1] + PANEL_PAD, splitX(t) + 1, t[1] + t[3] - PANEL_PAD, 0xFF202028.toInt())
-
         drawPreview(graphics, e, t, mouseX, mouseY)
         drawLabels(graphics, t)
-        drawSwitch(graphics, e, t)
-
-        for (child in panelChildren) {
-            if (child !is AbstractWidget) continue
-            //? if >=26.1 {
-            child.extractRenderState(graphics, mouseX, mouseY, delta)
-            //?} else {
-            /*child.render(graphics, mouseX, mouseY, delta)
-            *///?}
-        }
+        drawSwitch(graphics, t, e.skinType)
     }
 
     private fun drawPreview(graphics: GuiGraphicsExtractor, e: SkinEntry, t: IntArray, mouseX: Int, mouseY: Int) {
         val p = previewRect(t)
         e.ensureTextureLoaded()
         val textureId = e.textureId ?: return
-        val ph = p[3] - p[1]
-        // Same sizing convention as the cards: `size` is roughly the model's pixel height,
-        // so half the rect height fills it without clipping head or feet.
-        val size = (ph * 0.5f).toInt()
-        val skinTextures = PlayerSkin(
-            ClientAsset.DownloadedTexture(textureId, ""), null, null,
-            if (e.skinType == SkinType.SLIM) PlayerModelType.SLIM else PlayerModelType.WIDE,
-            true
-        )
-        val hovered = mouseX >= p[0] && mouseX < p[2] && mouseY >= p[1] && mouseY < p[3]
-        SkinRenderer.renderPlayerRotatable(
-            graphics, p[0], p[1], p[2], p[3], size, skinTextures,
-            previewYaw, previewPitch, if (hovered) 0.35f else 0f
-        )
+        drawRotatablePreview(graphics, p, textureId, e.skinType == SkinType.SLIM, mouseX, mouseY)
     }
 
     private fun drawLabels(graphics: GuiGraphicsExtractor, t: IntArray) {
@@ -389,175 +198,43 @@ class SkinDetailPanel(
         graphics.text(client.font, Component.translatable("simpleskinswapper.screen.detail.display_name"), x, labelY(1), 0xFFB0B8C0.toInt())
     }
 
-    private fun drawSwitch(graphics: GuiGraphicsExtractor, e: SkinEntry, t: IntArray) {
-        val s = switchRect(t)
-        // Body: the darkened card frame sprite, a thin rectangle.
-        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, SkinLibraryScreen.CARD_SPRITE_ACCESS, s[0], s[1], s[2], s[3])
-        // Heads OUTSIDE the switch, one on each side, always visible: the option sits on
-        // the side the knob must slide to (Steve = wide on the left, Alex = slim on the right).
-        graphics.blit(RenderPipelines.GUI_TEXTURED, STEVE_TEXTURE, s[0] - HEAD_GAP - HEAD, s[1] + (s[3] - HEAD) / 2, 8f, 8f, HEAD, HEAD, 8, 8, 64, 64)
-        graphics.blit(RenderPipelines.GUI_TEXTURED, ALEX_TEXTURE, s[0] + s[2] + HEAD_GAP, s[1] + (s[3] - HEAD) / 2, 8f, 8f, HEAD, HEAD, 8, 8, 64, 64)
-        // Knob: the full-color square overlay, sliding toward the active side's head.
-        val kx = knobX(e, s)
-        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, SkinLibraryScreen.PANEL_SPRITE_ACCESS, kx, s[1] + (s[3] - SWITCH_KNOB) / 2, SWITCH_KNOB, SWITCH_KNOB)
+    // ------------------------------------------------------------------
+    // Overlay hooks
+    // ------------------------------------------------------------------
+
+    override fun acceptsInput(): Boolean = entry != null
+
+    override fun currentSkinType(): SkinType = entry?.skinType ?: SkinType.CLASSIC
+
+    override fun toggleSkinType() {
+        val e = entry ?: return
+        e.skinType = if (e.skinType == SkinType.CLASSIC) SkinType.SLIM else SkinType.CLASSIC
+        SkinTypeStore.setType(e.file.name, e.skinType)
     }
 
-    // ------------------------------------------------------------------
-    // Input
-    // ------------------------------------------------------------------
+    override fun onCloseRequested(instant: Boolean) {
+        // Closing is the ultimate blur: commit a pending file rename (ESC, click outside).
+        // Instant closes skip it — they are programmatic (delete / entry gone).
+        if (!instant) commitRename()
+    }
 
-    override fun mouseClicked(event: MouseButtonEvent, doubleClick: Boolean): Boolean {
-        if (entry == null) return false
-        val mx = event.x().toInt()
-        val my = event.y().toInt()
-        val r = rect()
-        if (!SkinUtils.inRect(mx, my, r[0], r[1], r[2], r[3])) {
-            close()
-            return true
-        }
-        for (child in panelChildren) {
-            if (child.mouseClicked(event, doubleClick)) {
-                // Blur-commit a pending rename from the other field, then focus the child.
-                // setFocused also flips the widget's own focused flag — EditBox only
-                // consumes keyboard input when it is set (vanilla Screen.setFocused is
-                // bypassed by the screen's manual forwarding).
-                if (focusedChild != null && focusedChild !== child) commitRename()
-                setFocused(child)
-                setDragging(true)
-                return true
-            }
-        }
+    override fun onChildFocused(previous: GuiEventListener?, child: GuiEventListener) {
+        if (previous != null && previous !== child) commitRename()
+    }
+
+    override fun onBackgroundClick(mouseX: Int, mouseY: Int) {
         // Clicking anywhere but the delete button disarms the pending confirmation.
-        if (!isOnDelete(mx, my)) disarmDelete()
-        // Click away from the fields: blur + commit.
+        if (!isOnDelete(mouseX, mouseY)) disarmDelete()
+        // Click away from the fields: commit before the base clears the focus.
         if (focusedChild != null) commitRename()
-        setFocused(null)
-        if (isOnSwitch(mx, my)) {
-            toggleType()
-            return true
-        }
-        val p = previewRect(targetRect())
-        if (SkinUtils.inRect(mx, my, p[0], p[1], p[2] - p[0], p[3] - p[1])) {
-            rotatingPreview = true
-            return true
-        }
-        return true
     }
 
-    private fun isOnDelete(mx: Int, my: Int): Boolean =
-        mx >= deleteButton.x && mx < deleteButton.x + deleteButton.width &&
-            my >= deleteButton.y && my < deleteButton.y + deleteButton.height
-
-    override fun mouseDragged(event: MouseButtonEvent, deltaX: Double, deltaY: Double): Boolean {
-        if (rotatingPreview && event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
-            previewYaw = Mth.wrapDegrees((previewYaw - deltaX.toFloat() * DRAG_SENSITIVITY).toDouble()).toFloat()
-            previewPitch = Mth.clamp(previewPitch - deltaY.toFloat() * DRAG_SENSITIVITY, -40f, 40f)
-            return true
-        }
-        val focused = focusedChild
-        if (dragging && focused != null) {
-            return focused.mouseDragged(event, deltaX, deltaY)
-        }
-        return false
+    override fun onEnterPressed() {
+        commitRename()
     }
 
-    override fun mouseReleased(event: MouseButtonEvent): Boolean {
-        if (rotatingPreview) {
-            rotatingPreview = false
-            return true
-        }
-        if (dragging) {
-            dragging = false
-        }
-        var handled = false
-        for (child in panelChildren) {
-            if (child.mouseReleased(event)) handled = true
-        }
-        return handled
-    }
-
-    override fun mouseScrolled(mouseX: Double, mouseY: Double, hozAmount: Double, vertAmount: Double): Boolean = true
-
-    override fun keyPressed(event: KeyEvent): Boolean {
-        if (entry == null) return false
-        when (event.key()) {
-            InputConstants.KEY_ESCAPE -> {
-                close()
-                return true
-            }
-            InputConstants.KEY_RETURN, InputConstants.KEY_NUMPADENTER -> {
-                commitRename()
-                return true
-            }
-        }
-        return focusedChild?.keyPressed(event) ?: false
-    }
-
-    override fun charTyped(event: CharacterEvent): Boolean =
-        focusedChild?.charTyped(event) ?: false
-
-    // ------------------------------------------------------------------
-    // Container plumbing (mirrors SkinLibraryCard)
-    // ------------------------------------------------------------------
-
-    private fun addChild(listener: GuiEventListener) {
-        panelChildren.add(listener)
-    }
-
-    override fun children(): List<GuiEventListener> = panelChildren
-
-    override fun isDragging(): Boolean = dragging
-
-    override fun setDragging(dragging: Boolean) {
-        this.dragging = dragging
-    }
-
-    override fun getFocused(): GuiEventListener? = focusedChild
-
-    /** Keeps the focused child's AbstractWidget flag in sync — EditBox gates all input on it. */
-    override fun setFocused(focused: GuiEventListener?) {
-        val prev = focusedChild
-        if (prev === focused) return
-        (prev as? AbstractWidget)?.setFocused(false)
-        focusedChild = focused
-        (focused as? AbstractWidget)?.setFocused(true)
-    }
-
-    override fun isFocused(): Boolean = super<AbstractWidget>.isFocused()
-
-    override fun setFocused(focused: Boolean) = super<AbstractWidget>.setFocused(focused)
-
-    override fun nextFocusPath(event: FocusNavigationEvent): ComponentPath? =
-        super<AbstractWidget>.nextFocusPath(event)
-
-    override fun updateWidgetNarration(output: NarrationElementOutput) = defaultButtonNarrationText(output)
-
-    companion object {
-        private const val DETAIL_MARGIN = 24
-        private const val PANEL_PAD = 14
-        private const val LABEL_LINE = 10
-        private const val FIELD_HEIGHT = 14
-        private const val ROW_GAP = 10
-        private const val SEPARATOR_GAP = 24
-
-        // Switch: dark body (thin rectangle), full-color square knob sliding toward the
-        // active side's head. The body is shorter than the knob and barely longer.
-        private const val SWITCH_BODY_W = 32
-        private const val SWITCH_BODY_H = 14
-        private const val SWITCH_KNOB = 20
-        private const val HEAD = 10
-        private const val HEAD_GAP = 8
-        private const val DRAG_SENSITIVITY = 0.6f
-        private const val OPEN_SPEED = 7f
-        private const val REST_YAW = 25f
-        private const val REST_PITCH = 0f
-        private const val SPRING_RETURN_SPEED = 10.0F
-        private const val SPRING_SNAP_EPSILON = 0.05F
-
+    private companion object {
         private const val DELETE_W = 70
         private const val APPLY_W = 70
-
-        private val STEVE_TEXTURE = Identifier.withDefaultNamespace("textures/entity/player/wide/steve.png")
-        private val ALEX_TEXTURE = Identifier.withDefaultNamespace("textures/entity/player/slim/alex.png")
     }
 }

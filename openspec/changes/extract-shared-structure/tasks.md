@@ -10,7 +10,7 @@
 - [x] 2.1 Create `JsonFileStore<T>` (typed load/save, pretty-print, SerializationException handling) and migrate `SkinTypeStore`, `SkinNameStore`, `SkinCategoriesStore` onto it; file structures unchanged (fixture-checked against current JSON shapes)
 - [x] 2.2 Narrow catches from `Exception` to `SerializationException`; retire the corresponding `@Suppress("TooGenericExceptionCaught")` where honest
 - [x] 2.3 Review `SelectedSkinStore`'s file shape and decide: migrate to `JsonFileStore` or keep bespoke (record the decision here)
-- [ ] 2.4 Build all 4 versions, in-game load test of existing `categories.json`/`types.json`, commit
+- [x] 2.4 Build all 4 versions, in-game load test of existing `categories.json`/`types.json`, commit
 
 ## 3. Typed API DTOs
 
