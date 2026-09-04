@@ -115,7 +115,7 @@ class   TabStripController(
 
     /** Spacing between consecutive tab slots: tabs overlap by [TAB_OVERLAP] px so each
      *  panel's top border covers the one above — the drawn-last (lower) tab wins clicks. */
-    internal fun slotH(): Int = tabH() - TAB_OVERLAP
+    internal fun slotH(): Int = tabH() - SkinLibraryScreen.TAB_OVERLAP
 
     /** Tab under the cursor, accounting for the insertion gap; null when none. 0 = All, i>0 = category i-1.
      *  Scanned bottom-up: lower tabs draw on top, so their overlap band is theirs to click. */
@@ -182,7 +182,6 @@ class   TabStripController(
 
     private companion object {
         const val TAB_DRAG_THRESHOLD = 5.0
-        const val TAB_OVERLAP = 2
         const val AUTO_SCROLL_BAND = 16
         const val MAX_TABS_PER_SEC = 2.0F
     }
