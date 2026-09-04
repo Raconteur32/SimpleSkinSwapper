@@ -18,3 +18,8 @@ Skins SHALL be addable through the add-skin overlay (see the add card requiremen
 
 - **WHEN** no category-delete confirmation is showing
 - **THEN** no confirm or cancel button from that confirmation is visible or clickable anywhere on the screen
+
+#### Scenario: Deleting an empty category
+
+- **WHEN** the user clicks the delete control of an empty category's expanded config band
+- **THEN** the delete confirmation opens instead of the add-skin overlay, and clicks in the rest of the empty card zone still open the add-skin overlay

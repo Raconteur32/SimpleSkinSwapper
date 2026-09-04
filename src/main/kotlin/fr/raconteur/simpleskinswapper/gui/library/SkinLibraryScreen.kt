@@ -769,14 +769,22 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         if (band.handleSwatchClick(mx, my)) return true
 
         // Empty category: a click anywhere in the card zone opens the add-skin overlay.
-        val inGrid = mx >= gridLeft() && mx < gridRight() && my >= gridTop && my < gridBottom
-        val emptyCategoryClick = selectedCategory != null && cards.isEmpty() &&
-            click.button() == InputConstants.MOUSE_BUTTON_LEFT && inGrid
-        if (emptyCategoryClick) {
+        if (isEmptyCategoryAddClick(mx, my, click)) {
             openAddPanel()
             return true
         }
         return false
+    }
+
+    /** An empty category turns any left click in the card zone into an add-panel open —
+     *  except inside the expanded band, whose widget rows (name, steppers, delete) sit
+     *  inside the grid rect and must receive their own clicks through child routing. */
+    private fun isEmptyCategoryAddClick(mx: Int, my: Int, click: MouseButtonEvent): Boolean {
+        if (selectedCategory == null || cards.isNotEmpty()) return false
+        if (click.button() != InputConstants.MOUSE_BUTTON_LEFT) return false
+        val bandBottom = band.y() + band.height(selectedCategory != null)
+        if (band.expanded && my < bandBottom) return false
+        return mx >= gridLeft() && mx < gridRight() && my >= gridTop && my < gridBottom
     }
 
     /** While the delete confirmation overlay is up it swallows every click. */
