@@ -14,6 +14,12 @@ Baseline from `adopt-detekt-incrementally` (archived): 25 jscpd clones / 4.74%, 
 
 **Non-Goals:**
 - Any behavior/UX/file-format change (rename migrations, storage layout, etc.).
+- **Hard constraint (user): wire formats are frozen.** The MineSkin proxy gateway
+  (`sssmineskinsproxy.raconteur.fr`, outbound `{"type":"file","model":...}` text frame + binary
+  PNG frame) is a contract with a server plugin outside this codebase — its outbound
+  construction stays exactly as-is (remains Gson). Same for the `skinshuffle:skin_refresh`
+  `StreamCodec` and every other outbound payload. Typed DTOs apply to inbound parsing only
+  (Mojang API responses, gateway response, local cache).
 - Unit-test coverage beyond the new `JsonFileStore` (tests deserve their own change).
 - detekt type-resolution adoption (needs a classpath wiring change; revisit later).
 - Touching `SkinWheelScreen` beyond retiring its suppression if a clean split emerges; the wheel is not this change's focus.

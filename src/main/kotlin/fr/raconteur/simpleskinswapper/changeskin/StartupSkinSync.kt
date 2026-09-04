@@ -1,7 +1,8 @@
 package fr.raconteur.simpleskinswapper.changeskin
 
-import com.google.gson.Gson
-import com.google.gson.JsonObject
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import com.mojang.authlib.properties.Property
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
 import fr.raconteur.simpleskinswapper.gui.SkinEntry
@@ -23,7 +24,27 @@ import java.util.UUID
 
 object StartupSkinSync {
 
-    private val GSON = Gson()
+    private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
+    /** Mojang session profile: {"properties":[{"name":"textures","value":...,"signature":...}]}. */
+    @Serializable
+    private data class MojangPropertyDto(val name: String? = null, val value: String? = null, val signature: String? = null)
+
+    @Serializable
+    private data class MojangProfileDto(val properties: List<MojangPropertyDto>? = null)
+
+    /** Decoded texture payload: {"textures":{"SKIN":{"url":...,"metadata":{"model":...}}}}. */
+    @Serializable
+    private data class SkinMetadataDto(val model: String? = null)
+
+    @Serializable
+    private data class SkinDto(val url: String? = null, val metadata: SkinMetadataDto? = null)
+
+    @Serializable
+    private data class TexturesDto(@SerialName("SKIN") val skin: SkinDto? = null)
+
+    @Serializable
+    private data class TexturePayloadDto(val textures: TexturesDto? = null)
     private val HTTP: HttpClient = HttpClient.newHttpClient()
 
     @JvmStatic
@@ -104,8 +125,6 @@ object StartupSkinSync {
         }
     }
 
-    // Deliberate total guard: a failed profile lookup returns null (log keeps the stack).
-    @Suppress("TooGenericExceptionCaught")
     internal fun fetchMojangProperty(uuid: UUID): Property? {
         try {
             val uuidStr = uuid.toString().replace("-", "")
@@ -116,21 +135,17 @@ object StartupSkinSync {
                 SimpleSkinSwapper.LOGGER.warn("StartupSkinSync: Mojang profile HTTP {}.", resp.statusCode())
                 return null
             }
-            val body = GSON.fromJson(resp.body(), JsonObject::class.java)
-            if (!body.has("properties")) return null
-            for (el in body.getAsJsonArray("properties")) {
-                val prop = el.asJsonObject
-                if (prop.get("name").asString == "textures") {
-                    val value = prop.get("value").asString
-                    val sig = if (prop.has("signature") && !prop.get("signature").isJsonNull)
-                        prop.get("signature").asString else null
-                    return Property("textures", value, sig)
-                }
-            }
-        } catch (ignored: Exception) {
-            SimpleSkinSwapper.LOGGER.warn("StartupSkinSync: fetchMojangProperty failed", ignored)
+            val prop = json.decodeFromString(MojangProfileDto.serializer(), resp.body())
+                .properties
+                ?.firstOrNull { it.name == "textures" && it.value != null } ?: return null
+            return Property("textures", prop.value, prop.signature)
+        } catch (e: IOException) {
+            SimpleSkinSwapper.LOGGER.warn("StartupSkinSync: fetchMojangProperty failed", e)
+            return null
+        } catch (e: SerializationException) {
+            SimpleSkinSwapper.LOGGER.warn("StartupSkinSync: fetchMojangProperty failed", e)
+            return null
         }
-        return null
     }
 
     /**
@@ -138,30 +153,25 @@ object StartupSkinSync {
      * The URL is content-addressed on Mojang's CDN, so identical PNGs share the same URL.
      */
     @JvmStatic
-    // Malformed base64 or unexpected JSON shape yields null by contract (content-addressed URL lookup).
-    @Suppress("TooGenericExceptionCaught")
     fun extractSkinUrl(base64Value: String): String? {
         return try {
-            val json = String(Base64.getDecoder().decode(base64Value))
-            val obj = GSON.fromJson(json, JsonObject::class.java)
-            obj.getAsJsonObject("textures")
-                .getAsJsonObject("SKIN")
-                .get("url").asString
-        } catch (_: Exception) {
+            json.decodeFromString(TexturePayloadDto.serializer(), String(Base64.getDecoder().decode(base64Value)))
+                .textures?.skin?.url
+        } catch (_: SerializationException) {
+            null
+        } catch (_: IllegalArgumentException) {
             null
         }
     }
 
     private fun extractSkinType(base64Value: String): SkinType {
         try {
-            val json = String(Base64.getDecoder().decode(base64Value))
-            val obj = GSON.fromJson(json, JsonObject::class.java)
-            val skin = obj.getAsJsonObject("textures").getAsJsonObject("SKIN")
-            if (skin.has("metadata")) {
-                val model = skin.getAsJsonObject("metadata").get("model").asString
-                if (model == "slim") return SkinType.SLIM
-            }
-        } catch (ignored: Exception) {
+            val payload = json.decodeFromString(
+                TexturePayloadDto.serializer(), String(Base64.getDecoder().decode(base64Value))
+            )
+            if (payload.textures?.skin?.metadata?.model == "slim") return SkinType.SLIM
+        } catch (_: SerializationException) {
+        } catch (_: IllegalArgumentException) {
         }
         return SkinType.CLASSIC
     }

@@ -3,6 +3,8 @@ package fr.raconteur.simpleskinswapper.networking
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.mojang.authlib.properties.Property
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
 import java.io.File
 import java.net.URI
@@ -20,6 +22,11 @@ import java.util.concurrent.TimeUnit
 object MineSkinUploader {
     private const val PROXY_HOST = "sssmineskinsproxy.raconteur.fr:28433"
     private val PROXY_URI: URI = URI.create("ws://$PROXY_HOST/skin-gateway")
+    private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
+    /** Inbound gateway response: {"textureValue":...,"textureSignature":...}. */
+    @Serializable
+    private data class GatewayResponseDto(val textureValue: String? = null, val textureSignature: String? = null)
     private val HTTP_CLIENT: HttpClient = HttpClient.newHttpClient()
 
     /**
@@ -80,8 +87,6 @@ object MineSkinUploader {
         private val jsonMessage: String,
         private val channel: BlockingQueue<Optional<Property>>
     ) : WebSocket.Listener {
-        private val gson = Gson()
-
         override fun onOpen(ws: WebSocket) {
             SimpleSkinSwapper.LOGGER.info("MineSkin: connected, sending skin data then JSON")
             ws.sendBinary(ByteBuffer.wrap(fileBytes), true)
@@ -89,20 +94,23 @@ object MineSkinUploader {
             ws.request(1)
         }
 
-        // Deliberate total guard: a malformed MineSkin answer must not kill the socket thread.
-        @Suppress("TooGenericExceptionCaught")
         override fun onText(ws: WebSocket, data: CharSequence, last: Boolean): CompletableFuture<*>? {
             SimpleSkinSwapper.LOGGER.info("MineSkin: received response: {}", data)
             ws.sendClose(WebSocket.NORMAL_CLOSURE, "done")
             try {
-                val body = gson.fromJson(data.toString(), JsonObject::class.java)
-                val value = body.get("textureValue").asString
-                val sig = if (body.has("textureSignature") && !body.get("textureSignature").isJsonNull)
-                    body.get("textureSignature").asString else null
-                SimpleSkinSwapper.LOGGER.info("MineSkin: texture property parsed OK (signature: {})", sig != null)
-                channel.offer(Optional.of(Property("textures", value, sig)))
-            } catch (ignored: Exception) {
-                SimpleSkinSwapper.LOGGER.warn("MineSkin: could not parse response", ignored)
+                val body = json.decodeFromString(GatewayResponseDto.serializer(), data.toString())
+                val value = body.textureValue
+                if (value == null) {
+                    SimpleSkinSwapper.LOGGER.warn("MineSkin: response has no textureValue")
+                    channel.offer(Optional.empty())
+                    return null
+                }
+                SimpleSkinSwapper.LOGGER.info(
+                    "MineSkin: texture property parsed OK (signature: {})", body.textureSignature != null
+                )
+                channel.offer(Optional.of(Property("textures", value, body.textureSignature)))
+            } catch (e: SerializationException) {
+                SimpleSkinSwapper.LOGGER.warn("MineSkin: could not parse response", e)
                 channel.offer(Optional.empty())
             }
             return null

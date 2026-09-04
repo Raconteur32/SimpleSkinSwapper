@@ -14,8 +14,8 @@
 
 ## 3. Typed API DTOs
 
-- [ ] 3.1 `@Serializable` models for Mojang profile, MineSkin response, and base64 texture payloads; rewire `AccountSkinFetcher`, `StartupSkinSync`, `MineSkinUploader`, `MineSkinCache`
-- [ ] 3.2 Retire or narrow the remaining network total-guard suppressions; build all 4 versions, commit
+- [x] 3.1 `@Serializable` models for Mojang profile, MineSkin response, and base64 texture payloads; rewire `AccountSkinFetcher`, `StartupSkinSync`, `MineSkinUploader`, `MineSkinCache`
+- [x] 3.2 Retire or narrow the remaining network total-guard suppressions; build all 4 versions, commit
 
 ## 4. Overlay base extraction
 

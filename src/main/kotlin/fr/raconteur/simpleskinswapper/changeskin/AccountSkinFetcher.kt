@@ -1,7 +1,7 @@
 package fr.raconteur.simpleskinswapper.changeskin
 
-import com.google.gson.Gson
-import com.google.gson.JsonObject
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
 import net.minecraft.client.Minecraft
 import java.io.File
@@ -20,8 +20,12 @@ import java.util.function.Consumer
  */
 object AccountSkinFetcher {
 
-    private val GSON = Gson()
     private val HTTP: HttpClient = HttpClient.newHttpClient()
+
+    /** Mojang username lookup response: {"id": "<trimmed uuid>"}. */
+    @Serializable
+    private data class UuidResponseDto(val id: String? = null)
+    private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
 
     /**
      * Fetches the given account's current skin and writes it to `destination`.
@@ -73,24 +77,26 @@ object AccountSkinFetcher {
         }
     }
 
-    // Deliberate total guard: any lookup/parsing failure yields null (log keeps the stack).
-    @Suppress("TooGenericExceptionCaught")
     private fun fetchUuid(username: String): UUID? {
         return try {
             val uri = URI.create("https://api.mojang.com/users/profiles/minecraft/$username")
             val req = HttpRequest.newBuilder(uri).GET().build()
             val resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString())
             if (resp.statusCode() != 200) return null
-            val body = GSON.fromJson(resp.body(), JsonObject::class.java)
-            if (body == null || !body.has("id")) return null
-            val raw = body.get("id").asString
+            val raw = json.decodeFromString(UuidResponseDto.serializer(), resp.body()).id ?: return null
             UUID.fromString(
                 raw.replaceFirst(
                     Regex("(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})"), "$1-$2-$3-$4-$5"
                 )
             )
-        } catch (ignored: Exception) {
-            SimpleSkinSwapper.LOGGER.warn("AccountSkinFetcher: username lookup failed", ignored)
+        } catch (e: IOException) {
+            SimpleSkinSwapper.LOGGER.warn("AccountSkinFetcher: username lookup failed", e)
+            null
+        } catch (e: SerializationException) {
+            SimpleSkinSwapper.LOGGER.warn("AccountSkinFetcher: username lookup failed", e)
+            null
+        } catch (e: IllegalArgumentException) {
+            SimpleSkinSwapper.LOGGER.warn("AccountSkinFetcher: username lookup failed", e)
             null
         }
     }
