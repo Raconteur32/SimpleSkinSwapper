@@ -595,7 +595,15 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                 // Center the square on the glyphs' optical center (same line as the text),
                 // not on the full tab height — the 9px font renders in the top 7px of its line.
                 val y0 = textY + (font.lineHeight - s) / 2
-                graphics.fill(x0, y0, x0 + s, y0 + s, SkinCategoryPalette.parse(it.colorHex))
+                val color = SkinCategoryPalette.parse(it.colorHex)
+                // Dye icon when the stored color is one of the 16 dyes; legacy colors
+                // predate the dye palette and keep their flat color square instead.
+                val entry = SkinCategoryPalette.ENTRIES.firstOrNull { e -> e.argb == color }
+                if (entry != null) {
+                    DyeIcons.draw(graphics, entry.dyeName, x0, y0, s)
+                } else {
+                    graphics.fill(x0, y0, x0 + s, y0 + s, color)
+                }
             }
         }
     }
