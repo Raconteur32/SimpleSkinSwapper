@@ -97,10 +97,14 @@ class   TabStripController(
         return ((over + slotH() - 1) / slotH()) * slotH()
     }
 
-    /** Bottom edge aligned to whole tabs: tabs clip here, never half-shown. The strip
-     *  zone below this line is frame-only background (breathing room, no tab pixels). */
-    internal fun stripAlignedBottom(): Int =
-        stripTop() + Math.max(1, (stripBottom() - stripTop()) / tabH()) * tabH()
+    /** Bottom edge aligned to whole tabs: exactly k full tabs fit in the strip, so tabs
+     *  clip here, never half-shown. In the unclamped (fills-the-strip) regime this lands
+     *  on the content end itself; the strip zone below is frame-only background. */
+    internal fun stripAlignedBottom(): Int {
+        val h = stripBottom() - stripTop()
+        val fullTabs = Math.max(1, (h - tabH()) / slotH() + 1)
+        return stripTop() + (fullTabs - 1) * slotH() + tabH()
+    }
 
     /** Y of the add-category entry: the strip slot after the last category tab. */
     internal fun addEntryY(): Int = tabY(SkinCategoriesStore.all().size + 1)
