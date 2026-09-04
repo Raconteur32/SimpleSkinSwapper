@@ -522,13 +522,10 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     /** Tab strip background + unselected tabs, drawn before the grid page so they pass under it. */
     private fun drawTabStripUnder(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
         val top = tabs.stripTop()
-        val bottom = tabs.stripBottom()
         val tabBottom = tabs.stripAlignedBottom()
 
-        // Tab zone background: the recipe-book frame sprite spanning the strip's recessed
-        // footprint, darkened, bleeding off the screen edge on the left and sliding under
-        // the grid page on the right. The tab band is centered inside it.
-        drawBookPanel(graphics, -PANEL_BLEED, gridTop, STRIP_X + TAB_W + 2 + PANEL_BLEED + 8, gridBottom - gridTop, lit = false)
+        // No zone-wide background: every tab wears its own panel, and their stacked
+        // borders read as separators. The recessed margins show the screen backdrop.
 
         // Unselected tabs, clipped to the strip — All Skins is a tab like the others.
         graphics.enableScissor(-PANEL_BLEED, top, STRIP_X + TAB_W + 2, tabBottom)
@@ -545,7 +542,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     /** Selected + dragged tab and the insertion line, drawn after the grid page so they overlap it. */
     private fun drawTabStripOver(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
         val top = tabs.stripTop()
-        val bottom = tabs.stripBottom()
         val tabBottom = tabs.stripAlignedBottom()
 
         // Selected tab: full-color book panel, flush left, its right edge tucking slightly under
