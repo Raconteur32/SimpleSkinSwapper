@@ -30,7 +30,7 @@ object SkinCategoryPalette {
     fun swatches(): List<Int> = ENTRIES.flatMap { listOf(it.vivid, it.pastel) }
 
     @JvmStatic
-    fun toHex(argb: Int): String = String.format("#%06X", argb and 0xFFFFFF)
+    fun toHex(argb: Int): String = String.format(java.util.Locale.ROOT, "#%06X", argb and 0xFFFFFF)
 
     @JvmStatic
     fun parse(hex: String): Int = try {

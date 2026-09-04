@@ -1,4 +1,53 @@
+# detekt rule ledger — rules are adopted wave by wave (change: adopt-detekt-incrementally).
+# The CLI runs without classpath (no type resolution), so rules requiring type resolution
+# are excluded. build-upon-default-config stays disabled: only rules listed here as
+# `active: true` run, and the repository stays clean for every adopted rule (CI gate).
 build:
   maxIssues: 0
 config:
   validation: true
+
+potential-bugs:
+  active: true
+  AvoidReferentialEquality:
+    active: true
+  DoubleMutabilityForCollection:
+    active: true
+  EqualsAlwaysReturnsTrueOrFalse:
+    active: true
+  EqualsWithHashCodeExist:
+    active: true
+  ExplicitGarbageCollectionCall:
+    active: true
+  IgnoredReturnValue:
+    active: true
+  ImplicitDefaultLocale:
+    active: true
+  InvalidRange:
+    active: true
+  IteratorHasNextCallsNextMethod:
+    active: true
+  IteratorNotThrowingNoSuchElementException:
+    active: true
+  MapGetWithNotNullAssertionOperator:
+    active: true
+  UnnecessaryNotNullCheck:
+    active: true
+  UnnecessaryNotNullOperator:
+    active: true
+  UnnecessarySafeCall:
+    active: true
+  UnreachableCatchBlock:
+    active: true
+  UnreachableCode:
+    active: true
+  UnsafeCallOnNullableType:
+    active: true
+  UnsafeCast:
+    active: true
+  UnusedUnaryOperator:
+    active: true
+  UselessPostfixExpression:
+    active: true
+  WrongEqualsTypeParameter:
+    active: true
