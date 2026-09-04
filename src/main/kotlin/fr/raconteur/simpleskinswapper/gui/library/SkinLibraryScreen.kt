@@ -136,17 +136,21 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         addRenderableWidget(band.wheelsPlus)
         addRenderableWidget(band.deleteButton)
 
-        // Footer centered within the grid panel so it never collides with the strip's + button.
+        // Footer spread across the grid panel: open folder left, config center, done right.
+        // Same 110px vanilla buttons, wider breathing room, and the grid stops above the
+        // reserved footer band (see gridBottom) instead of crowding this row.
         val footerY = this.height - 24
         val bw = 110
         val panelW = this.width - PAD - panelX
-        val left = panelX + Math.max(0, (panelW - (bw * 3 + 8)) / 2)
+        val btnLeft = panelX + 2
+        val btnCenter = panelX + (panelW - bw) / 2
+        val btnRight = panelX + panelW - bw - 2
         addRenderableWidget(
             Button.builder(
                 Component.translatable("simpleskinswapper.screen.carousel.open_folder")
             ) {
                 Util.getPlatform().openFile(FabricLoader.getInstance().gameDir.resolve("skins").toFile())
-            }.bounds(left, footerY, bw, 20).build()
+            }.bounds(btnLeft, footerY, bw, 20).build()
         )
         addRenderableWidget(
             Button.builder(
@@ -157,11 +161,11 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                 //?} else {
                 /*this.minecraft.setScreen(YaclConfigScreen.create(this))
                 *///?}
-            }.bounds(left + bw + 4, footerY, bw, 20).build()
+            }.bounds(btnCenter, footerY, bw, 20).build()
         )
         addRenderableWidget(
             Button.builder(CommonComponents.GUI_DONE) { onClose() }
-                .bounds(left + (bw + 4) * 2, footerY, bw, 20).build()
+                .bounds(btnRight, footerY, bw, 20).build()
         )
 
         // Category creation lives in the tab strip itself (add-category entry, drawn and
@@ -191,7 +195,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // Constant viewport, whatever sits inside it (import row above, config band inside
         // the page) — switching category or expanding the band never moves the layout.
         gridTop = contentTop() + BAND_GRID_MARGIN
-        gridBottom = this.height - 28
+        gridBottom = this.height - FOOTER_BAND
         // The grid lives inside the page's baked border (8px, measured on the texture)
         // plus a small breathing margin on every side — cards never touch the border.
         val gridLeft = gridLeft()
@@ -992,6 +996,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     companion object {
         private const val PAD = 4
+        /** Rows reserved under the grid for the footer buttons (20px + margins). */
+        private const val FOOTER_BAND = 32
         private const val TITLE_Y = 8
         private const val TITLE_ZONE_BOTTOM = 20
 
