@@ -13,6 +13,14 @@ import javax.imageio.ImageIO
 
 object SkinUtils {
 
+    /** True when ([mx], [my]) lies inside the rectangle ([x], [y], [w], [h]) (right/bottom exclusive). */
+    @JvmStatic
+    fun inRect(mx: Int, my: Int, x: Int, y: Int, w: Int, h: Int): Boolean {
+        val inX = mx >= x && mx < x + w
+        val inY = my >= y && my < y + h
+        return inX && inY
+    }
+
     /**
      * Detect slim vs classic by checking pixel (50, 19) alpha.
      * If alpha == 0x00, the skin is slim (alex model).

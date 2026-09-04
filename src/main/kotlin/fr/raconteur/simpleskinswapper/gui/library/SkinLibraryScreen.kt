@@ -804,6 +804,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     // Card grid positioning
     // ------------------------------------------------------------------
 
+    // Complexity debt: drag/easing dispatch over cards, add card and band — deferred
+    // to the SkinLibraryScreen Extract Class refactoring change.
+    @Suppress("CyclomaticComplexMethod")
     private fun updateCardPositions(mouseX: Int, mouseY: Int) {
         // Band widgets track the scrolled band position every frame.
         refreshBandWidgets()
@@ -830,7 +833,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             card.clipRight = this.width - PAD - PAGE_BORDER
             card.clipBottom = gridBottom
             val display = cardDisplay.getOrPut(card) { FloatArray(2) }
-            if (display[0] == 0.0F && display[1] == 0.0F && card.x == 0 && card.y == 0) {
+            val unpositioned = display[0] == 0.0F && display[1] == 0.0F
+            if (unpositioned && card.x == 0 && card.y == 0) {
                 display[0] = slot.first.toFloat()
                 display[1] = slot.second.toFloat()
             }
@@ -858,7 +862,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             ac.clipBottom = gridBottom
             val slot = slotFor(cards.size, dragIndex)
             val display = addCardDisplay.getOrPut(ac) { FloatArray(2) }
-            if (display[0] == 0.0F && display[1] == 0.0F && ac.x == 0 && ac.y == 0) {
+            val unpositioned = display[0] == 0.0F && display[1] == 0.0F
+            if (unpositioned && ac.x == 0 && ac.y == 0) {
                 display[0] = slot.first.toFloat()
                 display[1] = slot.second.toFloat()
             }
@@ -994,6 +999,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     // Input
     // ------------------------------------------------------------------
 
+    // Complexity debt: click routing across band, cards, tabs and overlays — deferred
+    // to the SkinLibraryScreen Extract Class refactoring change.
+    @Suppress("CyclomaticComplexMethod")
     override fun mouseClicked(click: MouseButtonEvent, doubled: Boolean): Boolean {
         detail?.let { d ->
             val handled = d.mouseClicked(click, doubled)
@@ -1030,7 +1038,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // which made the band impossible to open). Swatches live below the bar and are only
         // hit-tested while expanded. The part of the band scrolled above the viewport top
         // is not clickable (my >= gridTop), matching its clipped rendering.
-        if (selectedCategory != null && my >= gridTop && my >= bandY() && my < bandY() + BAND_COLLAPSED_H && mx >= gridLeft()) {
+        val inCollapsedBand = my >= gridTop && my >= bandY() && my < bandY() + BAND_COLLAPSED_H
+        if (selectedCategory != null && inCollapsedBand && mx >= gridLeft()) {
             bandExpanded = !bandExpanded
             refreshBandWidgets()
             recomputeLayout()
@@ -1046,9 +1055,10 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         }
 
         // Empty category: a click anywhere in the card zone opens the add-skin overlay.
-        if (selectedCategory != null && cards.isEmpty() && click.button() == InputConstants.MOUSE_BUTTON_LEFT &&
-            mx >= gridLeft() && mx < gridRight() && my >= gridTop && my < gridBottom
-        ) {
+        val inGrid = mx >= gridLeft() && mx < gridRight() && my >= gridTop && my < gridBottom
+        val emptyCategoryClick = selectedCategory != null && cards.isEmpty() &&
+            click.button() == InputConstants.MOUSE_BUTTON_LEFT && inGrid
+        if (emptyCategoryClick) {
             openAddPanel()
             return true
         }
@@ -1069,7 +1079,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         if (mx < x0 || my < y0) return null
         val hue = (mx - x0) / (BAND_SWATCH_SIZE + BAND_SWATCH_GAP)
         val row = (my - y0) / (BAND_SWATCH_SIZE + BAND_SWATCH_GAP)
-        if (hue < 0 || hue >= 10 || row < 0 || row > 1) return null
+        if (hue !in 0..9 || row !in 0..1) return null
         val swatches = SkinCategoryPalette.swatches()
         val idx = hue * 2 + row
         return if (idx in swatches.indices) swatches[idx] else null

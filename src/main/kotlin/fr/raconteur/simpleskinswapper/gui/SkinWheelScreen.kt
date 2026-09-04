@@ -70,6 +70,9 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
     // -------------------------------------------------------------------------
 
     //? if >=26.1 {
+    // Complexity debt: wheel render/interaction dispatch — deferred to a dedicated
+    // wheel refactoring change.
+    @Suppress("CyclomaticComplexMethod")
     override fun extractRenderState(context: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
     //?} else {
     /*override fun render(context: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
@@ -307,7 +310,9 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
         val halfH = (24 * scale).toInt().coerceAtLeast(1)
 
         // Viewport culling: fully off-screen previews are not submitted at all.
-        if (px + halfW < 0 || px - halfW > this.width || py + halfH < 0 || py - halfH > this.height) return
+        val offX = px + halfW < 0 || px - halfW > this.width
+        val offY = py + halfH < 0 || py - halfH > this.height
+        if (offX || offY) return
 
         val textureId = entry.textureId ?: return
 

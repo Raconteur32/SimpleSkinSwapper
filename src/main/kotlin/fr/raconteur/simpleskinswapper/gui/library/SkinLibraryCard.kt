@@ -7,6 +7,7 @@ import fr.raconteur.simpleskinswapper.gui.EdgeSafeButtonWidget
 import fr.raconteur.simpleskinswapper.gui.SkinEntry
 import fr.raconteur.simpleskinswapper.gui.SkinRenderer
 import fr.raconteur.simpleskinswapper.gui.SkinType
+import fr.raconteur.simpleskinswapper.gui.SkinUtils
 import fr.raconteur.simpleskinswapper.overlayMessage
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.ComponentPath
@@ -164,7 +165,7 @@ class SkinLibraryCard(
         // under the config band or over the footer never steals their clicks.
         val mx = event.x().toInt()
         val my = event.y().toInt()
-        if (mx < clipLeft || mx >= clipRight || my < clipTop || my >= clipBottom) return false
+        if (!SkinUtils.inRect(mx, my, clipLeft, clipTop, clipRight - clipLeft, clipBottom - clipTop)) return false
         for (child in cardButtons) {
             if (child.y >= clipBottom) continue
             if (child.mouseClicked(event, doubleClick)) {
@@ -292,6 +293,9 @@ class SkinLibraryCard(
     }
 
     //? if >=26.1 {
+    // Complexity debt: layered card render dispatch — deferred to the card/Extract Class
+    // refactoring change.
+    @Suppress("CyclomaticComplexMethod")
     override fun extractWidgetRenderState(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
     //?} else {
     /*override fun renderWidget(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {

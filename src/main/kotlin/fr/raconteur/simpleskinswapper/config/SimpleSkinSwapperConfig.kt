@@ -113,6 +113,18 @@ class SimpleSkinSwapperConfig {
         }
 
         // Hand-edited config: any malformed content falls back to defaults (see catch below).
+        private fun applyDefaults(loaded: SimpleSkinSwapperConfig) {
+            if (loaded.serverCommands == null) {
+                loaded.serverCommands = defaultServerCommands()
+            }
+            if (loaded.titleScreenButtonSide == null) {
+                loaded.titleScreenButtonSide = ButtonSide.RIGHT
+            }
+            if (loaded.pauseMenuButtonSide == null) {
+                loaded.pauseMenuButtonSide = ButtonSide.RIGHT
+            }
+        }
+
         @Suppress("TooGenericExceptionCaught")
         private fun load(): SimpleSkinSwapperConfig {
             val configFile = getConfigFile()
@@ -121,15 +133,7 @@ class SimpleSkinSwapperConfig {
                     FileReader(configFile).use { reader ->
                         val loaded = GSON.fromJson(reader, SimpleSkinSwapperConfig::class.java)
                         if (loaded != null) {
-                            if (loaded.serverCommands == null) {
-                                loaded.serverCommands = defaultServerCommands()
-                            }
-                            if (loaded.titleScreenButtonSide == null) {
-                                loaded.titleScreenButtonSide = ButtonSide.RIGHT
-                            }
-                            if (loaded.pauseMenuButtonSide == null) {
-                                loaded.pauseMenuButtonSide = ButtonSide.RIGHT
-                            }
+                            applyDefaults(loaded)
                             return loaded
                         }
                     }

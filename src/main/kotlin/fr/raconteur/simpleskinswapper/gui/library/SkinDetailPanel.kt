@@ -8,6 +8,7 @@ import fr.raconteur.simpleskinswapper.gui.SkinEntry
 import fr.raconteur.simpleskinswapper.gui.SkinNameStore
 import fr.raconteur.simpleskinswapper.gui.SkinRenderer
 import fr.raconteur.simpleskinswapper.gui.SkinType
+import fr.raconteur.simpleskinswapper.gui.SkinUtils
 import fr.raconteur.simpleskinswapper.gui.SkinTypeStore
 import fr.raconteur.simpleskinswapper.overlayMessage
 import net.minecraft.client.Minecraft
@@ -410,7 +411,7 @@ class SkinDetailPanel(
         val mx = event.x().toInt()
         val my = event.y().toInt()
         val r = rect()
-        if (mx < r[0] || mx >= r[0] + r[2] || my < r[1] || my >= r[1] + r[3]) {
+        if (!SkinUtils.inRect(mx, my, r[0], r[1], r[2], r[3])) {
             close()
             return true
         }
@@ -436,7 +437,7 @@ class SkinDetailPanel(
             return true
         }
         val p = previewRect(targetRect())
-        if (mx >= p[0] && mx < p[2] && my >= p[1] && my < p[3]) {
+        if (SkinUtils.inRect(mx, my, p[0], p[1], p[2] - p[0], p[3] - p[1])) {
             rotatingPreview = true
             return true
         }

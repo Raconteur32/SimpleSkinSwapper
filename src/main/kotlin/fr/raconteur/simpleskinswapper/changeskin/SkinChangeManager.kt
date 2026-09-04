@@ -62,6 +62,8 @@ object SkinChangeManager {
      * @param attempt 0-based attempt index
      */
     @JvmStatic
+    // Complexity debt: retry state machine dispatch — to be split in a dedicated refactor.
+    @Suppress("CyclomaticComplexMethod")
     fun sendServerCommandIfNeeded(attempt: Int) {
         val client = Minecraft.getInstance()
 
