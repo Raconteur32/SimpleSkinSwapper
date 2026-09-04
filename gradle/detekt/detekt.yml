@@ -145,3 +145,19 @@ complexity:
   CyclomaticComplexMethod:
     active: true
     threshold: 15
+  LongMethod:
+    active: true
+    threshold: 80
+  LargeClass:
+    active: true
+    threshold: 1200
+  # Minecraft GUI render helpers legitimately pass coordinate tuples; the thresholds
+  # guard against real API bloat, not idiomatic pixel-layout signatures.
+  LongParameterList:
+    active: true
+    functionThreshold: 10
+    constructorThreshold: 10
+    # SectorFillRenderState's constructors mirror Mojang's own GuiElementRenderState
+    # subclass shape (position, geometry, color, scissor, bounds) — not API bloat.
+    excludes: ['**/SectorFillRenderState.kt']
+

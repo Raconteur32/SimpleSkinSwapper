@@ -34,8 +34,8 @@ object SkinRenderer {
     internal const val PREVIEW_HALF_HEIGHT = MODEL_HEIGHT / 2.0F + 0.02F
 
     @JvmStatic
-    fun renderPlayer(context: GuiGraphicsExtractor, x1: Int, y1: Int, x2: Int, y2: Int, size: Int, skin: PlayerSkin, limbSwingIntensity: Float) {
-        renderState(context, x1, y1, x2, y2, size, buildRenderState(skin, limbSwingIntensity), BASE_ROTATION, MODEL_OFFSET)
+    fun renderPlayer(context: GuiGraphicsExtractor, rect: IntArray, size: Int, skin: PlayerSkin, limbSwingIntensity: Float) {
+        renderState(context, rect, size, buildRenderState(skin, limbSwingIntensity), BASE_ROTATION, MODEL_OFFSET)
     }
 
     /**
@@ -44,20 +44,20 @@ object SkinRenderer {
      */
     @JvmStatic
     fun renderPlayerFollowingMouse(
-        context: GuiGraphicsExtractor, x1: Int, y1: Int, x2: Int, y2: Int, size: Int,
+        context: GuiGraphicsExtractor, rect: IntArray, size: Int,
         skin: PlayerSkin, mouseX: Int, mouseY: Int, limbSwingIntensity: Float
     ) {
         val state = buildRenderState(skin, limbSwingIntensity)
 
-        val centerX = (x1 + x2) / 2.0F
-        val centerY = (y1 + y2) / 2.0F
+        val centerX = (rect[0] + rect[2]) / 2.0F
+        val centerY = (rect[1] + rect[3]) / 2.0F
         val xAngle = Math.atan((centerX - mouseX) / 40.0).toFloat()
         val yAngle = Math.atan((centerY - mouseY) / 40.0).toFloat()
         state.bodyRot = 180.0F + xAngle * 20.0F
         state.yRot = xAngle * 20.0F
         state.xRot = -yAngle * 20.0F
 
-        renderState(context, x1, y1, x2, y2, size, state, BASE_ROTATION, MODEL_OFFSET)
+        renderState(context, rect, size, state, BASE_ROTATION, MODEL_OFFSET)
     }
 
     /**
@@ -69,7 +69,7 @@ object SkinRenderer {
      */
     @JvmStatic
     fun renderPlayerRotatable(
-        context: GuiGraphicsExtractor, x1: Int, y1: Int, x2: Int, y2: Int, size: Int,
+        context: GuiGraphicsExtractor, rect: IntArray, size: Int,
         skin: PlayerSkin, yawDegrees: Float, pitchDegrees: Float, limbSwingIntensity: Float
     ) {
         val yawPitch = Quaternionf()
@@ -85,18 +85,18 @@ object SkinRenderer {
         val rotatedPivot = yawPitch.transform(Vector3f(flippedPivot))
         val translation = Vector3f(flippedPivot).sub(rotatedPivot).add(MODEL_OFFSET)
 
-        renderState(context, x1, y1, x2, y2, size, buildRenderState(skin, limbSwingIntensity), rotation, translation)
+        renderState(context, rect, size, buildRenderState(skin, limbSwingIntensity), rotation, translation)
     }
 
     private fun renderState(
-        context: GuiGraphicsExtractor, x1: Int, y1: Int, x2: Int, y2: Int, size: Int,
+        context: GuiGraphicsExtractor, rect: IntArray, size: Int,
         state: AvatarRenderState, rotation: Quaternionf, translation: Vector3f
     ) {
-        context.enableScissor(x1, y1, x2, y2)
+        context.enableScissor(rect[0], rect[1], rect[2], rect[3])
         val effectiveSize = size / PREVIEW_HALF_HEIGHT
         val element = GuiEntityRenderState(
             state, translation, rotation, null,
-            x1, y1, x2, y2, effectiveSize, context.scissorStack.peek()
+            rect[0], rect[1], rect[2], rect[3], effectiveSize, context.scissorStack.peek()
         )
         context.guiRenderState.addPicturesInPictureState(element)
         context.disableScissor()

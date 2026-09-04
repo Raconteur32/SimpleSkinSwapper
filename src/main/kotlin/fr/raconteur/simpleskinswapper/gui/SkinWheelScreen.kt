@@ -319,7 +319,7 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
         // Every preview is a live entity render; only the hovered one plays the walk animation.
         // Partially off-screen rects are clipped by the scissor stack, keeping the projection intact.
         SkinRenderer.renderPlayer(
-            context, px - halfW, py - halfH, px + halfW, py + halfH, halfH,
+            context, intArrayOf(px - halfW, py - halfH, px + halfW, py + halfH), halfH,
             buildPlayerSkin(entry, textureId), hoverAnimFactors[wheelIndex][index]
         )
     }

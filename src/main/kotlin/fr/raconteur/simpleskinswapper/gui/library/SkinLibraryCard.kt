@@ -367,7 +367,7 @@ class SkinLibraryCard(
                     true
                 )
                 SkinRenderer.renderPlayerRotatable(
-                    graphics, previewLeft, previewTop, previewRight, previewBottom,
+                    graphics, intArrayOf(previewLeft, previewTop, previewRight, previewBottom),
                     size, skinTextures, previewYaw, previewPitch, hoverAnimFactor
                 )
             }

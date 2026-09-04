@@ -41,7 +41,7 @@ class SkinPreviewButton(
         val x2 = centerX + previewWidth / 2
 
         SkinRenderer.renderPlayerFollowingMouse(
-            graphics, x1, y1, x2, y2, previewHeight / 2, skin, mouseX, mouseY,
+            graphics, intArrayOf(x1, y1, x2, y2), previewHeight / 2, skin, mouseX, mouseY,
             if (SimpleSkinSwapperConfig.get().animateMenuPreview) 1.0F else 0.0F
         )
     }

@@ -29,86 +29,8 @@ object YaclConfigScreen {
 
         return YetAnotherConfigLib.createBuilder()
             .title(Component.translatable("simpleskinswapper.config.title"))
-            .category(
-                ConfigCategory.createBuilder()
-                    .name(Component.translatable("simpleskinswapper.config.category.options"))
-                    .group(
-                        OptionGroup.createBuilder()
-                            .name(Component.translatable("simpleskinswapper.config.group.menu_buttons"))
-                            .option(
-                                buttonSideOption(
-                                    "simpleskinswapper.config.title_screen_button_side",
-                                    { config.titleScreenSide() },
-                                    { config.titleScreenButtonSide = it }
-                                )
-                            )
-                            .option(
-                                buttonSideOption(
-                                    "simpleskinswapper.config.pause_menu_button_side",
-                                    { config.pauseMenuSide() },
-                                    { config.pauseMenuButtonSide = it }
-                                )
-                            )
-                            .build()
-                    )
-                    .group(
-                        OptionGroup.createBuilder()
-                            .name(Component.translatable("simpleskinswapper.config.group.player_models"))
-                            .option(
-                                Option.createBuilder<Boolean>()
-                                    .name(Component.translatable("simpleskinswapper.config.animate_menu_preview"))
-                                    .description(OptionDescription.of(Component.translatable("simpleskinswapper.config.animate_menu_preview.description")))
-                                    .binding(
-                                        true,
-                                        { config.animateMenuPreview },
-                                        { config.animateMenuPreview = it }
-                                    )
-                                    .controller { option -> TickBoxControllerBuilder.create(option) }
-                                    .build()
-                            )
-                            .build()
-                    )
-                    .group(
-                        OptionGroup.createBuilder()
-                            .name(Component.translatable("simpleskinswapper.config.group.skin_wheel"))
-                            .option(
-                                Option.createBuilder<Boolean>()
-                                    .name(Component.translatable("simpleskinswapper.config.remember_wheel_position"))
-                                    .description(OptionDescription.of(Component.translatable("simpleskinswapper.config.remember_wheel_position.description")))
-                                    .binding(
-                                        false,
-                                        { config.rememberWheelPosition },
-                                        { config.rememberWheelPosition = it }
-                                    )
-                                    .controller { option -> TickBoxControllerBuilder.create(option) }
-                                    .build()
-                            )
-                            .build()
-                    )
-                    .build()
-            )
-            .category(
-                ConfigCategory.createBuilder()
-                    .name(Component.translatable("simpleskinswapper.config.category.servers"))
-                    .option(
-                        ListOption.createBuilder<ServerCommand>()
-                            .name(Component.translatable("simpleskinswapper.config.server_commands"))
-                            .description(
-                                OptionDescription.of(
-                                    Component.translatable("simpleskinswapper.config.server_commands.description")
-                                )
-                            )
-                            .binding(
-                                emptyList(),
-                                { staged },
-                                { newList -> staged = newList.toMutableList() }
-                            )
-                            .controller { option -> ServerCommandControllerBuilder.create(option) }
-                            .initial(ServerCommand("", ""))
-                            .build()
-                    )
-                    .build()
-            )
+            .category(buildOptionsCategory(config))
+            .category(buildServersCategory({ staged }, { staged = it.toMutableList() }))
             .save {
                 config.applyServerCommandList(staged)
                 SimpleSkinSwapperConfig.save()
@@ -116,6 +38,96 @@ object YaclConfigScreen {
             .build()
             .generateScreen(parent)
     }
+
+    /** Menu buttons, player models and skin wheel toggles. */
+    private fun buildOptionsCategory(config: SimpleSkinSwapperConfig): ConfigCategory =
+        ConfigCategory.createBuilder()
+            .name(Component.translatable("simpleskinswapper.config.category.options"))
+            .group(
+                OptionGroup.createBuilder()
+                    .name(Component.translatable("simpleskinswapper.config.group.menu_buttons"))
+                    .option(
+                        buttonSideOption(
+                            "simpleskinswapper.config.title_screen_button_side",
+                            { config.titleScreenSide() },
+                            { config.titleScreenButtonSide = it }
+                        )
+                    )
+                    .option(
+                        buttonSideOption(
+                            "simpleskinswapper.config.pause_menu_button_side",
+                            { config.pauseMenuSide() },
+                            { config.pauseMenuButtonSide = it }
+                        )
+                    )
+                    .build()
+            )
+            .group(
+                OptionGroup.createBuilder()
+                    .name(Component.translatable("simpleskinswapper.config.group.player_models"))
+                    .option(
+                        tickBoxOption(
+                            "simpleskinswapper.config.animate_menu_preview",
+                            { config.animateMenuPreview },
+                            { config.animateMenuPreview = it },
+                            default = true
+                        )
+                    )
+                    .build()
+            )
+            .group(
+                OptionGroup.createBuilder()
+                    .name(Component.translatable("simpleskinswapper.config.group.skin_wheel"))
+                    .option(
+                        tickBoxOption(
+                            "simpleskinswapper.config.remember_wheel_position",
+                            { config.rememberWheelPosition },
+                            { config.rememberWheelPosition = it },
+                            default = false
+                        )
+                    )
+                    .build()
+            )
+            .build()
+
+    /** Per-server skin commands list, staged until save. */
+    private fun buildServersCategory(
+        getStaged: () -> List<ServerCommand>,
+        setStaged: (List<ServerCommand>) -> Unit
+    ): ConfigCategory =
+        ConfigCategory.createBuilder()
+            .name(Component.translatable("simpleskinswapper.config.category.servers"))
+            .option(
+                ListOption.createBuilder<ServerCommand>()
+                    .name(Component.translatable("simpleskinswapper.config.server_commands"))
+                    .description(
+                        OptionDescription.of(
+                            Component.translatable("simpleskinswapper.config.server_commands.description")
+                        )
+                    )
+                    .binding(
+                        emptyList(),
+                        { getStaged() },
+                        { newList -> setStaged(newList) }
+                    )
+                    .controller { option -> ServerCommandControllerBuilder.create(option) }
+                    .initial(ServerCommand("", ""))
+                    .build()
+            )
+            .build()
+
+    private fun tickBoxOption(
+        key: String,
+        getter: () -> Boolean,
+        setter: (Boolean) -> Unit,
+        default: Boolean
+    ): Option<Boolean> =
+        Option.createBuilder<Boolean>()
+            .name(Component.translatable(key))
+            .description(OptionDescription.of(Component.translatable("$key.description")))
+            .binding(default, getter, setter)
+            .controller { option -> TickBoxControllerBuilder.create(option) }
+            .build()
 
     /**
      * Builds a LEFT/RIGHT cycling option for one of the menu-button side settings.

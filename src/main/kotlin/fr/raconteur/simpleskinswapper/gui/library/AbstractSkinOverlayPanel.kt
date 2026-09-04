@@ -237,7 +237,7 @@ abstract class AbstractSkinOverlayPanel(
         )
         val hovered = mouseX >= p[0] && mouseX < p[2] && mouseY >= p[1] && mouseY < p[3]
         SkinRenderer.renderPlayerRotatable(
-            graphics, p[0], p[1], p[2], p[3], size, skinTextures,
+            graphics, p, size, skinTextures,
             previewYaw, previewPitch, if (hovered) 0.35f else 0f
         )
     }

@@ -62,26 +62,15 @@ object SkinChangeManager {
      * @param attempt 0-based attempt index
      */
     @JvmStatic
-    // Complexity debt: retry state machine dispatch — to be split in a dedicated refactor.
-    @Suppress("CyclomaticComplexMethod")
     fun sendServerCommandIfNeeded(attempt: Int) {
         val client = Minecraft.getInstance()
 
         if (attempt >= MAX_ATTEMPTS) {
-            // All retries exhausted — give up and tell the player
-            client.execute {
-                client.player?.systemMessage(
-                    Component.translatable("simpleskinswapper.message.command_give_up")
-                )
-            }
-            SkinSwapperState.endSwap()
+            abandonSwap(client)
             return
         }
-
         if (!SkinSwapperState.beginCommand()) return
         commandAttempt = attempt
-
-        val config = SimpleSkinSwapperConfig.get()
 
         val serverInfo = client.currentServer
         if (serverInfo == null) {
@@ -91,95 +80,114 @@ object SkinChangeManager {
         }
 
         val serverAddress = serverInfo.ip
-        val serverCmd = config.getCommandForServer(serverAddress)
-
+        val serverCmd = SimpleSkinSwapperConfig.get().getCommandForServer(serverAddress)
         if (serverCmd.isNullOrBlank()) {
-            client.execute {
-                client.player?.systemMessage(
-                    Component.translatable("simpleskinswapper.message.command_not_defined", serverAddress)
-                )
-            }
-            SkinSwapperState.endSwap()
+            notifyCommandNotDefined(client, serverAddress)
             return
         }
-
         if (client.connection == null) {
             SkinSwapperState.endSwap()
             return
         }
 
         val cmd = serverCmd.trim()
-
         client.execute {
-            // Record the current texture value before sending the command
-            if (client.player != null) {
-                pendingCommandTextureValue = null
-                for (listEntry in client.connection!!.onlinePlayers) {
-                    if (listEntry.profile.id() == client.player!!.uuid) {
-                        val textures = listEntry.profile.properties()
-                            .get("textures").stream().findFirst().orElse(null)
-                        pendingCommandTextureValue = textures?.value()
-                        break
-                    }
-                }
-            }
+            captureCurrentTextureValue(client)
+            notifyCommandPending(client, attempt)
+            sendCommandWithTimeout(client, cmd, attempt)
+        }
+    }
 
-            // Notify the player
-            if (client.player != null) {
-                val message: Component = if (attempt == 0) {
-                    Component.translatable("simpleskinswapper.message.command_pending")
+    /** All retries exhausted — give up and tell the player. */
+    private fun abandonSwap(client: Minecraft) {
+        client.execute {
+            client.player?.systemMessage(
+                Component.translatable("simpleskinswapper.message.command_give_up")
+            )
+        }
+        SkinSwapperState.endSwap()
+    }
+
+    private fun notifyCommandNotDefined(client: Minecraft, serverAddress: String) {
+        client.execute {
+            client.player?.systemMessage(
+                Component.translatable("simpleskinswapper.message.command_not_defined", serverAddress)
+            )
+        }
+        SkinSwapperState.endSwap()
+    }
+
+    /** Records the current texture value before sending the command. */
+    private fun captureCurrentTextureValue(client: Minecraft) {
+        if (client.player == null) return
+        pendingCommandTextureValue = null
+        for (listEntry in client.connection!!.onlinePlayers) {
+            if (listEntry.profile.id() == client.player!!.uuid) {
+                val textures = listEntry.profile.properties()
+                    .get("textures").stream().findFirst().orElse(null)
+                pendingCommandTextureValue = textures?.value()
+                break
+            }
+        }
+    }
+
+    private fun notifyCommandPending(client: Minecraft, attempt: Int) {
+        if (client.player == null) return
+        val message: Component = if (attempt == 0) {
+            Component.translatable("simpleskinswapper.message.command_pending")
+        } else {
+            val delaySeconds = RETRY_DELAYS_SECONDS[attempt - 1]
+            Component.translatable(
+                "simpleskinswapper.message.command_retry",
+                delaySeconds, attempt + 1, MAX_ATTEMPTS
+            )
+        }
+        client.player!!.systemMessage(message)
+    }
+
+    /** Sends the command now (attempt 0) or after the retry delay, watching for a 5 s timeout. */
+    private fun sendCommandWithTimeout(client: Minecraft, cmd: String, attempt: Int) {
+        val sendCmd = Runnable {
+            client.execute {
+                if (client.connection == null) {
+                    SkinSwapperState.endSwap()
+                    return@execute
+                }
+
+                // Fresh signal for this specific send — captured in the timeout closure
+                val signal = AtomicBoolean(false)
+                commandResponseSignal = signal
+
+                SkinSwapperState.waitForCommandResult()
+                if (cmd.startsWith("/")) {
+                    client.connection!!.sendCommand(cmd.substring(1))
                 } else {
-                    val delaySeconds = RETRY_DELAYS_SECONDS[attempt - 1]
-                    Component.translatable(
-                        "simpleskinswapper.message.command_retry",
-                        delaySeconds, attempt + 1, MAX_ATTEMPTS
-                    )
+                    client.connection!!.sendChat(cmd)
                 }
-                client.player!!.systemMessage(message)
-            }
 
-            val sendCmd = Runnable {
-                client.execute {
-                    if (client.connection == null) {
-                        SkinSwapperState.endSwap()
-                        return@execute
-                    }
-
-                    // Fresh signal for this specific send — captured in the timeout closure
-                    val signal = AtomicBoolean(false)
-                    commandResponseSignal = signal
-
-                    SkinSwapperState.waitForCommandResult()
-                    if (cmd.startsWith("/")) {
-                        client.connection!!.sendCommand(cmd.substring(1))
-                    } else {
-                        client.connection!!.sendChat(cmd)
-                    }
-
-                    // Timeout: if no response is received within 5 s for THIS send, give up
-                    CompletableFuture.runAsync({
-                        client.execute {
-                            if (!signal.get()) {
-                                pendingCommandTextureValue = null
-                                SkinSwapperState.endSwap()
-                                client.player?.systemMessage(
-                                    Component.translatable("simpleskinswapper.message.command_timeout")
-                                )
-                            }
+                // Timeout: if no response is received within 5 s for THIS send, give up
+                CompletableFuture.runAsync({
+                    client.execute {
+                        if (!signal.get()) {
+                            pendingCommandTextureValue = null
+                            SkinSwapperState.endSwap()
+                            client.player?.systemMessage(
+                                Component.translatable("simpleskinswapper.message.command_timeout")
+                            )
                         }
-                    }, CompletableFuture.delayedExecutor(5, TimeUnit.SECONDS))
-                }
+                    }
+                }, CompletableFuture.delayedExecutor(5, TimeUnit.SECONDS))
             }
+        }
 
-            if (attempt == 0) {
-                sendCmd.run()
-            } else {
-                val delaySeconds = RETRY_DELAYS_SECONDS[attempt - 1]
-                CompletableFuture.runAsync(
-                    sendCmd,
-                    CompletableFuture.delayedExecutor(delaySeconds, TimeUnit.SECONDS)
-                )
-            }
+        if (attempt == 0) {
+            sendCmd.run()
+        } else {
+            val delaySeconds = RETRY_DELAYS_SECONDS[attempt - 1]
+            CompletableFuture.runAsync(
+                sendCmd,
+                CompletableFuture.delayedExecutor(delaySeconds, TimeUnit.SECONDS)
+            )
         }
     }
 }

@@ -116,9 +116,18 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     override fun init() {
         super.init()
         reloadView()
+        initHeaderRow()
+        initBandAndFooter()
+        rebuildCards()
+        recomputeLayout()
+        reattachOverlays()
+        watcher.stop()
+        watcher.start()
+    }
 
-        // Header row (over the grid panel): account field + import buttons, clamped so the
-        // row never reaches the title zone at the top-left (verified by layout_check script).
+    /** Header row (over the grid panel): account field + import buttons, clamped so the
+     *  row never reaches the title zone at the top-left (verified by layout_check script). */
+    private fun initHeaderRow() {
         val addFileWidth = font.width(Component.translatable("simpleskinswapper.screen.carousel.add_from_file")) + 20
         val addAccountWidth = font.width(Component.translatable("simpleskinswapper.screen.carousel.add_from_account")) + 20
         val titleZoneLimit = STRIP_X + 110 + 4
@@ -148,8 +157,10 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         addRenderableWidget(accountField)
         addRenderableWidget(addFromAccountButton)
         addRenderableWidget(addFromFileButton)
+    }
 
-        // Category config band widgets (visible only when a category is selected).
+    /** Band widgets, page footer and the category-creation button under the tab strip. */
+    private fun initBandAndFooter() {
         addRenderableWidget(band.nameField)
         addRenderableWidget(band.wheelsMinus)
         addRenderableWidget(band.wheelsPlus)
@@ -200,12 +211,12 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // Category deletion confirm overlay buttons live in the band (rendered + routed manually).
         addRenderableWidget(band.confirmOverlayButton)
         addRenderableWidget(band.cancelOverlayButton)
-        rebuildCards()
-        recomputeLayout()
+    }
 
-        // init() also runs on window resize (rebuildWidgets clears every widget first):
-        // re-attach the overlays so they survive the resize instead of turning into
-        // ghosts that swallow all input without rendering.
+    /** init() also runs on window resize (rebuildWidgets clears every widget first):
+     *  re-attach the overlays so they survive the resize instead of turning into
+     *  ghosts that swallow all input without rendering. */
+    private fun reattachOverlays() {
         detail?.let {
             it.onScreenResized(this.width, this.height)
             addRenderableWidget(it)
@@ -214,9 +225,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             it.onScreenResized(this.width, this.height)
             addRenderableWidget(it)
         }
-
-        watcher.stop()
-        watcher.start()
     }
 
     internal fun recomputeLayout() {
