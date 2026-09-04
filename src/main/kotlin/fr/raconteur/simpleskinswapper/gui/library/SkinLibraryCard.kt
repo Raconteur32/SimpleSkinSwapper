@@ -7,7 +7,6 @@ import fr.raconteur.simpleskinswapper.gui.EdgeSafeButtonWidget
 import fr.raconteur.simpleskinswapper.gui.SkinEntry
 import fr.raconteur.simpleskinswapper.gui.SkinRenderer
 import fr.raconteur.simpleskinswapper.gui.SkinType
-import fr.raconteur.simpleskinswapper.gui.SkinTypeStore
 import fr.raconteur.simpleskinswapper.overlayMessage
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.ComponentPath
@@ -44,11 +43,7 @@ class SkinLibraryCard(
     private var dragging = false
 
     private val applyButton: EdgeSafeButtonWidget
-    private val typeButton: EdgeSafeButtonWidget
-    private val deleteButton: EdgeSafeButtonWidget
-    private val confirmDeleteButton: EdgeSafeButtonWidget
 
-    private var confirmingDelete = false
     private var rotatingPreview = false
     private var pendingDetailOpen = false
     private var previewYaw = 0.0F
@@ -66,37 +61,14 @@ class SkinLibraryCard(
     internal var clipBottom = Int.MAX_VALUE
 
     init {
-        val halfW = (width - BUTTON_MARGIN * 3) / 2
-
+        // Single bottom row: only the replay (apply) button — model type and delete live
+        // in the detail overlay, freeing preview space on the card.
         applyButton = EdgeSafeButtonWidget(
-            BUTTON_MARGIN, height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 2,
+            BUTTON_MARGIN, height - BUTTON_HEIGHT - BUTTON_MARGIN,
             width - BUTTON_MARGIN * 2, BUTTON_HEIGHT,
             Component.translatable("simpleskinswapper.screen.carousel.apply")
         ) { applySkin() }
         addChild(applyButton)
-
-        typeButton = EdgeSafeButtonWidget(
-            BUTTON_MARGIN, height - BUTTON_HEIGHT - BUTTON_MARGIN,
-            halfW, BUTTON_HEIGHT,
-            typeLabel()
-        ) { toggleType() }
-        addChild(typeButton)
-
-        deleteButton = EdgeSafeButtonWidget(
-            BUTTON_MARGIN * 2 + halfW, height - BUTTON_HEIGHT - BUTTON_MARGIN,
-            halfW, BUTTON_HEIGHT,
-            Component.translatable("simpleskinswapper.screen.carousel.delete")
-        ) { beginDeleteConfirmation() }
-        addChild(deleteButton)
-
-        val deleteBlockTop = height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 2
-        confirmDeleteButton = EdgeSafeButtonWidget(
-            BUTTON_MARGIN, deleteBlockTop,
-            width - BUTTON_MARGIN * 2, BUTTON_HEIGHT,
-            Component.translatable("simpleskinswapper.screen.carousel.delete_confirm")
-        ) { confirmDelete() }
-        confirmDeleteButton.visible = false
-        addChild(confirmDeleteButton)
     }
 
     private fun addChild(button: EdgeSafeButtonWidget) {
@@ -128,38 +100,6 @@ class SkinLibraryCard(
 
     fun getEntry(): SkinEntry = entry
 
-    private fun typeLabel(): Component =
-        Component.translatable("simpleskinswapper.screen.carousel.skin_type." + entry.skinType.mojangVariant)
-
-    private fun toggleType() {
-        entry.skinType = if (entry.skinType == SkinType.CLASSIC) SkinType.SLIM else SkinType.CLASSIC
-        SkinTypeStore.setType(entry.file.name, entry.skinType)
-        typeButton.message = typeLabel()
-    }
-
-    private fun beginDeleteConfirmation() {
-        confirmingDelete = true
-        setNormalButtonsVisible(false)
-        confirmDeleteButton.visible = true
-    }
-
-    private fun cancelDeleteConfirmation() {
-        confirmingDelete = false
-        setNormalButtonsVisible(true)
-        confirmDeleteButton.visible = false
-    }
-
-    private fun confirmDelete() {
-        confirmingDelete = false
-        parent.deleteEntry(entry)
-    }
-
-    private fun setNormalButtonsVisible(visible: Boolean) {
-        applyButton.visible = visible
-        typeButton.visible = visible
-        deleteButton.visible = visible
-    }
-
     private fun isMouseOverCard(mouseX: Int, mouseY: Int): Boolean =
         mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height
 
@@ -182,13 +122,13 @@ class SkinLibraryCard(
     /** Vertical center of the preview area — shared by the hit test and the renderer. */
     private fun previewCenterY(): Int {
         val top = y + HEADER_HEIGHT + 2
-        val bottom = y + height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 3
+        val bottom = y + height - BUTTON_HEIGHT - BUTTON_MARGIN * 2
         return (top + bottom) / 2
     }
 
     private fun isOnModel(mouseX: Int, mouseY: Int): Boolean {
         val top = y + HEADER_HEIGHT + 2
-        val bottom = y + height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 3
+        val bottom = y + height - BUTTON_HEIGHT - BUTTON_MARGIN * 2
         return mouseX >= x + 1 && mouseX < x + width - 1 && mouseY >= top && mouseY < bottom
     }
 
@@ -233,7 +173,7 @@ class SkinLibraryCard(
                 return true
             }
         }
-        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && isMouseOverCard(event.x().toInt(), event.y().toInt()) && !confirmingDelete) {
+        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && isMouseOverCard(event.x().toInt(), event.y().toInt())) {
             val mx = event.x().toInt()
             val my = event.y().toInt()
             if (isOnHandle(mx, my) || isOnFrame(mx, my)) {
@@ -356,10 +296,6 @@ class SkinLibraryCard(
     //?} else {
     /*override fun renderWidget(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
     *///?}
-        if (confirmingDelete && !isMouseOverCard(mouseX, mouseY)) {
-            cancelDeleteConfirmation()
-        }
-
         // Every card clips to the same fixed viewport rect (the page's inner area): cards
         // sliding out are smoothly half-clipped, never popping. The reorder-dragged card
         // floats unclipped (it is drawn manually by the screen). Cards entirely outside
@@ -388,7 +324,7 @@ class SkinLibraryCard(
 
         if (onScreen || floating) {
             val previewTop = y + HEADER_HEIGHT + 2
-            val previewBottom = y + height - BUTTON_HEIGHT * 2 - BUTTON_MARGIN * 3
+            val previewBottom = y + height - BUTTON_HEIGHT - BUTTON_MARGIN * 2
             val centerY = previewCenterY()
 
             // Position number: left flank of the preview area, vertically centered; tinted with

@@ -41,3 +41,12 @@
 - [x] 7.4 Display name field defaulting to the file name; a set value replaces the file name in the card preview and wheel labels; clearing it restores the file name (skins/names.json). Verify: live card label update in both directions.
 - [x] 7.5 Wide/Slim switch built from the library sprites: thin darkened-card body (shorter than the knob, barely longer), full-color overlay square knob sliding over the active side's head (Steve left / Alex right); persists via types.json. Verify: toggle persists; knob side matches applied model.
 - [x] 7.6 Two-step Delete button (arm then confirm) deleting the file and cleaning all stores; closes the overlay. Verify: file gone, stores cleaned, grid updates.
+
+## 8. Add-skin flow and card simplification
+
+- [x] 8.1 Card simplification: the Wide/Slim and Delete buttons are removed from skin cards (both live in the detail overlay); the replay button is the single bottom row and the preview gains the freed height. Verify: cards show only the replay button; preview is taller.
+- [x] 8.2 Detail fixes: preview scales to its rect (head and feet visible), closes commit a pending file rename (ESC / click outside), drag rotates with a spring return to the rest pose and never freezes the walk animation; the switch heads sit outside the body on each side and the whole row stays inside the panel. Verify: each behavior in game.
+- [x] 8.3 Overlays survive a window resize (re-attached by init, bounds synced) and a detached overlay can no longer swallow input invisibly. Verify: open a skin, resize in every direction, ESC still works.
+- [x] 8.4 Trailing "+" card at the end of every skin list (idle card frame, bare plus, no preview/name); hidden in an empty category. Verify: shows at the end of All skins and non-empty categories; absent in empty categories.
+- [x] 8.5 Add-skin overlay opened from the "+" card (same shell as the detail overlay): source buttons at the top of the left column (native PNG picker; MC name download with invalid-account flash), staged bulk preview on the right, file name and display name fields, wide/slim switch to override auto-detection, Add/Cancel split evenly on the column; Add stays disabled until a skin is staged and the target name is free. Verify: both sources, preview, confirm gating, collision refusal.
+- [x] 8.6 Empty category: two-line balanced centered message (drag from All skins / click to open the add menu); clicking anywhere in the card zone opens the add overlay. Verify: message wraps on two lines; click opens the overlay.

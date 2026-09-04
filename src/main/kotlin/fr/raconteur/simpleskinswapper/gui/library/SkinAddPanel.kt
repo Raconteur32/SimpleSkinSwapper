@@ -1,15 +1,11 @@
 package fr.raconteur.simpleskinswapper.gui.library
 
 import com.mojang.blaze3d.platform.InputConstants
-import fr.raconteur.simpleskinswapper.changeskin.SkinChange
-import fr.raconteur.simpleskinswapper.changeskin.SkinSwapperState
+import fr.raconteur.simpleskinswapper.changeskin.AccountSkinFetcher
 import fr.raconteur.simpleskinswapper.gui.EdgeSafeButtonWidget
-import fr.raconteur.simpleskinswapper.gui.SkinEntry
-import fr.raconteur.simpleskinswapper.gui.SkinNameStore
 import fr.raconteur.simpleskinswapper.gui.SkinRenderer
 import fr.raconteur.simpleskinswapper.gui.SkinType
-import fr.raconteur.simpleskinswapper.gui.SkinTypeStore
-import fr.raconteur.simpleskinswapper.overlayMessage
+import fr.raconteur.simpleskinswapper.gui.SkinUtils
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.ComponentPath
 import net.minecraft.client.gui.GuiGraphicsExtractor
@@ -24,20 +20,23 @@ import net.minecraft.client.input.KeyEvent
 import net.minecraft.client.input.MouseButtonEvent
 import net.minecraft.client.renderer.RenderPipelines
 import net.minecraft.core.ClientAsset
+import net.minecraft.network.chat.CommonComponents
 import net.minecraft.network.chat.Component
 import net.minecraft.resources.Identifier
 import net.minecraft.util.Mth
 import net.minecraft.world.entity.player.PlayerModelType
 import net.minecraft.world.entity.player.PlayerSkin
+import net.fabricmc.loader.api.FabricLoader
+import java.io.File
+import java.nio.file.Files
 
 /**
- * Full-screen detail overlay for one skin. Opens as an animated scale-up of the clicked
- * card into a large rectangle (the base screen stays visible around it). Right side: the
- * skin preview in bulk, drag to rotate. Left side: file-name rename, display name, a
- * wide/slim switch built from the card sprites (dark thin body, full-color square knob
- * sliding over the active side's head: Steve left, Alex right) and a two-step delete.
+ * Add-skin overlay, opened from the trailing "+" card. Same shell as the detail overlay:
+ * bulk preview on the right, management controls on the left — but instead of delete and
+ * apply, the column starts with the two "pick a skin" sources (file / MC name) and ends
+ * with add + cancel. The confirm stays disabled until a skin has actually been staged.
  */
-class SkinDetailPanel(
+class SkinAddPanel(
     private val parent: SkinLibraryScreen
 ) : AbstractWidget(0, 0, 0, 0, Component.empty()), ContainerEventHandler, SkinOverlayPanel {
 
@@ -47,17 +46,22 @@ class SkinDetailPanel(
     private var focusedChild: GuiEventListener? = null
     private var dragging = false
 
+    private val usernameField: EditBox
     private val fileNameField: EditBox
     private val displayNameField: EditBox
-    private val deleteButton: EdgeSafeButtonWidget
-    private val applyButton: EdgeSafeButtonWidget
-    private var deleteArmed = false
+    private val fromFileButton: EdgeSafeButtonWidget
+    private val fromMcNameButton: EdgeSafeButtonWidget
+    private val confirmButton: EdgeSafeButtonWidget
+    private val cancelButton: EdgeSafeButtonWidget
 
-    private var entry: SkinEntry? = null
-    private var sourceX = 0
-    private var sourceY = 0
-    private var sourceW = 0
-    private var sourceH = 0
+    private var stagedFile: File? = null
+    private var stagedType: SkinType = SkinType.CLASSIC
+    private var stagedTextureId: Identifier? = null
+    private var fetching = false
+
+    // Invalid-account flash on the username field (same pattern as the header import row).
+    private var invalidRevertAtMs = 0L
+    private var invalidSavedText = ""
 
     /** 0 = collapsed to the card rect, 1 = fully open. */
     private var progress = 0f
@@ -71,6 +75,35 @@ class SkinDetailPanel(
     private var lastSpringNanos = 0L
 
     init {
+        fromFileButton = EdgeSafeButtonWidget(0, 0, 100, FIELD_HEIGHT + 2,
+            Component.translatable("simpleskinswapper.screen.add.from_file")
+        ) { parent.pickSkinFile { file -> stage(file, file.nameWithoutExtension) } }
+        addChild(fromFileButton)
+
+        usernameField = EditBox(
+            client.font, 0, 0, 100, FIELD_HEIGHT,
+            Component.translatable("simpleskinswapper.screen.add.username")
+        )
+        usernameField.setMaxLength(16)
+        usernameField.setHint(Component.translatable("simpleskinswapper.screen.add.username"))
+        usernameField.setResponder { text ->
+            if (!fetching) fromMcNameButton.active = text.isNotBlank()
+        }
+        addChild(usernameField)
+
+        fromMcNameButton = EdgeSafeButtonWidget(0, 0, 60, FIELD_HEIGHT + 2,
+            Component.translatable("simpleskinswapper.screen.add.from_mcname")
+        ) { fetchFromAccount() }
+        fromMcNameButton.active = false
+        addChild(fromMcNameButton)
+
+        displayNameField = EditBox(
+            client.font, 0, 0, 100, FIELD_HEIGHT,
+            Component.translatable("simpleskinswapper.screen.detail.display_name")
+        )
+        displayNameField.setMaxLength(64)
+        addChild(displayNameField)
+
         fileNameField = EditBox(
             client.font, 0, 0, 100, FIELD_HEIGHT,
             Component.translatable("simpleskinswapper.screen.detail.file_name")
@@ -78,37 +111,24 @@ class SkinDetailPanel(
         fileNameField.setMaxLength(64)
         addChild(fileNameField)
 
-        displayNameField = EditBox(
-            client.font, 0, 0, 100, FIELD_HEIGHT,
-            Component.translatable("simpleskinswapper.screen.detail.display_name")
-        )
-        displayNameField.setMaxLength(64)
-        // Live update: a blank value clears the override so the file name shows again.
-        displayNameField.setResponder { text ->
-            val e = entry ?: return@setResponder
-            e.displayNameOverride = text.trim().ifEmpty { null }
-            SkinNameStore.setName(e.file.name, text.trim())
-        }
-        addChild(displayNameField)
+        confirmButton = EdgeSafeButtonWidget(0, 0, 60, FIELD_HEIGHT + 2,
+            Component.translatable("simpleskinswapper.screen.add.confirm")
+        ) { confirmAdd() }
+        confirmButton.active = false
+        addChild(confirmButton)
 
-        deleteButton = EdgeSafeButtonWidget(0, 0, DELETE_W, FIELD_HEIGHT + 2, deleteLabel()) {
-            onDeleteClicked()
-        }
-        addChild(deleteButton)
-
-        applyButton = EdgeSafeButtonWidget(0, 0, APPLY_W, FIELD_HEIGHT + 2,
-            Component.translatable("simpleskinswapper.screen.carousel.apply")
-        ) { applySkin() }
-        addChild(applyButton)
+        cancelButton = EdgeSafeButtonWidget(0, 0, 60, FIELD_HEIGHT + 2,
+            CommonComponents.GUI_CANCEL
+        ) { close() }
+        addChild(cancelButton)
     }
 
     // ------------------------------------------------------------------
-    // Open / close / rebind
+    // Open / close
     // ------------------------------------------------------------------
 
-    /** Starts the scale-up animation from [card]'s current rect to the full detail rect. */
-    fun open(card: SkinLibraryCard) {
-        entry = card.entry
+    /** Starts the scale-up animation from [card]'s current rect to the full add rect. */
+    fun open(card: SkinAddCard) {
         sourceX = card.x
         sourceY = card.y
         sourceW = card.width
@@ -117,14 +137,21 @@ class SkinDetailPanel(
         closing = false
         removePending = false
         lastAnimNanos = 0L
-        deleteArmed = false
-        deleteButton.message = deleteLabel()
+        lastSpringNanos = 0L
 
-        val e = entry!!
-        fileNameField.setValue(e.baseName)
-        displayNameField.setValue(e.displayNameOverride ?: "")
-        previewYaw = 25f
-        previewPitch = 0f
+        cleanupStaging()
+        usernameField.setValue("")
+        displayNameField.setValue("")
+        fileNameField.setValue("")
+        stagedType = SkinType.CLASSIC
+        stagedTextureId = null
+        previewYaw = REST_YAW
+        previewPitch = REST_PITCH
+        fetching = false
+        invalidRevertAtMs = 0L
+        usernameField.setTextColor(0xFFE0E0E0.toInt())
+        fromMcNameButton.active = false
+        confirmButton.active = false
 
         setX(0)
         setY(0)
@@ -133,11 +160,9 @@ class SkinDetailPanel(
     }
 
     fun close(instant: Boolean = false) {
-        // Closing is the ultimate blur: commit a pending file rename (ESC, click outside).
-        // Instant closes skip it — they are programmatic (delete / entry gone).
-        if (!instant) commitRename()
         setFocused(null)
         rotatingPreview = false
+        cleanupStaging()
         if (instant) {
             removePending = true
             return
@@ -148,28 +173,103 @@ class SkinDetailPanel(
         }
     }
 
-    /** Re-points the panel at a fresh entry after a reload (file renamed / list rebuilt). */
-    fun rebind(fresh: SkinEntry) {
-        entry = fresh
-        fileNameField.setValue(fresh.baseName)
-        displayNameField.setValue(fresh.displayNameOverride ?: "")
-    }
-
     /** Keeps the widget bounds in sync when the window is resized while open. */
     override fun onScreenResized(width: Int, height: Int) {
         setWidth(width)
         setHeight(height)
     }
 
-    val entryFileName: String?
-        get() = entry?.file?.name
-
     override val isRemovePending: Boolean
         get() = removePending
 
     // ------------------------------------------------------------------
+    // Staging
+    // ------------------------------------------------------------------
+
+    private fun stagingFile(): File =
+        FabricLoader.getInstance().gameDir.resolve(".simpleskinswapper-add-staging.png").toFile()
+
+    /** Drops the staged skin (the staging file is temporary by design). */
+    private fun cleanupStaging() {
+        stagedFile?.delete()
+        stagedFile = null
+        stagedTextureId = null
+    }
+
+    /** Stages a skin for the preview: auto-detects the model and suggests a file name. */
+    private fun stage(file: File, suggestedName: String) {
+        stagedFile = file
+        stagedType = SkinUtils.detectSkinType(file)
+        fileNameField.setValue(suggestedName)
+        stagedTextureId = null
+        SkinUtils.loadSkinTextureAsync(file, "skin/add_staging") { id -> stagedTextureId = id }
+    }
+
+    private fun fetchFromAccount() {
+        val username = usernameField.value.trim()
+        if (username.isEmpty() || fetching) return
+        fetching = true
+        fromMcNameButton.active = false
+        AccountSkinFetcher.fetch(
+            username, stagingFile().toPath(),
+            { file ->
+                fetching = false
+                fromMcNameButton.active = usernameField.value.isNotBlank()
+                stage(file, AccountSkinFetcher.sanitizeFilename(username))
+            },
+            {
+                fetching = false
+                fromMcNameButton.active = usernameField.value.isNotBlank()
+                flashInvalidAccount(username)
+            }
+        )
+    }
+
+    private fun flashInvalidAccount(previousText: String) {
+        invalidSavedText = previousText
+        usernameField.setTextColor(0xFFFF5555.toInt())
+        usernameField.setValue(Component.translatable("simpleskinswapper.screen.carousel.invalid_account").string)
+        invalidRevertAtMs = System.currentTimeMillis() + 1500L
+    }
+
+    private fun tickInvalidFlash() {
+        if (invalidRevertAtMs != 0L && System.currentTimeMillis() >= invalidRevertAtMs) {
+            invalidRevertAtMs = 0L
+            usernameField.setTextColor(0xFFE0E0E0.toInt())
+            usernameField.setValue(invalidSavedText)
+        }
+    }
+
+    /** A skin is staged, the file name is valid and the target does not exist yet. */
+    private fun canConfirm(): Boolean {
+        val name = sanitize(fileNameField.value)
+        if (stagedFile == null || name.isEmpty()) return false
+        val target = FabricLoader.getInstance().gameDir.resolve("skins").resolve("$name.png")
+        return !Files.exists(target)
+    }
+
+    private fun sanitize(value: String): String =
+        value.replace(Regex("[^A-Za-z0-9_\\- ]"), "_").trim()
+
+    private fun confirmAdd() {
+        val file = stagedFile ?: return
+        val name = sanitize(fileNameField.value)
+        if (name.isEmpty()) return
+        if (parent.confirmAddSkin(file, name, displayNameField.value.trim(), stagedType)) {
+            // Ownership of the staging file transferred to the skins folder.
+            stagedFile = null
+            close(instant = true)
+        }
+    }
+
+    // ------------------------------------------------------------------
     // Layout
     // ------------------------------------------------------------------
+
+    private var sourceX = 0
+    private var sourceY = 0
+    private var sourceW = 0
+    private var sourceH = 0
 
     /** Current animated panel rect (x, y, w, h). */
     private fun rect(): IntArray {
@@ -187,7 +287,9 @@ class SkinDetailPanel(
         parent.width - DETAIL_MARGIN * 2, parent.height - DETAIL_MARGIN * 2
     )
 
-    private fun leftWidth(t: IntArray): Int = (t[2] * 0.45f).toInt() - PANEL_PAD - SEPARATOR_GAP + PANEL_PAD
+    /** Column width: ends SEPARATOR_GAP before the vertical separator line, so the
+     *  controls never reach into the preview zone (same math as the detail panel). */
+    private fun leftWidth(t: IntArray): Int = (t[2] * 0.45f).toInt() - SEPARATOR_GAP
 
     private fun splitX(t: IntArray): Int = t[0] + (t[2] * 0.45f).toInt()
 
@@ -196,11 +298,19 @@ class SkinDetailPanel(
         t[0] + t[2] - PANEL_PAD, t[1] + t[3] - PANEL_PAD
     )
 
-    private fun labelY(row: Int): Int = targetRect()[1] + PANEL_PAD + row * (LABEL_LINE + FIELD_HEIGHT + ROW_GAP)
+    /** Explicit left-column rows: two button rows, then label+field pairs, switch, buttons.
+     *  Every gap is the same ROW_GAP so the column keeps one vertical rhythm. */
+    private fun btnRowY(row: Int): Int = targetRect()[1] + PANEL_PAD + row * (FIELD_HEIGHT + 2 + ROW_GAP)
 
-    /** Top of the switch row: one ROW_GAP below the display-name field — the left column
-     *  keeps the same 10 px rhythm between every element (field, switch, buttons). */
-    private fun switchRowY(): Int = labelY(1) + LABEL_LINE + FIELD_HEIGHT + ROW_GAP
+    private fun dispLabelY(): Int = btnRowY(1) + FIELD_HEIGHT + 2 + ROW_GAP
+
+    private fun dispFieldY(): Int = dispLabelY() + LABEL_LINE
+
+    private fun fileLabelY(): Int = dispFieldY() + FIELD_HEIGHT + ROW_GAP
+
+    private fun fileFieldY(): Int = fileLabelY() + LABEL_LINE
+
+    private fun switchRowY(): Int = fileFieldY() + FIELD_HEIGHT + ROW_GAP
 
     private fun switchRect(t: IntArray): IntArray = intArrayOf(
         // Indented so the flanking heads (head + gap on each side) stay inside the panel.
@@ -212,87 +322,31 @@ class SkinDetailPanel(
     private fun repositionChildren() {
         val t = targetRect()
         val leftW = leftWidth(t)
-        fileNameField.setWidth(leftW)
+
+        fromFileButton.setWidth(leftW)
+        fromFileButton.setPosition(t[0] + PANEL_PAD, btnRowY(0))
+
+        // Compact source button (label-sized) so the username field keeps the room.
+        val searchW = client.font.width(fromMcNameButton.message) + 12
+        val usernameW = leftW - searchW - 8
+        usernameField.setWidth(usernameW)
+        // The field is 2px shorter than the button: nudge it down so their centerlines align.
+        usernameField.setPosition(t[0] + PANEL_PAD, btnRowY(1) + (FIELD_HEIGHT + 2 - FIELD_HEIGHT) / 2)
+        fromMcNameButton.setWidth(searchW)
+        fromMcNameButton.setPosition(t[0] + PANEL_PAD + usernameW + 8, btnRowY(1))
+
         displayNameField.setWidth(leftW)
-        fileNameField.setPosition(t[0] + PANEL_PAD, labelY(0) + LABEL_LINE)
-        displayNameField.setPosition(t[0] + PANEL_PAD, labelY(1) + LABEL_LINE)
+        displayNameField.setPosition(t[0] + PANEL_PAD, dispFieldY())
+        fileNameField.setWidth(leftW)
+        fileNameField.setPosition(t[0] + PANEL_PAD, fileFieldY())
+
+        // Confirm/cancel split the column in two so cancel never overflows past it.
         val buttonY = switchRowY() + SWITCH_BODY_H + ROW_GAP
-        deleteButton.setPosition(t[0] + PANEL_PAD, buttonY)
-        applyButton.setPosition(t[0] + PANEL_PAD + DELETE_W + 8, buttonY)
-    }
-
-    // ------------------------------------------------------------------
-    // Actions
-    // ------------------------------------------------------------------
-
-    private fun isOnSwitch(mouseX: Int, mouseY: Int): Boolean {
-        val s = switchRect(targetRect())
-        return mouseX >= s[0] - HEAD_GAP - HEAD && mouseX < s[0] + s[2] + HEAD_GAP + HEAD &&
-            mouseY >= s[1] - SWITCH_KNOB / 2 - 2 && mouseY < s[1] + s[3] + SWITCH_KNOB / 2 + 2
-    }
-
-    /** Knob x for the current type: over Steve (left) when classic, over Alex (right) when slim. */
-    private fun knobX(e: SkinEntry, s: IntArray): Int =
-        if (e.skinType == SkinType.CLASSIC) s[0] - 4
-        else s[0] + s[2] - SWITCH_KNOB + 4
-
-    private fun toggleType() {
-        val e = entry ?: return
-        e.skinType = if (e.skinType == SkinType.CLASSIC) SkinType.SLIM else SkinType.CLASSIC
-        SkinTypeStore.setType(e.file.name, e.skinType)
-    }
-
-    private fun onDeleteClicked() {
-        val e = entry ?: return
-        if (!deleteArmed) {
-            deleteArmed = true
-            deleteButton.message = Component.translatable("simpleskinswapper.screen.detail.delete_confirm")
-            return
-        }
-        deleteArmed = false
-        close(instant = true)
-        parent.deleteEntry(e)
-    }
-
-    /** Applies the skin (same flow as the card's replay button), then leaves the screen. */
-    private fun applySkin() {
-        val e = entry ?: return
-        if (!SkinSwapperState.beginSwap()) return
-        SkinChange.changeSkin(
-            e.file, e.skinType, e.textureId,
-            { showOverlay(Component.translatable("simpleskinswapper.message.success")) },
-            { err -> showOverlay(Component.translatable("simpleskinswapper.message.error", err)) }
-        )
-        parent.onClose()
-        showOverlay(Component.translatable("simpleskinswapper.message.applying"))
-    }
-
-    private fun showOverlay(text: Component) {
-        client.player?.overlayMessage(text)
-    }
-
-    private fun deleteLabel(): Component =
-        Component.translatable("simpleskinswapper.screen.detail.delete")
-
-    private fun commitRename() {
-        val e = entry ?: return
-        val value = fileNameField.value.trim()
-        if (value.isEmpty() || value == e.baseName) {
-            fileNameField.setValue(e.baseName)
-            return
-        }
-        if (parent.renameEntry(e, value)) {
-            fileNameField.setValue(e.file.nameWithoutExtension)
-        } else {
-            fileNameField.setValue(e.baseName)
-        }
-    }
-
-    private fun disarmDelete() {
-        if (deleteArmed) {
-            deleteArmed = false
-            deleteButton.message = deleteLabel()
-        }
+        val halfW = (leftW - 8) / 2
+        confirmButton.setWidth(halfW)
+        confirmButton.setPosition(t[0] + PANEL_PAD, buttonY)
+        cancelButton.setWidth(halfW)
+        cancelButton.setPosition(t[0] + PANEL_PAD + halfW + 8, buttonY)
     }
 
     // ------------------------------------------------------------------
@@ -321,8 +375,8 @@ class SkinDetailPanel(
         lastAnimNanos = now
         if (dt == 0f) return
         progress = Mth.clamp(progress + (if (closing) -dt else dt) * OPEN_SPEED, 0f, 1f)
-        // The screen unregisters the panel (detail = null + removeWidget) once it sees
-        // isRemovePending — this field must stay reachable until then.
+        // The screen unregisters the panel once it sees isRemovePending — this flag must
+        // stay reachable until then.
         if (closing && progress <= 0f) removePending = true
     }
 
@@ -335,12 +389,14 @@ class SkinDetailPanel(
     //?} else {
     /*override fun renderWidget(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
     *///?}
-        val e = entry ?: return
         tickAnimation()
+        tickInvalidFlash()
         updateSpringBack()
         repositionChildren()
+        confirmButton.active = canConfirm()
+
         val r = rect()
-        // The big card: same dark frame sprite as idle cards, nine-sliced to any size.
+        // The big pseudo-card: same dark frame sprite as idle cards, nine-sliced to any size.
         graphics.blitSprite(RenderPipelines.GUI_TEXTURED, SkinLibraryScreen.CARD_SPRITE_ACCESS, r[0], r[1], r[2], r[3])
         if (progress < 0.999f) return
 
@@ -348,9 +404,9 @@ class SkinDetailPanel(
         // Thin separator between the controls column and the preview.
         graphics.fill(splitX(t) - 1, t[1] + PANEL_PAD, splitX(t) + 1, t[1] + t[3] - PANEL_PAD, 0xFF202028.toInt())
 
-        drawPreview(graphics, e, t, mouseX, mouseY)
+        drawPreview(graphics, t, mouseX, mouseY)
         drawLabels(graphics, t)
-        drawSwitch(graphics, e, t)
+        drawSwitch(graphics, t)
 
         for (child in panelChildren) {
             if (child !is AbstractWidget) continue
@@ -362,17 +418,20 @@ class SkinDetailPanel(
         }
     }
 
-    private fun drawPreview(graphics: GuiGraphicsExtractor, e: SkinEntry, t: IntArray, mouseX: Int, mouseY: Int) {
+    private fun drawPreview(graphics: GuiGraphicsExtractor, t: IntArray, mouseX: Int, mouseY: Int) {
         val p = previewRect(t)
-        e.ensureTextureLoaded()
-        val textureId = e.textureId ?: return
-        val ph = p[3] - p[1]
-        // Same sizing convention as the cards: `size` is roughly the model's pixel height,
-        // so half the rect height fills it without clipping head or feet.
-        val size = (ph * 0.5f).toInt()
+        val textureId = stagedTextureId
+        if (textureId == null) {
+            graphics.centeredText(
+                client.font, Component.translatable("simpleskinswapper.screen.add.none"),
+                (p[0] + p[2]) / 2, (p[1] + p[3]) / 2 - client.font.lineHeight / 2, 0xFFAAAAAA.toInt()
+            )
+            return
+        }
+        val size = ((p[3] - p[1]) * 0.5f).toInt()
         val skinTextures = PlayerSkin(
             ClientAsset.DownloadedTexture(textureId, ""), null, null,
-            if (e.skinType == SkinType.SLIM) PlayerModelType.SLIM else PlayerModelType.WIDE,
+            if (stagedType == SkinType.SLIM) PlayerModelType.SLIM else PlayerModelType.WIDE,
             true
         )
         val hovered = mouseX >= p[0] && mouseX < p[2] && mouseY >= p[1] && mouseY < p[3]
@@ -384,11 +443,11 @@ class SkinDetailPanel(
 
     private fun drawLabels(graphics: GuiGraphicsExtractor, t: IntArray) {
         val x = t[0] + PANEL_PAD
-        graphics.text(client.font, Component.translatable("simpleskinswapper.screen.detail.file_name"), x, labelY(0), 0xFFB0B8C0.toInt())
-        graphics.text(client.font, Component.translatable("simpleskinswapper.screen.detail.display_name"), x, labelY(1), 0xFFB0B8C0.toInt())
+        graphics.text(client.font, Component.translatable("simpleskinswapper.screen.detail.display_name"), x, dispLabelY(), 0xFFB0B8C0.toInt())
+        graphics.text(client.font, Component.translatable("simpleskinswapper.screen.detail.file_name"), x, fileLabelY(), 0xFFB0B8C0.toInt())
     }
 
-    private fun drawSwitch(graphics: GuiGraphicsExtractor, e: SkinEntry, t: IntArray) {
+    private fun drawSwitch(graphics: GuiGraphicsExtractor, t: IntArray) {
         val s = switchRect(t)
         // Body: the darkened card frame sprite, a thin rectangle.
         graphics.blitSprite(RenderPipelines.GUI_TEXTURED, SkinLibraryScreen.CARD_SPRITE_ACCESS, s[0], s[1], s[2], s[3])
@@ -397,7 +456,7 @@ class SkinDetailPanel(
         graphics.blit(RenderPipelines.GUI_TEXTURED, STEVE_TEXTURE, s[0] - HEAD_GAP - HEAD, s[1] + (s[3] - HEAD) / 2, 8f, 8f, HEAD, HEAD, 8, 8, 64, 64)
         graphics.blit(RenderPipelines.GUI_TEXTURED, ALEX_TEXTURE, s[0] + s[2] + HEAD_GAP, s[1] + (s[3] - HEAD) / 2, 8f, 8f, HEAD, HEAD, 8, 8, 64, 64)
         // Knob: the full-color square overlay, sliding toward the active side's head.
-        val kx = knobX(e, s)
+        val kx = if (stagedType == SkinType.CLASSIC) s[0] - 4 else s[0] + s[2] - SWITCH_KNOB + 4
         graphics.blitSprite(RenderPipelines.GUI_TEXTURED, SkinLibraryScreen.PANEL_SPRITE_ACCESS, kx, s[1] + (s[3] - SWITCH_KNOB) / 2, SWITCH_KNOB, SWITCH_KNOB)
     }
 
@@ -405,8 +464,13 @@ class SkinDetailPanel(
     // Input
     // ------------------------------------------------------------------
 
+    private fun isOnSwitch(mouseX: Int, mouseY: Int): Boolean {
+        val s = switchRect(targetRect())
+        return mouseX >= s[0] - HEAD_GAP - HEAD && mouseX < s[0] + s[2] + HEAD_GAP + HEAD &&
+            mouseY >= s[1] - SWITCH_KNOB / 2 - 2 && mouseY < s[1] + s[3] + SWITCH_KNOB / 2 + 2
+    }
+
     override fun mouseClicked(event: MouseButtonEvent, doubleClick: Boolean): Boolean {
-        if (entry == null) return false
         val mx = event.x().toInt()
         val my = event.y().toInt()
         val r = rect()
@@ -416,23 +480,15 @@ class SkinDetailPanel(
         }
         for (child in panelChildren) {
             if (child.mouseClicked(event, doubleClick)) {
-                // Blur-commit a pending rename from the other field, then focus the child.
-                // setFocused also flips the widget's own focused flag — EditBox only
-                // consumes keyboard input when it is set (vanilla Screen.setFocused is
-                // bypassed by the screen's manual forwarding).
-                if (focusedChild != null && focusedChild !== child) commitRename()
                 setFocused(child)
                 setDragging(true)
                 return true
             }
         }
-        // Clicking anywhere but the delete button disarms the pending confirmation.
-        if (!isOnDelete(mx, my)) disarmDelete()
-        // Click away from the fields: blur + commit.
-        if (focusedChild != null) commitRename()
+        // Click away from the fields: blur.
         setFocused(null)
         if (isOnSwitch(mx, my)) {
-            toggleType()
+            stagedType = if (stagedType == SkinType.CLASSIC) SkinType.SLIM else SkinType.CLASSIC
             return true
         }
         val p = previewRect(targetRect())
@@ -442,10 +498,6 @@ class SkinDetailPanel(
         }
         return true
     }
-
-    private fun isOnDelete(mx: Int, my: Int): Boolean =
-        mx >= deleteButton.x && mx < deleteButton.x + deleteButton.width &&
-            my >= deleteButton.y && my < deleteButton.y + deleteButton.height
 
     override fun mouseDragged(event: MouseButtonEvent, deltaX: Double, deltaY: Double): Boolean {
         if (rotatingPreview && event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
@@ -478,14 +530,17 @@ class SkinDetailPanel(
     override fun mouseScrolled(mouseX: Double, mouseY: Double, hozAmount: Double, vertAmount: Double): Boolean = true
 
     override fun keyPressed(event: KeyEvent): Boolean {
-        if (entry == null) return false
         when (event.key()) {
             InputConstants.KEY_ESCAPE -> {
                 close()
                 return true
             }
             InputConstants.KEY_RETURN, InputConstants.KEY_NUMPADENTER -> {
-                commitRename()
+                if (canConfirm()) {
+                    confirmAdd()
+                } else if (focusedChild === usernameField) {
+                    fetchFromAccount()
+                }
                 return true
             }
         }
@@ -496,7 +551,7 @@ class SkinDetailPanel(
         focusedChild?.charTyped(event) ?: false
 
     // ------------------------------------------------------------------
-    // Container plumbing (mirrors SkinLibraryCard)
+    // Container plumbing (mirrors SkinDetailPanel)
     // ------------------------------------------------------------------
 
     private fun addChild(listener: GuiEventListener) {
@@ -552,9 +607,6 @@ class SkinDetailPanel(
         private const val REST_PITCH = 0f
         private const val SPRING_RETURN_SPEED = 10.0F
         private const val SPRING_SNAP_EPSILON = 0.05F
-
-        private const val DELETE_W = 70
-        private const val APPLY_W = 70
 
         private val STEVE_TEXTURE = Identifier.withDefaultNamespace("textures/entity/player/wide/steve.png")
         private val ALEX_TEXTURE = Identifier.withDefaultNamespace("textures/entity/player/slim/alex.png")

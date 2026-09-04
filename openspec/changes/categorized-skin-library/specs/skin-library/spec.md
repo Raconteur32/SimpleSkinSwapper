@@ -182,6 +182,26 @@ A plain click on a skin card SHALL open a detail overlay: the card animates scal
 - **WHEN** the user presses delete once then confirms
 - **THEN** the skin file is deleted, its store entries are cleaned, and the overlay closes
 
+### Requirement: A trailing add card opens an add-skin overlay
+
+Every skin list SHALL end with an add card: the idle card frame with a bare "+" glyph, no preview and no name, scrolling and shifting with the grid like a real card. Clicking it SHALL open an add-skin overlay with the same shell as the detail overlay: the bulk preview on the right of a thin separator and the management controls on the left. The left column SHALL start with the two skin sources — a native PNG file picker and a Minecraft-name download with an invalid-account feedback — then offer the file name, the display name and a wide/slim switch that overrides the auto-detected model, and end with add and cancel actions splitting the column evenly. Add SHALL stay disabled until a skin has been staged and the target file name does not collide. An empty category SHALL hide the add card, show a balanced two-line message, and open the add-skin overlay when the card zone is clicked.
+
+#### Scenario: Add from file with confirmation
+
+- **WHEN** the user picks a PNG through the add overlay and confirms
+- **WHEN** the file name is free and the add action is enabled
+- **THEN** the skin is copied into the skins folder, its display name and model type are stored, and the grid shows the new card
+
+#### Scenario: Add stays gated
+
+- **WHEN** no skin has been staged, the target name collides, or the name is empty
+- **THEN** the add action stays disabled until the state changes
+
+#### Scenario: Empty category invites adding
+
+- **WHEN** a category holds no skin
+- **THEN** no add card is shown, a two-line message explains dragging from All skins or clicking, and clicking the card zone opens the add-skin overlay
+
 ### Requirement: Card previews animate on hover and settle back smoothly
 
 Library card previews SHALL hold a static neutral pose by default. While the mouse hovers a card, that card's preview SHALL play the limb walk animation. When the hover ends, the animated limbs SHALL return to the neutral pose through a smooth eased transition. Drag-to-rotate SHALL remain available and independent of the hover animation; a card being reorder-dragged SHALL not trigger hover animations on the cards beneath it.

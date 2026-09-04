@@ -6,6 +6,7 @@ import fr.raconteur.simpleskinswapper.changeskin.AccountSkinFetcher
 import fr.raconteur.simpleskinswapper.gui.EdgeSafeButtonWidget
 import fr.raconteur.simpleskinswapper.gui.SkinNameStore
 import fr.raconteur.simpleskinswapper.gui.SkinEntry
+import fr.raconteur.simpleskinswapper.gui.SkinType
 import fr.raconteur.simpleskinswapper.gui.SkinTypeStore
 import fr.raconteur.simpleskinswapper.gui.config.YaclConfigScreen
 import net.fabricmc.loader.api.FabricLoader
@@ -38,6 +39,7 @@ import java.nio.file.FileSystems
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardWatchEventKinds
+import java.nio.file.StandardCopyOption
 import java.nio.file.WatchService
 import java.util.IdentityHashMap
 
@@ -68,7 +70,13 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     // Open skin detail overlay (null = closed). Registered as a widget while open.
     internal var detail: SkinDetailPanel? = null
-        private set
+
+    // Open add-skin overlay (null = closed), opened from the trailing "+" card.
+    internal var addPanel: SkinAddPanel? = null
+
+    // Trailing "+" pseudo-card shown after the last card of every list.
+    private var addCard: SkinAddCard? = null
+    private val addCardDisplay = IdentityHashMap<SkinAddCard, FloatArray>()
     private var reorderGrabX = 0
     private var reorderGrabY = 0
     private var reorderCursorX = 0
@@ -228,6 +236,18 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         rebuildCards()
         recomputeLayout()
 
+        // init() also runs on window resize (rebuildWidgets clears every widget first):
+        // re-attach the overlays so they survive the resize instead of turning into
+        // ghosts that swallow all input without rendering.
+        detail?.let {
+            it.onScreenResized(this.width, this.height)
+            addRenderableWidget(it)
+        }
+        addPanel?.let {
+            it.onScreenResized(this.width, this.height)
+            addRenderableWidget(it)
+        }
+
         stopWatching()
         startWatching()
     }
@@ -254,8 +274,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     private fun updateMaxScroll() {
         // The config band scrolls away with the content, so it counts toward it.
+        // The trailing "+" card occupies one extra cell after the last skin.
         val bandH = if (selectedCategory != null) bandHeight() + GRID_GAP else 0
-        val rows = Math.ceil(cards.size / cols.toDouble()).toInt()
+        val rows = Math.ceil((cards.size + 1) / cols.toDouble()).toInt()
         val contentH = bandH + rows * (cellH + GRID_GAP) - GRID_GAP
         maxScroll = Math.max(0, contentH - (gridBottom - gridTop - GRID_MARGIN * 2))
     }
@@ -300,12 +321,18 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         for (card in cards) removeWidget(card)
         cards.clear()
         cardDisplay.clear()
+        addCard?.let { removeWidget(it) }
+        addCardDisplay.clear()
         recomputeLayout()
         for (entry in entries) {
             val card = SkinLibraryCard(this, entry, cellW, cellH)
             cards.add(card)
             addRenderableWidget(card)
         }
+        // Trailing "+" card at the end of every list.
+        val newAddCard = SkinAddCard(this, cellW, cellH)
+        addCard = newAddCard
+        addRenderableWidget(newAddCard)
         updateMaxScroll()
         scrollY = Mth.clamp(scrollY, 0, maxScroll)
         refreshBandWidgets()
@@ -361,11 +388,54 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     internal fun openDetail(card: SkinLibraryCard) {
-        if (detail != null) return
+        if (detail != null || addPanel != null) return
         val panel = SkinDetailPanel(this)
         panel.open(card)
         detail = panel
         addRenderableWidget(panel)
+    }
+
+    /** Opens the add-skin overlay from the trailing "+" card. */
+    internal fun openAddPanel() {
+        if (detail != null || addPanel != null) return
+        val card = addCard ?: return
+        val panel = SkinAddPanel(this)
+        panel.open(card)
+        addPanel = panel
+        addRenderableWidget(panel)
+    }
+
+    /** Drops an overlay that was cleared by a widget rebuild or fully closed itself. */
+    private fun <T> pruned(panel: T?): T? where T : net.minecraft.client.gui.components.AbstractWidget, T : SkinOverlayPanel {
+        if (panel == null) return null
+        if (!children().contains(panel)) return null
+        if (panel.isRemovePending) {
+            removeWidget(panel)
+            return null
+        }
+        return panel
+    }
+
+    /** Copies a staged skin into skins/ and registers its stores. False on collision/IO error. */
+    fun confirmAddSkin(source: File, name: String, display: String, type: SkinType): Boolean {
+        val sanitized = name.replace(Regex("[^A-Za-z0-9_\\- ]"), "_").trim()
+        if (sanitized.isEmpty()) return false
+        val skinsDir = FabricLoader.getInstance().gameDir.resolve("skins")
+        return try {
+            Files.createDirectories(skinsDir)
+            val target = skinsDir.resolve("$sanitized.png")
+            if (Files.exists(target)) return false
+            markSelfTriggered(target.fileName.toString())
+            Files.copy(source.toPath(), target, StandardCopyOption.REPLACE_EXISTING)
+            SkinTypeStore.setType(target.fileName.toString(), type)
+            if (display.isNotBlank()) SkinNameStore.setName(target.fileName.toString(), display)
+            reloadView()
+            rebuildCards()
+            true
+        } catch (e: IOException) {
+            SimpleSkinSwapper.LOGGER.warn("Could not add skin {}: {}", sanitized, e.message)
+            false
+        }
     }
 
     /** Re-points the detail panel at the fresh entry after a reload, closing it if the skin is gone. */
@@ -492,12 +562,11 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     *///?}
         graphics.fill(0, 0, this.width, this.height, 0x66000000)
 
-        // Fully-closed detail panels are unregistered outside of their own render pass.
-        if (detail?.isRemovePending == true) {
-            val d = detail!!
-            detail = null
-            removeWidget(d)
-        }
+        // Fully-closed overlays are unregistered outside of their own render pass. An
+        // overlay that is no longer a screen child (cleared by a widget rebuild without
+        // init) would swallow all input invisibly — drop it too.
+        detail = pruned(detail)
+        addPanel = pruned(addPanel)
 
         updateTabAutoScroll(mouseY)
         // Tab strip background + unselected tabs first: they pass under the grid page.
@@ -527,7 +596,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
         // While the detail overlay is open, the base screen stays static underneath:
         // no tab/selection chrome may draw over it (the panel renders itself via super).
-        if (detail == null) {
+        if (detail == null && addPanel == null) {
             // Selected tab sticks out over the page edge, above the cards zone.
             drawTabStripOver(graphics, mouseX, mouseY)
 
@@ -551,10 +620,18 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                 } else {
                     "simpleskinswapper.screen.library.empty_category"
                 }
-                graphics.centeredText(
-                    font, Component.translatable(messageKey),
-                    (panelX + this.width - PAD) / 2, (gridTop + gridBottom) / 2 - font.lineHeight / 2, 0xFFAAAAAA.toInt()
-                )
+                // A "\n" in the translation splits the message into centered lines (the
+                // empty-category hint reads better balanced on two lines).
+                val lines = Component.translatable(messageKey).string.split("\n")
+                val lineHeight = font.lineHeight + 1
+                var lineY = (gridTop + gridBottom) / 2 - (lines.size * lineHeight) / 2
+                for (line in lines) {
+                    graphics.centeredText(
+                        font, Component.literal(line),
+                        (panelX + this.width - PAD) / 2, lineY, 0xFFAAAAAA.toInt()
+                    )
+                    lineY += lineHeight
+                }
             }
 
             if (confirmingCategoryDelete) {
@@ -765,6 +842,34 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             }
             card.overridePosition(Math.round(display[0]), Math.round(display[1]))
         }
+
+        // The trailing "+" card slides like a card: it sits one slot after the last skin
+        // and shifts when a reorder insertion gap opens before it. An empty category
+        // hides it entirely — clicking anywhere in the zone opens the add overlay instead.
+        addCard?.let { ac ->
+            if (selectedCategory != null && cards.isEmpty()) {
+                ac.visible = false
+                return@let
+            }
+            ac.visible = true
+            ac.clipLeft = panelX - 6 + PAGE_BORDER
+            ac.clipTop = gridTop
+            ac.clipRight = this.width - PAD - PAGE_BORDER
+            ac.clipBottom = gridBottom
+            val slot = slotFor(cards.size, dragIndex)
+            val display = addCardDisplay.getOrPut(ac) { FloatArray(2) }
+            if (display[0] == 0.0F && display[1] == 0.0F && ac.x == 0 && ac.y == 0) {
+                display[0] = slot.first.toFloat()
+                display[1] = slot.second.toFloat()
+            }
+            display[0] = Mth.lerp(t, display[0], slot.first.toFloat())
+            display[1] = Mth.lerp(t, display[1], slot.second.toFloat())
+            if (Math.abs(display[0] - slot.first) < 0.5F && Math.abs(display[1] - slot.second) < 0.5F) {
+                display[0] = slot.first.toFloat()
+                display[1] = slot.second.toFloat()
+            }
+            ac.overridePosition(Math.round(display[0]), Math.round(display[1]))
+        }
         lastCardEaseNanos = now
     }
 
@@ -895,6 +1000,11 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             if (handled) setFocused(d)
             return handled
         }
+        addPanel?.let { d ->
+            val handled = d.mouseClicked(click, doubled)
+            if (handled) setFocused(d)
+            return handled
+        }
         val mx = click.x().toInt()
         val my = click.y().toInt()
 
@@ -933,6 +1043,14 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                 SkinCategoriesStore.save()
                 return true
             }
+        }
+
+        // Empty category: a click anywhere in the card zone opens the add-skin overlay.
+        if (selectedCategory != null && cards.isEmpty() && click.button() == InputConstants.MOUSE_BUTTON_LEFT &&
+            mx >= gridLeft() && mx < gridRight() && my >= gridTop && my < gridBottom
+        ) {
+            openAddPanel()
+            return true
         }
 
         // Grid wheel-scroll area click-through: let children (cards, widgets) handle the rest.
@@ -977,6 +1095,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     override fun mouseDragged(click: MouseButtonEvent, offsetX: Double, offsetY: Double): Boolean {
         detail?.let { return it.mouseDragged(click, offsetX, offsetY) }
+        addPanel?.let { return it.mouseDragged(click, offsetX, offsetY) }
         val mx = click.x().toInt()
         val my = click.y().toInt()
         if (tabDragCategoryIndex > 0 && click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
@@ -999,6 +1118,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     override fun mouseReleased(click: MouseButtonEvent): Boolean {
         detail?.let { return it.mouseReleased(click) }
+        addPanel?.let { return it.mouseReleased(click) }
         val mx = click.x().toInt()
         val my = click.y().toInt()
         if (tabDragCategoryIndex >= 0 && click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
@@ -1030,6 +1150,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     override fun mouseScrolled(mouseX: Double, mouseY: Double, hozAmount: Double, vertAmount: Double): Boolean {
         detail?.let { return it.mouseScrolled(mouseX, mouseY, hozAmount, vertAmount) }
+        addPanel?.let { return it.mouseScrolled(mouseX, mouseY, hozAmount, vertAmount) }
         val mx = mouseX.toInt()
         val my = mouseY.toInt()
         if (mx < STRIP_X + TAB_W + TAB_SELECTED_STICKOUT && my >= stripTop() && my <= stripBottom()) {
@@ -1042,11 +1163,13 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     override fun keyPressed(event: KeyEvent): Boolean {
         detail?.let { return it.keyPressed(event) }
+        addPanel?.let { return it.keyPressed(event) }
         return super.keyPressed(event)
     }
 
     override fun charTyped(event: CharacterEvent): Boolean {
         detail?.let { return it.charTyped(event) }
+        addPanel?.let { return it.charTyped(event) }
         return super.charTyped(event)
     }
 
@@ -1122,11 +1245,16 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     private fun addSkinFromFile() {
+        pickSkinFile { importSkinFile(it) }
+    }
+
+    /** Opens the native PNG picker and hands the result to [onPicked] on the main thread. */
+    internal fun pickSkinFile(onPicked: (File) -> Unit) {
         //? if >=26.3 {
-        /*openSkinFileDialog()
+        /*openSkinFileDialog(onPicked)
         *///?} else {
         val selected = openSkinFileDialog() ?: return
-        importSkinFile(selected)
+        onPicked(selected)
         //?}
     }
 
@@ -1136,7 +1264,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     // thread and only applied if this screen is still open.
     private var dialogCallback: SDL_DialogFileCallback? = null
 
-    private fun openSkinFileDialog() {
+    private fun openSkinFileDialog(onPicked: (File) -> Unit) {
         dialogCallback?.free()
         val callback = SDL_DialogFileCallback.create { _, filelist, _ ->
             if (filelist != 0L) {
@@ -1144,7 +1272,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                 if (first != 0L) {
                     val path = MemoryUtil.memUTF8(first)
                     Minecraft.getInstance().execute {
-                        if (Minecraft.getInstance().gui.screen() === this) importSkinFile(File(path))
+                        if (Minecraft.getInstance().gui.screen() === this) onPicked(File(path))
                     }
                 }
             }

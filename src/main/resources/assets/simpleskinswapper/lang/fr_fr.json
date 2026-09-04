@@ -55,12 +55,17 @@
   "simpleskinswapper.screen.library.all_skins": "Tous les skins",
   "simpleskinswapper.screen.library.wheels": "roues",
   "simpleskinswapper.screen.library.category_name": "Nom de la catégorie",
-  "simpleskinswapper.screen.library.empty_category": "Cette catégorie est vide — glisse des skins depuis « Tous les skins »",
+  "simpleskinswapper.screen.library.empty_category": "Cette catégorie est vide — glisse des skins depuis « Tous les skins »\nou clique simplement ici pour ouvrir le menu d’ajout",
   "simpleskinswapper.screen.library.delete_category_confirm": "Supprimer",
   "simpleskinswapper.screen.library.delete_category_question": "Supprimer cette catégorie ? Ses skins restent dans la bibliothèque.",
   "simpleskinswapper.screen.wheel.empty": "Aucune catégorie n'alimente la roue — attribue des roues dans la bibliothèque",
   "simpleskinswapper.screen.detail.file_name": "Nom du fichier",
   "simpleskinswapper.screen.detail.display_name": "Nom affiché",
   "simpleskinswapper.screen.detail.delete": "Supprimer",
-  "simpleskinswapper.screen.detail.delete_confirm": "Confirmer"
+  "simpleskinswapper.screen.detail.delete_confirm": "Confirmer",
+  "simpleskinswapper.screen.add.from_file": "Depuis un fichier",
+  "simpleskinswapper.screen.add.from_mcname": "Rechercher",
+  "simpleskinswapper.screen.add.username": "Nom du compte",
+  "simpleskinswapper.screen.add.none": "Aucun skin sélectionné",
+  "simpleskinswapper.screen.add.confirm": "Ajouter"
 }
