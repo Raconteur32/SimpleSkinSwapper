@@ -114,6 +114,7 @@ class   TabStripController(
         if (cursorX < SkinLibraryScreen.STRIP_X || cursorX > SkinLibraryScreen.STRIP_X + SkinLibraryScreen.TAB_W + 4) return false
         if (cursorY < stripTop() || cursorY >= stripAlignedBottom()) return false
         val top = addEntryY()
+        if (top + tabH() > stripAlignedBottom()) return false
         return cursorY >= top && cursorY < top + tabH()
     }
 
@@ -128,6 +129,7 @@ class   TabStripController(
         if (cursorY < stripTop() || cursorY >= stripAlignedBottom()) return null
         for (i in SkinCategoriesStore.all().size downTo 0) {
             val top = tabY(i)
+            if (top + tabH() > stripAlignedBottom()) continue
             if (cursorY >= top && cursorY < top + tabH()) return i
         }
         return null

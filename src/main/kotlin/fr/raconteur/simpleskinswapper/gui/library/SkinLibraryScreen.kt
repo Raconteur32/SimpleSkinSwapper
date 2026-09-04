@@ -531,7 +531,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         graphics.enableScissor(-PANEL_BLEED, top, STRIP_X + TAB_W + 2, tabBottom)
         for (i in 0..SkinCategoriesStore.all().size) {
             val y = tabs.tabY(i)
-            if (y + tabH < top || y > tabBottom) continue
+            // Whole tabs only: a partially-visible tab at the band's bottom edge would
+            // show a dangling overlap border past the last full tab.
+            if (y + tabH < top || y + tabH > tabBottom) continue
             if (isSelectedTab(i)) continue
             drawTab(graphics, i, y)
         }
@@ -581,7 +583,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     private fun drawAddCategoryEntry(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
         val top = tabs.stripTop()
         val y = tabs.addEntryY()
-        if (y + tabH < top || y > tabs.stripAlignedBottom()) return
+        if (y + tabH < top || y + tabH > tabs.stripAlignedBottom()) return
         val hovered = tabs.addEntryAt(mouseY, mouseX)
         val glyph = if (hovered) 0xFFC5C5C5.toInt() else 0xFF999999.toInt()
         drawBookPanel(graphics, -PANEL_BLEED, y, STRIP_X + TAB_W + 2 + PANEL_BLEED, tabH, lit = false)
