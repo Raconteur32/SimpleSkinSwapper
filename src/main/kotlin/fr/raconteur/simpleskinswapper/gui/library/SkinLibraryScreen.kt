@@ -200,8 +200,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         val stripHeight = gridBottom - gridTop
         val slots = SkinCategoriesStore.all().size + 2
         // Overlap-aware fill: content height is (slots-1)*slotH + tabH; solving for a
-        // full strip gives tabH = (H + overlap*(slots-1)) / slots, clamped to sane bounds.
-        tabH = ((stripHeight + TAB_OVERLAP * (slots - 1)) / slots).coerceIn(tabHMin, tabHMax)
+        // full strip gives tabH = (H + overlap*(slots-1)) / slots — no upper clamp, so
+        // few categories mean taller tabs rather than a dead margin below.
+        tabH = ((stripHeight + TAB_OVERLAP * (slots - 1)) / slots).coerceAtLeast(tabHMin)
         // The grid lives inside the page's baked border (8px, measured on the texture)
         // plus a small breathing margin on every side — cards never touch the border.
         val gridLeft = gridLeft()
@@ -1009,7 +1010,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         internal const val TAB_W = 100
         internal const val tabHMin = 28
         internal const val TAB_OVERLAP = 2
-        private const val tabHMax = 48
 
         // How far the selected tab's panel tucks under the grid page border (its right edge is
         // this many px past the tab column).
