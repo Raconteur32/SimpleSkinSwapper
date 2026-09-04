@@ -1,33 +1,27 @@
 package fr.raconteur.simpleskinswapper.gui.library
 
+import net.minecraft.world.item.DyeColor
+
 /**
- * Fixed category color palette: ten hues, each with a pastel and a vivid variant (ARGB).
- * Category colors always come from this palette — never free-form.
+ * Category colors come from the 16 vanilla dyes' wool (map) colors — muted by design.
+ * Entries derive from the DyeColor enum at first touch (runtime-resolved, vanilla dye
+ * order), so no hex is hardcoded and every game language already names each entry.
  */
 object SkinCategoryPalette {
 
-    data class Entry(val hue: String, val pastel: Int, val vivid: Int)
+    data class Entry(val dyeName: String, val argb: Int)
 
     @JvmField
-    val ENTRIES = listOf(
-        Entry("red", 0xFFFCA5A5.toInt(), 0xFFEF4444.toInt()),
-        Entry("orange", 0xFFFDBA74.toInt(), 0xFFF97316.toInt()),
-        Entry("yellow", 0xFFFCD34D.toInt(), 0xFFF59E0B.toInt()),
-        Entry("lime", 0xFFBEF264.toInt(), 0xFF84CC16.toInt()),
-        Entry("green", 0xFF86EFAC.toInt(), 0xFF22C55E.toInt()),
-        Entry("cyan", 0xFF67E8F9.toInt(), 0xFF06B6D4.toInt()),
-        Entry("blue", 0xFF93C5FD.toInt(), 0xFF3B82F6.toInt()),
-        Entry("violet", 0xFFA5B4FC.toInt(), 0xFF6366F1.toInt()),
-        Entry("pink", 0xFFF9A8D4.toInt(), 0xFFEC4899.toInt()),
-        Entry("brown", 0xFFC8A882.toInt(), 0xFF8B5E3C.toInt())
-    )
+    val ENTRIES: List<Entry> = DyeColor.values().map { dye ->
+        Entry(dye.getName(), 0xFF000000.toInt() or dye.mapColor.col)
+    }
 
-    /** Default color for new categories: vivid blue. */
-    const val DEFAULT_HEX = "#3B82F6"
+    /** Default color for new categories: blue dye wool color. */
+    const val DEFAULT_HEX = "#3C44AA"
 
-    /** Flat swatch list for pickers: vivid row first, then pastel row. */
+    /** Flat color list for pickers (vanilla dye order). */
     @JvmStatic
-    fun swatches(): List<Int> = ENTRIES.flatMap { listOf(it.vivid, it.pastel) }
+    fun swatches(): List<Int> = ENTRIES.map { it.argb }
 
     @JvmStatic
     fun toHex(argb: Int): String = String.format(java.util.Locale.ROOT, "#%06X", argb and 0xFFFFFF)
