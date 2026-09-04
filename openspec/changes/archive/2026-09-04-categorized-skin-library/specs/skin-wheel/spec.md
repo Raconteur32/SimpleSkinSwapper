@@ -23,6 +23,21 @@ The wheel SHALL be composed from the user's categories instead of the flat skin 
 - **WHEN** every category has allocation 0 or there are no categories
 - **THEN** the wheel renders without sectors and does not crash
 
+#### Scenario: More than ten skins
+
+- **WHEN** the allocated categories contribute 23 skins in total and the wheel is opened
+- **THEN** three wheels exist (10, 10, 3 skins) and every contributed skin is reachable
+
+#### Scenario: Ten skins or fewer
+
+- **WHEN** the allocated categories contribute at most 10 skins
+- **THEN** a single wheel exists and no side wheels are displayed
+
+#### Scenario: Two wheels wrap
+
+- **WHEN** the allocated categories contribute between 11 and 20 skins and the first wheel is active
+- **THEN** both the left and right edge show the second wheel
+
 ### Requirement: Pagination feedback is displayed
 
 The wheel SHALL show the page position as pagination dots or an equivalent counter. When the wheels come from more than one category, each dot SHALL be colored after the category whose wheel it represents, and dots SHALL be clickable: clicking a category's dot SHALL slide the wheel to that category's first wheel through the normal sliding animation. Hovering a dot SHALL identify its category (tooltip).
@@ -36,3 +51,18 @@ The wheel SHALL show the page position as pagination dots or an equivalent count
 
 - **WHEN** the wheel is on A's first wheel and the user clicks C's blue dot
 - **THEN** the wheel slides directly to C's first wheel
+
+#### Scenario: Few wheels show dots
+
+- **WHEN** the wheel spans three wheels and the second is active
+- **THEN** three dots are displayed with the middle one highlighted
+
+#### Scenario: Many wheels show a counter
+
+- **WHEN** the wheel spans twelve wheels
+- **THEN** a counter such as "2/12" is displayed instead of dots
+
+#### Scenario: Name hidden while sliding
+
+- **WHEN** a slide between wheels is in progress
+- **THEN** the hovered-skin name is not displayed

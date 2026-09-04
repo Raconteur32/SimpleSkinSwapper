@@ -46,23 +46,37 @@ Wheel pie sectors SHALL be drawn as triangle meshes (one mesh per sector, or equ
 
 ### Requirement: The wheel pages through the whole skin library in wheels of ten
 
-The wheel SHALL expose every skin in the library, partitioned into wheels of at most ten skins in library order, instead of skipping skins beyond the first ten. The number of wheels SHALL be the ceiling of the skin count divided by ten. Navigation SHALL be circular: the wheel left of the first wheel is the last wheel and the wheel right of the last wheel is the first.
+The wheel SHALL be composed from the user's categories instead of the flat skin list: each category with a wheel allocation of 1 or more SHALL contribute up to allocation × 10 skins — its list order truncated to that count — as consecutive wheels of 10 (the last wheel of a category may hold fewer). Categories SHALL appear in category order, and categories with allocation 0 SHALL contribute nothing. Skins not in any allocated category SHALL NOT appear on the wheel. When no category contributes any wheel, the wheel SHALL stay empty (no sectors) rather than falling back to the flat list.
+
+#### Scenario: Wheels follow the category order and allocations
+
+- **WHEN** categories are A (allocation 2, 14 skins), B (allocation 0), and C (allocation 1, 5 skins), in that order
+- **THEN** the wheel shows A's first 10 skins, then A's remaining 4, then C's 5 — and nothing from B or from uncategorized skins
+
+#### Scenario: Allocation change reshapes the wheel
+
+- **WHEN** a category's allocation is reduced from 2 to 1 in the library
+- **THEN** its second wheel no longer appears and the total wheel count drops accordingly
+
+#### Scenario: Empty wheel when nothing is allocated
+
+- **WHEN** every category has allocation 0 or there are no categories
+- **THEN** the wheel renders without sectors and does not crash
 
 #### Scenario: More than ten skins
 
-- **WHEN** the library contains 23 skins and the wheel is opened
-- **THEN** three wheels exist (10, 10, 3 skins) and every skin is reachable
+- **WHEN** the allocated categories contribute 23 skins in total and the wheel is opened
+- **THEN** three wheels exist (10, 10, 3 skins) and every contributed skin is reachable
 
 #### Scenario: Ten skins or fewer
 
-- **WHEN** the library contains at most 10 skins
+- **WHEN** the allocated categories contribute at most 10 skins
 - **THEN** a single wheel exists and no side wheels are displayed
 
 #### Scenario: Two wheels wrap
 
-- **WHEN** the library contains between 11 and 20 skins and the first wheel is active
+- **WHEN** the allocated categories contribute between 11 and 20 skins and the first wheel is active
 - **THEN** both the left and right edge show the second wheel
-
 ### Requirement: Adjacent wheels peek at the screen edges and are not interactive
 
 While a wheel is at rest, the previous and next wheels SHALL be rendered at the left and right screen edges — roughly half outside the screen, scaled down — as display-only previews. Side wheels SHALL NOT respond to hover, sector animation, or clicks; only the centered wheel is interactive.
@@ -107,16 +121,26 @@ A sector preview whose projected rectangle lies fully outside the screen SHALL N
 
 ### Requirement: Pagination feedback is displayed
 
-While the wheel is at rest, the screen SHALL display the active position among the wheels below the wheel: a row of dots with the active one highlighted when there are at most nine wheels, otherwise a counter of the form "i/N". The hovered-skin name SHALL be shown only while the wheel is at rest.
+The wheel SHALL show the page position as pagination dots or an equivalent counter. When the wheels come from more than one category, each dot SHALL be colored after the category whose wheel it represents, and dots SHALL be clickable: clicking a category's dot SHALL slide the wheel to that category's first wheel through the normal sliding animation. Hovering a dot SHALL identify its category (tooltip).
+
+#### Scenario: Dots reflect categories
+
+- **WHEN** categories A (2 wheels, red) and C (1 wheel, blue) feed the wheel
+- **THEN** three dots are shown: two red followed by one blue
+
+#### Scenario: Clicking a dot jumps to a category
+
+- **WHEN** the wheel is on A's first wheel and the user clicks C's blue dot
+- **THEN** the wheel slides directly to C's first wheel
 
 #### Scenario: Few wheels show dots
 
-- **WHEN** the library spans three wheels and the second is active
+- **WHEN** the wheel spans three wheels and the second is active
 - **THEN** three dots are displayed with the middle one highlighted
 
 #### Scenario: Many wheels show a counter
 
-- **WHEN** the library spans twelve wheels
+- **WHEN** the wheel spans twelve wheels
 - **THEN** a counter such as "2/12" is displayed instead of dots
 
 #### Scenario: Name hidden while sliding

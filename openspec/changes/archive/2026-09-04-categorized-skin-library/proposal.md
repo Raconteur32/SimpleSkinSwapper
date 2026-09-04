@@ -12,13 +12,16 @@ The skin library is a single flat, arbitrary-ordered list (the carousel): as the
 - Category tab strip: click/right-click to select, drag to reorder with edge auto-scroll when dragging past the visible strip, drop target for cross-category moves.
 - Collapsible per-category config band above the grid (one at a time): color palette, wheel-count stepper, rename, delete (with confirmation prompt; skins fall back to uncategorized).
 - Wheel integration: wheels are composed per category in category order, capped by each category's max wheel allocation; pagination dots are colored by category and clickable to jump to a category's first wheel.
+- The screen is dressed with vanilla recipe-book sprites (tabs, page, cards — darkening baked into dedicated PNGs): the original flat-fill mod style is abandoned.
+- Plain card click opens a **detail overlay** (card scales up into a large panel): bulk preview with drag-rotate and spring-back, file rename with per-file store migration, display name (`names.json`), a wide/slim switch built from the library sprites, two-step delete and the replay action. The card's own wide/slim and delete buttons move into this overlay, leaving the replay button alone on the card.
+- **Add-skin flow**: a trailing "+" card opens an add overlay (same shell): PNG picker or MC-name download staging a preview, editable file/display names, wide/slim override, add/cancel gated until a skin is staged. Empty categories hide the card and open the overlay on click with a two-line hint.
 
 ## Capabilities
 
 ### New Capabilities
 
 - `skin-categories`: category data model and persistence — schema, per-category ordered skin lists, color palette, wheel allocation, migration from the pre-categories state.
-- `skin-library`: the management screen replacing the carousel — category tab strip, responsive card grid, drag interactions (reorder, rotate, cross-category), config band, import/delete flows.
+- `skin-library`: the management screen replacing the carousel — category tab strip, responsive card grid, drag interactions (reorder, rotate, cross-category), config band, recipe-book dressing, detail overlay (rename, display name, model switch, delete, replay), add-skin flow (add card, staged preview, gated confirm), import/delete flows.
 
 ### Modified Capabilities
 
@@ -26,6 +29,6 @@ The skin library is a single flat, arbitrary-ordered list (the carousel): as the
 
 ## Impact
 
-- **Code**: `SkinCarouselScreen.kt` replaced by a new `SkinLibraryScreen.kt` (+ tab strip, grid, and config band widgets); new `CategoriesStore` (persistence); `SkinEntry`/order handling reworked around category lists; `SkinWheelScreen.kt` wheel composition + pagination dots; lang files (EN/FR); no server/networking changes.
+- **Code**: `SkinCarouselScreen.kt` replaced by a new `SkinLibraryScreen.kt` (+ card, add card, detail/add overlay widgets, config band in the `gui/library/` package, `SkinOverlayPanel` contract); new `CategoriesStore` (persistence) and `SkinNameStore` (display names); `SkinEntry`/order handling reworked around category lists; two custom textures (`library/page.png`, `library/card.png`); `SkinWheelScreen.kt` wheel composition + pagination dots; lang files (EN/FR); no server/networking changes.
 - **Dependencies**: builds on the paginated wheel (`paginated-skin-wheel`, applied but not yet archived) — this change's wheel deltas assume pagination as the baseline and must be applied/archived after it.
 - **Specs**: `skin-carousel` requirements are removed (culling, GUI-scale adaptation and hover-animation behavior are re-specified grid-adapted under `skin-library`).

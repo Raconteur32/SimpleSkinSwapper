@@ -7,7 +7,7 @@
 
 ## 2. Library screen shell
 
-- [x] 2.1 Create `SkinLibraryScreen` replacing `SkinCarouselScreen` (file deleted, open hooks updated): left tab strip (an "All skins" tab first, scrolling like the others + category tabs in order, click/right-click select, tooltip, selected style), grid panel, footer/header with import file, import account, delete entry, Done. Verify: opens from the existing entry points on 26.3, tabs switch views, import/delete flows work.
+- [x] 2.1 Create `SkinLibraryScreen` replacing `SkinCarouselScreen` (file deleted, open hooks updated): left tab strip (an "All skins" tab first, scrolling like the others + category tabs in order, click/right-click select, tooltip, selected style), grid panel, header import row (file + account) and footer (open folder, config, Done; skin deletion lives in the card's detail overlay). Verify: opens from the existing entry points on 26.3, tabs switch views, import/delete flows work.
 - [x] 2.2 Implement the grid layout pure function + rendering: columns clamp 3..8 by panel width, portrait cells centered, reading order left→right/top→bottom, vertical scroll one row per wheel notch with clamp, per-frame culling of fully invisible cards. Verify: order matches category list, culling does not crash at panel edges, wheel scrolls by row.
 - [x] 2.3 GUI scale adaptation: strip/grid/band/footer fit at small logical resolutions with minimum sizes; preferred layout unchanged at common scales. Verify: 960×540 unchanged look, ~480×270 usable without overlap.
 

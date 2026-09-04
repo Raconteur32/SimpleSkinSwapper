@@ -4,7 +4,7 @@
 
 ### Requirement: The library screen shows a vertical category tab strip with an All skins tab
 
-The library screen SHALL display a vertical tab strip on the left side of the window. The strip SHALL show an "All skins" tab as the first tab — a tab like the others: it scrolls with the strip and is never pinned to the screen — listing every skin in the skins folder with no configuration band, followed by one tab per category in category order. Clicking a tab SHALL select it; right-clicking a tab SHALL also select it; hovering a tab SHALL show its name as a tooltip. The selected tab SHALL be visually distinct from the others and SHALL be clipped to the strip zone when scrolled out of it.
+The library screen SHALL display a vertical tab strip on the left side of the window. The strip SHALL show an "All skins" tab as the first tab — a tab like the others: it scrolls with the strip and is never pinned to the screen — listing every skin in the skins folder with no configuration band, followed by one tab per category in category order. Clicking a tab SHALL select it; right-clicking a tab SHALL also select it; hovering a tab SHALL show its name as a tooltip. The selected tab SHALL be visually distinct from the others and SHALL be clipped to the strip zone when scrolled out of it. The screen's chrome (tabs, page, cards, band) SHALL be dressed with the vanilla recipe-book sprites, with darkening baked into dedicated textures rather than applied at runtime over transparent regions.
 
 #### Scenario: All skins is always first
 
@@ -130,14 +130,19 @@ When a category tab is selected, a collapsible band SHALL appear at the top of t
 - **WHEN** the All skins tab is selected
 - **THEN** no config band is displayed above the grid
 
-### Requirement: Import and delete skin flows remain available
+### Requirement: Skin add and delete flows are available on the screen
 
-The library screen SHALL keep the existing ways to add skins (import a PNG file, import from an account) and to delete a skin entry, reachable from the screen's header or footer. Added skins SHALL appear in the All skins view unassigned to any category.
+Skins SHALL be addable through the add-skin overlay (see the add card requirement) while a category is selected or the All skins view is shown; a header import row (file and account import) SHALL remain available alongside it. A skin SHALL be deletable through its detail overlay's two-step delete action. Added skins SHALL appear in the All skins view unassigned to any category.
 
 #### Scenario: Import lands in All skins
 
 - **WHEN** the user imports a new skin file while a category is selected
 - **THEN** the skin file is added to the skins folder, appears in the All skins view, and is not silently assigned to a category
+
+#### Scenario: Delete through the detail overlay
+
+- **WHEN** the user deletes a skin through the detail overlay's confirmation
+- **THEN** the file is removed from the skins folder and every store entry follows
 
 ### Requirement: The library adapts to GUI scale
 
@@ -155,7 +160,7 @@ The library screen SHALL remain fully usable at any GUI scale: the tab strip, gr
 
 ### Requirement: Clicking a skin card opens a detail overlay
 
-A plain click on a skin card SHALL open a detail overlay: the card animates scaling up into a large rectangle inset from every screen edge, with the base screen still visible around it. The overlay SHALL show the skin preview in bulk on the right of a thin separator, and management controls on the left: file rename, display name, a wide/slim switch, and a delete action. Clicking outside the panel or pressing ESC SHALL close the overlay.
+A plain click on a skin card SHALL open a detail overlay: the card animates scaling up into a large rectangle inset from every screen edge, with the base screen still visible around it. The overlay SHALL show the skin preview in bulk on the right of a thin separator, and management controls on the left: file rename, display name, a wide/slim switch, a delete action, and a replay action that applies the skin and closes the screen. Clicking outside the panel or pressing ESC SHALL close the overlay; closing SHALL commit a pending file rename.
 
 #### Scenario: Open from a plain click
 
@@ -181,6 +186,11 @@ A plain click on a skin card SHALL open a detail overlay: the card animates scal
 
 - **WHEN** the user presses delete once then confirms
 - **THEN** the skin file is deleted, its store entries are cleaned, and the overlay closes
+
+#### Scenario: Replay applies and leaves
+
+- **WHEN** the user activates the replay action in the detail overlay
+- **THEN** the skin is applied as the player's skin, the screen closes, and the feedback message shows the outcome
 
 ### Requirement: A trailing add card opens an add-skin overlay
 
