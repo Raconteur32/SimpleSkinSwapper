@@ -82,14 +82,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     private var insertionIndex = -1
     private val cardDisplay = IdentityHashMap<SkinLibraryCard, FloatArray>()
 
-    // Tab drag-reorder state (5px click-vs-drag threshold).
-    private var tabDragCategoryIndex = -1
-    private var tabDragActive = false
-    private var tabDragStartY = 0.0
-    private var tabDragCursorY = 0
-    private var tabInsertionIndex = -1
-    private var tabAutoScrollNanos = 0L
-    private var tabScroll = 0.0F
+    // Tab strip scroll/drag/insertion state machine.
+    private val tabs = TabStripController({ gridTop }, { this.height - 28 })
 
     // Category deletion confirmation overlay (rendered manually, not registered widgets).
     private var confirmingCategoryDelete = false
@@ -523,31 +517,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     // Tab strip geometry
     // ------------------------------------------------------------------
 
-    private fun stripTop(): Int = gridTop
-
-    private fun stripBottom(): Int = this.height - 28
-
-    /** Y of tab [index]: 0 = All, i>0 = category i-1. All tabs scroll alike; the insertion gap shifts later tabs. */
-    private fun tabY(index: Int): Int {
-        var y = stripTop() + index * TAB_H
-        // The insertion gap opens after category [tabInsertionIndex], shifting later tabs down.
-        if (tabDragActive && tabInsertionIndex >= 0 && index >= tabInsertionIndex + 1) y += TAB_H
-        return y - tabScroll.toInt()
-    }
-    private fun maxTabScroll(): Int =
-        Math.max(0, (SkinCategoriesStore.all().size + 1) * TAB_H - (stripBottom() - stripTop()))
-
-    /** Tab under the cursor, accounting for the insertion gap; null when none. 0 = All, i>0 = category i-1. */
-    private fun tabAt(cursorY: Int, cursorX: Int): Int? {
-        if (cursorX < STRIP_X || cursorX > STRIP_X + TAB_W + 4) return null
-        if (cursorY < stripTop() || cursorY > stripBottom()) return null
-        for (i in 0..SkinCategoriesStore.all().size) {
-            val top = tabY(i)
-            if (cursorY >= top && cursorY < top + TAB_H) return i
-        }
-        return null
-    }
-
     // ------------------------------------------------------------------
     // Rendering
     // ------------------------------------------------------------------
@@ -565,7 +534,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         detail = pruned(detail)
         addPanel = pruned(addPanel)
 
-        updateTabAutoScroll(mouseY)
+        tabs.updateTabAutoScroll(mouseY)
         // Tab strip background + unselected tabs first: they pass under the grid page.
         drawTabStripUnder(graphics, mouseX, mouseY)
 
@@ -636,8 +605,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             }
 
             // Tooltip for hovered tab
-            if (tabDragCategoryIndex == -1 && reorderDraggingCard == null && !confirmingCategoryDelete) {
-                val tab = tabAt(mouseY, mouseX)
+            if (tabs.tabDragCategoryIndex == -1 && reorderDraggingCard == null && !confirmingCategoryDelete) {
+                val tab = tabs.tabAt(mouseY, mouseX)
                 if (tab != null) {
                     val label = if (tab == 0) Component.translatable("simpleskinswapper.screen.library.all_skins")
                     else Component.nullToEmpty(SkinCategoriesStore.all()[tab - 1].name)
@@ -649,8 +618,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     /** Tab strip background + unselected tabs, drawn before the grid page so they pass under it. */
     private fun drawTabStripUnder(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
-        val top = stripTop()
-        val bottom = stripBottom()
+        val top = tabs.stripTop()
+        val bottom = tabs.stripBottom()
 
         // Tab zone background: the recipe-book frame sprite, darkened, its left border bleeding
         // off the screen edge and its right side sliding underneath the grid page.
@@ -659,7 +628,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // Unselected tabs, clipped to the strip — All Skins is a tab like the others.
         graphics.enableScissor(STRIP_X, top, STRIP_X + TAB_W + 2, bottom)
         for (i in 0..SkinCategoriesStore.all().size) {
-            val y = tabY(i)
+            val y = tabs.tabY(i)
             if (y + TAB_H < top || y > bottom) continue
             if (isSelectedTab(i)) continue
             drawTab(graphics, i, y, mouseX, mouseY)
@@ -669,15 +638,15 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     /** Selected + dragged tab and the insertion line, drawn after the grid page so they overlap it. */
     private fun drawTabStripOver(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
-        val top = stripTop()
-        val bottom = stripBottom()
+        val top = tabs.stripTop()
+        val bottom = tabs.stripBottom()
 
         // Selected tab: full-color book panel, flush left, its right edge tucking slightly under
         // the grid page border. Clipped vertically to the strip so it scrolls away like the
         // other tabs, while still overflowing to the right over the page.
         val selected = selectedTabIndex()
         if (selected >= 0) {
-            val y = tabY(selected)
+            val y = tabs.tabY(selected)
             if (y + TAB_H >= top && y <= bottom) {
                 graphics.enableScissor(-PANEL_BLEED, top, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT, bottom)
                 drawBookPanel(graphics, -PANEL_BLEED, y, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT + PANEL_BLEED, TAB_H, lit = true)
@@ -688,17 +657,17 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
         // Dragged tab follows the cursor vertically as a floating full-color panel,
         // clipped to the strip zone the same way.
-        if (tabDragActive && tabDragCategoryIndex > 0) {
-            val y = (tabDragCursorY - TAB_H / 2).coerceIn(top, bottom - TAB_H)
+        if (tabs.tabDragActive && tabs.tabDragCategoryIndex > 0) {
+            val y = (tabs.tabDragCursorY - TAB_H / 2).coerceIn(top, bottom - TAB_H)
             graphics.enableScissor(-PANEL_BLEED, top, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT, bottom)
             drawBookPanel(graphics, -PANEL_BLEED, y, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT + PANEL_BLEED, TAB_H, lit = true)
-            drawTabContent(graphics, tabDragCategoryIndex, y)
+            drawTabContent(graphics, tabs.tabDragCategoryIndex, y)
             graphics.disableScissor()
         }
         // Insertion line: after [tabInsertionIndex] categories (pre-removal space).
-        if (tabDragActive && tabInsertionIndex >= 0) {
-            val lineY = stripTop() + TAB_H + tabInsertionIndex * TAB_H - tabScroll.toInt()
-            if (lineY >= stripTop() && lineY <= stripBottom()) {
+        if (tabs.tabDragActive && tabs.tabInsertionIndex >= 0) {
+            val lineY = tabs.insertionLineY()
+            if (lineY >= top && lineY <= bottom) {
                 graphics.fill(STRIP_X, lineY - 1, STRIP_X + TAB_W, lineY + 1, 0xFFFFFFFF.toInt())
             }
         }
@@ -920,7 +889,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         if (cards.indexOf(card) < 0) return
 
         // Drop on a tab = cross-category move / unassign.
-        val tab = tabAt(mouseY, mouseX)
+        val tab = tabs.tabAt(mouseY, mouseX)
         if (tab != null) {
             if (tab == 0 && selectedCategory != null) {
                 // Dragging from a category onto All skins = unassign; the file stays in the folder.
@@ -955,43 +924,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     // Tab drag & auto-scroll
     // ------------------------------------------------------------------
 
-    private fun updateTabAutoScroll(mouseY: Int) {
-        if (!tabDragActive) {
-            tabAutoScrollNanos = 0L
-            return
-        }
-        val now = System.nanoTime()
-        val dt = if (tabAutoScrollNanos == 0L) 0.0F else (now - tabAutoScrollNanos) / 1_000_000_000.0F
-        tabAutoScrollNanos = now
-        if (dt == 0.0F) return
-
-        val top = stripTop()
-        val bottom = stripBottom()
-        var speed = 0.0F
-        if (mouseY > bottom - AUTO_SCROLL_BAND && mouseY <= bottom + TAB_H) {
-            speed = -MAX_TABS_PER_SEC * (1.0F - (bottom - mouseY) / AUTO_SCROLL_BAND.toFloat())
-        } else if (mouseY < top + TAB_H + AUTO_SCROLL_BAND && mouseY >= top && tabScroll > 0.0F) {
-            speed = MAX_TABS_PER_SEC * (1.0F - (mouseY - top - TAB_H) / AUTO_SCROLL_BAND.toFloat())
-        }
-        if (speed != 0.0F) {
-            tabScroll = Mth.clamp(tabScroll + speed * TAB_H * dt, 0.0F, maxTabScroll().toFloat())
-        }
-    }
-
-    /** Insertion point p in [0..count]: the gap sits after p categories (pre-removal space). */
-    private fun updateTabInsertion() {
-        val count = SkinCategoriesStore.all().size
-        var p = count
-        for (storeIdx in 0 until count) {
-            val yTop = stripTop() + (storeIdx + 1) * TAB_H - tabScroll.toInt()
-            if (tabDragCursorY < yTop + TAB_H / 2) {
-                p = storeIdx
-                break
-            }
-        }
-        tabInsertionIndex = p.coerceIn(0, count)
-    }
-
     // ------------------------------------------------------------------
     // Input
     // ------------------------------------------------------------------
@@ -1021,12 +953,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         }
 
         // Tab strip: select on click, start a potential drag on press (-1 = none, 0 = All, >0 = category).
-        val tab = tabAt(my, mx)
+        val tab = tabs.tabAt(my, mx)
         if (tab != null && click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
-            tabDragCategoryIndex = tab
-            tabDragActive = false
-            tabDragStartY = click.y()
-            tabDragCursorY = my
+            tabs.press(tab, click.y(), my)
             return true
         }
 
@@ -1105,15 +1034,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         addPanel?.let { return it.mouseDragged(click, offsetX, offsetY) }
         val mx = click.x().toInt()
         val my = click.y().toInt()
-        if (tabDragCategoryIndex > 0 && click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
-            if (!tabDragActive && Math.abs(click.y() - tabDragStartY) > TAB_DRAG_THRESHOLD) {
-                tabDragActive = true
-            }
-            if (tabDragActive) {
-                tabDragCursorY = my
-                updateTabInsertion()
-                return true
-            }
+        if (tabs.drag(tabs.tabDragCategoryIndex, click.button() == InputConstants.MOUSE_BUTTON_LEFT, my)) {
+            return true
         }
         if (reorderDraggingCard != null && click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
             reorderCursorX = mx
@@ -1128,23 +1050,17 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         addPanel?.let { return it.mouseReleased(click) }
         val mx = click.x().toInt()
         val my = click.y().toInt()
-        if (tabDragCategoryIndex >= 0 && click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
-            val wasActive = tabDragActive
-            val tabIndex = tabDragCategoryIndex
-            val insertion = tabInsertionIndex
-            tabDragCategoryIndex = -1
-            tabDragActive = false
-            tabAutoScrollNanos = 0L
-            tabInsertionIndex = -1
-            if (wasActive && tabIndex > 0 && insertion >= 0) {
-                // Convert the pre-removal insertion point to moveCategory's post-removal target.
-                val from = tabIndex - 1
-                val to = (if (from < insertion) insertion - 1 else insertion).coerceIn(0, SkinCategoriesStore.all().size - 1)
-                if (to != from) SkinCategoriesStore.moveCategory(from, to)
-                rebuildCards()
-            } else if (!wasActive) {
-                // Click without movement: select.
-                if (tabIndex == 0) selectCategory(null) else selectCategory(SkinCategoriesStore.all().getOrNull(tabIndex - 1))
+        if (tabs.tabDragCategoryIndex >= 0) {
+            when (val result = tabs.release(click.button() == InputConstants.MOUSE_BUTTON_LEFT)) {
+                is TabStripController.Release.Move -> {
+                    SkinCategoriesStore.moveCategory(result.from, result.to)
+                    rebuildCards()
+                }
+                is TabStripController.Release.Select -> {
+                    if (result.tabIndex == 0) selectCategory(null)
+                    else selectCategory(SkinCategoriesStore.all().getOrNull(result.tabIndex - 1))
+                }
+                TabStripController.Release.None -> {}
             }
             return true
         }
@@ -1160,8 +1076,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         addPanel?.let { return it.mouseScrolled(mouseX, mouseY, hozAmount, vertAmount) }
         val mx = mouseX.toInt()
         val my = mouseY.toInt()
-        if (mx < STRIP_X + TAB_W + TAB_SELECTED_STICKOUT && my >= stripTop() && my <= stripBottom()) {
-            tabScroll = Mth.clamp(tabScroll - vertAmount.toFloat() * TAB_H, 0.0F, maxTabScroll().toFloat())
+        if (mx < STRIP_X + TAB_W + TAB_SELECTED_STICKOUT && my >= tabs.stripTop() && my <= tabs.stripBottom()) {
+            tabs.scrollBy(vertAmount.toFloat() * TAB_H)
             return true
         }
         scrollY = Mth.clamp(scrollY - (vertAmount * (cellH + GRID_GAP)).toInt(), 0, maxScroll)
@@ -1326,10 +1242,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         private const val HEADER_HEIGHT = 20
         private const val MIN_FIELD_WIDTH = 40
 
-        private const val STRIP_X = 4
-        private const val TAB_W = 100
-        private const val TAB_H = 28
-        private const val TAB_DRAG_THRESHOLD = 5.0
+        internal const val STRIP_X = 4
+        internal const val TAB_W = 100
+        internal const val TAB_H = 28
 
         // How far the selected tab's panel tucks under the grid page border (its right edge is
         // this many px past the tab column).
@@ -1359,8 +1274,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
         // Card slot easing + tab strip auto-scroll
         private const val CARD_SLIDE_SPEED = 14.0F
-        private const val AUTO_SCROLL_BAND = 16
-        private const val MAX_TABS_PER_SEC = 2.0F
 
         private var lastCardEaseNanos = 0L
 
