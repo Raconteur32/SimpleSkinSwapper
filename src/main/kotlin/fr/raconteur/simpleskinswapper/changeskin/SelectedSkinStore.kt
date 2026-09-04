@@ -1,23 +1,29 @@
 package fr.raconteur.simpleskinswapper.changeskin
 
-import com.google.gson.GsonBuilder
-import com.google.gson.JsonNull
-import com.google.gson.JsonObject
 import com.mojang.authlib.properties.Property
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
+import fr.raconteur.simpleskinswapper.data.JsonFileStore
 import fr.raconteur.simpleskinswapper.gui.SkinType
+import kotlinx.serialization.Serializable
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.resources.Identifier
-import java.io.IOException
-import java.nio.file.Files
 import java.util.Optional
 import java.util.concurrent.Executors
 
 object SelectedSkinStore {
 
-    private val FILE = FabricLoader.getInstance().gameDir
-        .resolve("skins").resolve("selected.json")
-    private val GSON = GsonBuilder().setPrettyPrinting().create()
+    /** On-disk shape of selected.json (Gson era wrote "signature" as explicit null too). */
+    @Serializable
+    private data class SelectedSkinDto(val value: String? = null, val signature: String? = null)
+
+    private val store = JsonFileStore(
+        fileLabel = "selected.json",
+        path = {
+            FabricLoader.getInstance().gameDir.resolve("skins").resolve("selected.json")
+        },
+        serializer = SelectedSkinDto.serializer(),
+        fresh = { SelectedSkinDto() },
+    )
 
     private val SAVE_EXECUTOR = Executors.newSingleThreadExecutor { r ->
         Thread(r, "SimpleSkinSwapper-SkinStoreSave").apply { isDaemon = true }
@@ -45,7 +51,7 @@ object SelectedSkinStore {
     fun set(property: Property) {
         selectedProperty = property
         loaded = true
-        SAVE_EXECUTOR.submit { save(property) }
+        SAVE_EXECUTOR.submit { store.save(SelectedSkinDto(property.value(), property.signature())) }
     }
 
     @JvmStatic
@@ -61,40 +67,13 @@ object SelectedSkinStore {
     fun getPreviewSkinType(): SkinType? = previewSkinType
 
     @Synchronized
-    // Deliberate total guard: the selected-skin file is hand-editable, so any malformed
-    // content (IO, JSON shape, NPE) must degrade to "no stored selection", not crash.
-    @Suppress("TooGenericExceptionCaught")
     private fun ensureLoaded() {
         if (loaded) return
         loaded = true
-        try {
-            if (!Files.exists(FILE)) return
-            val content = Files.readString(FILE)
-            val obj = GSON.fromJson(content, JsonObject::class.java)
-            if (obj == null || !obj.has("value")) return
-            val value = obj.get("value").asString
-            val signature = if (obj.has("signature") && !obj.get("signature").isJsonNull)
-                obj.get("signature").asString else null
-            selectedProperty = Property("textures", value, signature)
-            SimpleSkinSwapper.LOGGER.info("SelectedSkinStore: loaded selected skin.")
-        } catch (e: Exception) {
-            SimpleSkinSwapper.LOGGER.warn("SelectedSkinStore: failed to load: {}", e.message)
-        }
-    }
-
-    private fun save(property: Property) {
-        try {
-            Files.createDirectories(FILE.parent)
-            val obj = JsonObject()
-            obj.addProperty("value", property.value())
-            if (property.hasSignature()) {
-                obj.addProperty("signature", property.signature())
-            } else {
-                obj.add("signature", JsonNull.INSTANCE)
-            }
-            Files.writeString(FILE, GSON.toJson(obj))
-        } catch (e: IOException) {
-            SimpleSkinSwapper.LOGGER.warn("SelectedSkinStore: failed to save: {}", e.message)
-        }
+        // A file without a "value" (or corrupt/missing) means "no stored selection".
+        val dto = store.load()
+        val value = dto.value ?: return
+        selectedProperty = Property("textures", value, dto.signature)
+        SimpleSkinSwapper.LOGGER.info("SelectedSkinStore: loaded selected skin.")
     }
 }

@@ -2,14 +2,14 @@
 
 ## 1. Serialization toolchain
 
-- [ ] 1.1 Add `kotlin("plugin.serialization")` (KGP-matched) and `include(legacy?) kotlinx-serialization-json` + core deps wired for all 4 stonecutter versions; verify `./gradlew build` passes and the jar embeds the runtime
-- [ ] 1.2 Smoke-check a `@Serializable` data class round-trip in one store before wider use
+- [x] 1.1 Add `kotlin("plugin.serialization")` (KGP-matched) and `include(legacy?) kotlinx-serialization-json` + core deps wired for all 4 stonecutter versions; verify `./gradlew build` passes and the jar embeds the runtime
+- [x] 1.2 Smoke-check a `@Serializable` data class round-trip in one store before wider use
 
 ## 2. JsonFileStore + store migration
 
-- [ ] 2.1 Create `JsonFileStore<T>` (typed load/save, pretty-print, SerializationException handling) and migrate `SkinTypeStore`, `SkinNameStore`, `SkinCategoriesStore` onto it; file structures unchanged (fixture-checked against current JSON shapes)
-- [ ] 2.2 Narrow catches from `Exception` to `SerializationException`; retire the corresponding `@Suppress("TooGenericExceptionCaught")` where honest
-- [ ] 2.3 Review `SelectedSkinStore`'s file shape and decide: migrate to `JsonFileStore` or keep bespoke (record the decision here)
+- [x] 2.1 Create `JsonFileStore<T>` (typed load/save, pretty-print, SerializationException handling) and migrate `SkinTypeStore`, `SkinNameStore`, `SkinCategoriesStore` onto it; file structures unchanged (fixture-checked against current JSON shapes)
+- [x] 2.2 Narrow catches from `Exception` to `SerializationException`; retire the corresponding `@Suppress("TooGenericExceptionCaught")` where honest
+- [x] 2.3 Review `SelectedSkinStore`'s file shape and decide: migrate to `JsonFileStore` or keep bespoke (record the decision here)
 - [ ] 2.4 Build all 4 versions, in-game load test of existing `categories.json`/`types.json`, commit
 
 ## 3. Typed API DTOs
