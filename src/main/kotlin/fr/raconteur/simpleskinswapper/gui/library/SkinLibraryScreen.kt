@@ -59,8 +59,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     private val cards = ArrayList<SkinLibraryCard>()
 
     /** Currently selected view: null category = the pinned All skins view. */
-    private var selectedCategory: SkinCategory? = null
-    private var bandExpanded = false
+    internal var selectedCategory: SkinCategory? = null
+    internal val band = CategoryBand(this)
 
     // Card reorder drag (started by a card's frame/handle zone).
     internal var reorderDraggingCard: SkinLibraryCard? = null
@@ -91,18 +91,13 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     // Tab strip scroll/drag/insertion state machine.
     private val tabs = TabStripController({ gridTop }, { this.height - 28 })
 
-    // Category deletion confirmation overlay (rendered manually, not registered widgets).
-    private var confirmingCategoryDelete = false
-    private lateinit var overlayConfirmButton: EdgeSafeButtonWidget
-    private lateinit var overlayCancelButton: EdgeSafeButtonWidget
-
     // Grid scroll + layout (recomputed in recomputeLayout()).
-    private var scrollY = 0
+    internal var scrollY = 0
     private var cols = 3
     private var cellW = 0
     private var cellH = 0
     private var gridOffsetX = 0
-    private var gridTop = 0
+    internal var gridTop = 0
     private var gridBottom = 0
     private var maxScroll = 0
 
@@ -110,11 +105,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     private lateinit var accountField: EditBox
     private lateinit var addFromFileButton: Button
     private lateinit var addFromAccountButton: Button
-    private lateinit var bandNameField: EditBox
-    private lateinit var bandWheelsMinus: EdgeSafeButtonWidget
-    private lateinit var bandWheelsPlus: EdgeSafeButtonWidget
-    private lateinit var bandDeleteButton: EdgeSafeButtonWidget
-
     private val watcher = LibraryFileWatcher { this.init() }
     private var pendingAccountUsername = ""
     private var invalidAccountRevertAtMs = 0L
@@ -160,26 +150,10 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         addRenderableWidget(addFromFileButton)
 
         // Category config band widgets (visible only when a category is selected).
-        bandNameField = EditBox(
-            font, 0, 0, BAND_NAME_WIDTH, BAND_FIELD_HEIGHT,
-            Component.translatable("simpleskinswapper.screen.library.category_name")
-        )
-        bandNameField.setMaxLength(32)
-        bandNameField.setResponder { text -> onCategoryRenamed(text) }
-        addRenderableWidget(bandNameField)
-
-        bandWheelsMinus = EdgeSafeButtonWidget(0, 0, 20, BAND_FIELD_HEIGHT, Component.literal("-")) {
-            selectedCategory?.let { it.maxWheels = (it.maxWheels - 1).coerceAtLeast(0); SkinCategoriesStore.save() }
-        }
-        bandWheelsPlus = EdgeSafeButtonWidget(0, 0, 20, BAND_FIELD_HEIGHT, Component.literal("+")) {
-            selectedCategory?.let { it.maxWheels = (it.maxWheels + 1).coerceAtLeast(0); SkinCategoriesStore.save() }
-        }
-        bandDeleteButton = EdgeSafeButtonWidget(0, 0, 20, BAND_FIELD_HEIGHT, Component.literal("✕")) {
-            confirmingCategoryDelete = true
-        }
-        addRenderableWidget(bandWheelsMinus)
-        addRenderableWidget(bandWheelsPlus)
-        addRenderableWidget(bandDeleteButton)
+        addRenderableWidget(band.nameField)
+        addRenderableWidget(band.wheelsMinus)
+        addRenderableWidget(band.wheelsPlus)
+        addRenderableWidget(band.deleteButton)
 
         // Footer centered within the grid panel so it never collides with the strip's + button.
         val footerY = this.height - 24
@@ -218,18 +192,14 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                     SkinCategoryPalette.DEFAULT_HEX
                 )
                 selectCategory(category)
-                bandExpanded = true
-                refreshBandWidgets()
+                band.expanded = true
+                band.refreshWidgets()
             }.bounds(STRIP_X, this.height - 24, TAB_W + 4, 20).build()
         )
 
-        // Category deletion confirm overlay buttons (rendered + routed manually).
-        overlayConfirmButton = EdgeSafeButtonWidget(0, 0, 100, 20, Component.translatable(
-            "simpleskinswapper.screen.library.delete_category_confirm")) { confirmCategoryDelete() }
-        overlayCancelButton = EdgeSafeButtonWidget(0, 0, 100, 20, CommonComponents.GUI_CANCEL) {
-            confirmingCategoryDelete = false
-        }
-
+        // Category deletion confirm overlay buttons live in the band (rendered + routed manually).
+        addRenderableWidget(band.confirmOverlayButton)
+        addRenderableWidget(band.cancelOverlayButton)
         rebuildCards()
         recomputeLayout()
 
@@ -249,7 +219,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         watcher.start()
     }
 
-    private fun recomputeLayout() {
+    internal fun recomputeLayout() {
         // Constant viewport, whatever sits inside it (import row above, config band inside
         // the page) — switching category or expanding the band never moves the layout.
         gridTop = contentTop() + BAND_GRID_MARGIN
@@ -272,25 +242,22 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     private fun updateMaxScroll() {
         // The config band scrolls away with the content, so it counts toward it.
         // The trailing "+" card occupies one extra cell after the last skin.
-        val bandH = if (selectedCategory != null) bandHeight() + GRID_GAP else 0
+        val bandH = if (selectedCategory != null) band.height(true) + GRID_GAP else 0
         val rows = Math.ceil((cards.size + 1) / cols.toDouble()).toInt()
         val contentH = bandH + rows * (cellH + GRID_GAP) - GRID_GAP
         maxScroll = Math.max(0, contentH - (gridBottom - gridTop - GRID_MARGIN * 2))
     }
 
     /** Card-area inner edges: the page's baked border plus the grid margin. The config band uses them too. */
-    private fun gridLeft(): Int = panelX - 6 + PAGE_BORDER + GRID_MARGIN
+    internal fun gridLeft(): Int = panelX - 6 + PAGE_BORDER + GRID_MARGIN
 
-    private fun gridRight(): Int = this.width - PAD - PAGE_BORDER - GRID_MARGIN
-
-    private fun bandHeight(): Int = if (selectedCategory == null) 0 else if (bandExpanded) BAND_EXPANDED_H else BAND_COLLAPSED_H
+    internal fun gridRight(): Int = this.width - PAD - PAGE_BORDER - GRID_MARGIN
 
     /** Top of the config band inside the viewport; scrolls away with the card content. */
-    private fun bandY(): Int = gridTop + GRID_MARGIN - scrollY
 
     /** Unscrolled Y where the first grid row sits (right under the band when it is shown). */
     private fun contentStartY(): Int =
-        gridTop + GRID_MARGIN + (if (selectedCategory != null) bandHeight() + GRID_GAP else 0)
+        gridTop + GRID_MARGIN + (if (selectedCategory != null) band.height(selectedCategory != null) + GRID_GAP else 0)
 
     /** Import row (y=8, height 20) plus a 4px margin. */
     private fun contentTop(): Int = HEADER_Y + HEADER_HEIGHT + 4
@@ -332,7 +299,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         addRenderableWidget(newAddCard)
         updateMaxScroll()
         scrollY = Mth.clamp(scrollY, 0, maxScroll)
-        refreshBandWidgets()
+        band.refreshWidgets()
         rebindDetail()
     }
 
@@ -447,78 +414,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     // Band widgets
     // ------------------------------------------------------------------
 
-    private fun refreshBandWidgets() {
-        val category = selectedCategory
-        val by = bandY()
-        val expanded = category != null && bandExpanded
-        // Widgets follow the band's scrolled position; each hides while its row is scrolled
-        // above the viewport top (vanilla widgets render outside the card scissor, so they
-        // cannot simply be clipped).
-        bandNameField.visible = expanded && by + 24 >= gridTop
-        bandWheelsMinus.visible = expanded && by + 44 >= gridTop
-        bandWheelsPlus.visible = expanded && by + 44 >= gridTop
-        bandDeleteButton.visible = expanded && by + 44 >= gridTop
-        if (expanded) {
-            // Two-column layout verified by the layout_check script: swatches left,
-            // name field and wheel stepper right, delete at the far right — no overlaps.
-            val left = gridLeft()
-            val right = gridRight()
-            val swatchW = 10 * (BAND_SWATCH_SIZE + BAND_SWATCH_GAP) - BAND_SWATCH_GAP
-            val x2 = left + 8 + swatchW + 12
-            val nameWidth = Math.min(BAND_NAME_WIDTH, right - 24 - 8 - x2)
-            bandNameField.setWidth(nameWidth)
-            bandNameField.setX(x2); bandNameField.setY(by + 24)
-            if (bandNameField.value != category.name) bandNameField.value = category.name
-            bandWheelsMinus.setX(x2); bandWheelsMinus.setY(by + 44)
-            bandWheelsPlus.setX(x2 + 36); bandWheelsPlus.setY(by + 44)
-            bandDeleteButton.setX(right - 24); bandDeleteButton.setY(by + 44)
-        }
-    }
-
-    private fun onCategoryRenamed(text: String) {
-        val category = selectedCategory ?: return
-        val trimmed = text.trim()
-        if (trimmed.isNotEmpty() && trimmed != category.name) {
-            category.name = trimmed
-            SkinCategoriesStore.save()
-        }
-    }
-
-    /** Config band body, drawn at its scrolled position (the caller clips to the viewport). */
-    private fun drawConfigBand(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
-        val category = selectedCategory ?: return
-        val by = bandY()
-        // The band spans the same inner area as the card grid (same margins to the page
-        // border) and uses the same pre-darkened sprite as idle cards, so the transparent
-        // corners stay untinted.
-        val left = gridLeft()
-        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, CARD_SPRITE_ACCESS, left, by, gridRight() - left, bandHeight())
-        val arrow = if (bandExpanded) "▾" else "▸"
-        val wheelsLabel = Component.translatable("simpleskinswapper.screen.library.wheels").string
-        graphics.text(client.font, Component.nullToEmpty("$arrow ${category.name} · ${entries.size} · ${category.maxWheels} $wheelsLabel"), left + 8, by + (BAND_COLLAPSED_H - font.lineHeight) / 2, 0xFFFFFFFF.toInt())
-        if (bandExpanded) {
-            // Color swatch grid (10 hues × 2 rows) at the left; controls column at the right.
-            // Geometry mirrored by the layout_check script — do not move without re-running it.
-            val categoryColor = SkinCategoryPalette.parse(category.colorHex)
-            val sx0 = left + 8
-            val sy0 = by + 24
-            for (i in SkinCategoryPalette.swatches().indices) {
-                val hue = i / 2
-                val row = i % 2
-                val sx = sx0 + hue * (BAND_SWATCH_SIZE + BAND_SWATCH_GAP)
-                val y0 = sy0 + row * (BAND_SWATCH_SIZE + BAND_SWATCH_GAP)
-                val hovered = mouseX >= sx && mouseX < sx + BAND_SWATCH_SIZE && mouseY >= y0 && mouseY < y0 + BAND_SWATCH_SIZE
-                graphics.fill(sx - 1, y0 - 1, sx + BAND_SWATCH_SIZE + 1, y0 + BAND_SWATCH_SIZE + 1,
-                    if (SkinCategoryPalette.swatches()[i] == categoryColor) 0xFFFFFFFF.toInt()
-                    else if (hovered) 0xFF606060.toInt() else 0xFF202020.toInt())
-                graphics.fill(sx, y0, sx + BAND_SWATCH_SIZE, y0 + BAND_SWATCH_SIZE, SkinCategoryPalette.swatches()[i])
-            }
-            // Wheel stepper label, right of the [-] count [+] cluster
-            val x2 = sx0 + 10 * (BAND_SWATCH_SIZE + BAND_SWATCH_GAP) - BAND_SWATCH_GAP + 12
-            graphics.text(client.font, Component.translatable("simpleskinswapper.screen.library.wheels"), x2 + 58, by + 48, 0xFFB0B8C0.toInt())
-        }
-    }
-
     // ------------------------------------------------------------------
     // Tab strip geometry
     // ------------------------------------------------------------------
@@ -552,7 +447,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // clipped by the same page-inner rect as the cards.
         if (selectedCategory != null) {
             graphics.enableScissor(panelX - 6 + PAGE_BORDER, gridTop, this.width - PAD - PAGE_BORDER, gridBottom)
-            drawConfigBand(graphics, mouseX, mouseY)
+            band.draw(graphics, entries.size, mouseX, mouseY)
             graphics.disableScissor()
         }
 
@@ -606,12 +501,12 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                 }
             }
 
-            if (confirmingCategoryDelete) {
-                drawCategoryDeleteOverlay(graphics, mouseX, mouseY, delta)
+            if (band.confirmingDelete) {
+                band.drawDeleteOverlay(graphics, mouseX, mouseY, delta)
             }
 
             // Tooltip for hovered tab
-            if (tabs.tabDragCategoryIndex == -1 && reorderDraggingCard == null && !confirmingCategoryDelete) {
+            if (tabs.tabDragCategoryIndex == -1 && reorderDraggingCard == null && !band.confirmingDelete) {
                 val tab = tabs.tabAt(mouseY, mouseX)
                 if (tab != null) {
                     val label = if (tab == 0) Component.translatable("simpleskinswapper.screen.library.all_skins")
@@ -720,46 +615,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         }
     }
 
-    private fun drawCategoryDeleteOverlay(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
-        graphics.fill(0, 0, this.width, this.height, 0x88000000.toInt())
-        val boxW = 260
-        val boxH = 80
-        val bx = this.width / 2 - boxW / 2
-        val by = this.height / 2 - boxH / 2
-        graphics.fill(bx, by, bx + boxW, by + boxH, 0xFF1A2535.toInt())
-        graphics.fill(bx, by, bx + boxW, by + 1, 0xFFFFFFFF.toInt())
-        val question = Component.translatable("simpleskinswapper.screen.library.delete_category_question")
-        // Simple word wrap (Component.string + font.width work on every target version).
-        val wrapped = ArrayList<String>()
-        var currentLine = ""
-        for (word in question.string.split(" ")) {
-            val candidate = if (currentLine.isEmpty()) word else "$currentLine $word"
-            if (font.width(candidate) > boxW - 16 && currentLine.isNotEmpty()) {
-                wrapped.add(currentLine)
-                currentLine = word
-            } else {
-                currentLine = candidate
-            }
-        }
-        if (currentLine.isNotEmpty()) wrapped.add(currentLine)
-        var ly = by + 8
-        for (lineText in wrapped) {
-            graphics.text(client.font, Component.nullToEmpty(lineText), bx + 8, ly, 0xFFFFFFFF.toInt())
-            ly += font.lineHeight
-        }
-        overlayConfirmButton.setX(bx + 8)
-        overlayConfirmButton.setY(by + boxH - 28)
-        overlayCancelButton.setX(bx + boxW - 108)
-        overlayCancelButton.setY(by + boxH - 28)
-        //? if >=26.1 {
-        overlayConfirmButton.extractRenderState(graphics, mouseX, mouseY, delta)
-        overlayCancelButton.extractRenderState(graphics, mouseX, mouseY, delta)
-        //?} else {
-        /*overlayConfirmButton.render(graphics, mouseX, mouseY, delta)
-        overlayCancelButton.render(graphics, mouseX, mouseY, delta)
-        *///?}
-    }
-
     private fun drawTooltip(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, message: Component) {
         val w = font.width(message) + 8
         val h = font.lineHeight + 4
@@ -781,7 +636,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     @Suppress("CyclomaticComplexMethod")
     private fun updateCardPositions(mouseX: Int, mouseY: Int) {
         // Band widgets track the scrolled band position every frame.
-        refreshBandWidgets()
+        band.refreshWidgets()
 
         val dragged = reorderDraggingCard
         val dragIndex = dragged?.let { cards.indexOf(it) } ?: -1
@@ -902,8 +757,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         val mx = click.x().toInt()
         val my = click.y().toInt()
 
-        if (confirmingCategoryDelete) {
-            if (overlayConfirmButton.mouseClicked(click, doubled) || overlayCancelButton.mouseClicked(click, doubled)) {
+        if (band.confirmingDelete) {
+            if (band.confirmOverlayButton.mouseClicked(click, doubled) || band.cancelOverlayButton.mouseClicked(click, doubled)) {
                 return true
             }
             return true
@@ -916,26 +771,10 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             return true
         }
 
-        // Category band: clicking the collapsed bar toggles expansion (this branch must run
-        // whether or not the band is already expanded — it used to be gated on bandExpanded,
-        // which made the band impossible to open). Swatches live below the bar and are only
-        // hit-tested while expanded. The part of the band scrolled above the viewport top
-        // is not clickable (my >= gridTop), matching its clipped rendering.
-        val inCollapsedBand = my >= gridTop && my >= bandY() && my < bandY() + BAND_COLLAPSED_H
-        if (selectedCategory != null && inCollapsedBand && mx >= gridLeft()) {
-            bandExpanded = !bandExpanded
-            refreshBandWidgets()
-            recomputeLayout()
-            return true
-        }
-        if (bandExpanded && selectedCategory != null) {
-            val swatch = swatchAt(mx, my)
-            if (swatch != null) {
-                selectedCategory?.colorHex = SkinCategoryPalette.toHex(swatch)
-                SkinCategoriesStore.save()
-                return true
-            }
-        }
+        // Category band: bar click toggles expansion, swatch click recolors. The part of
+        // the band scrolled above the viewport top is not clickable, matching its clipping.
+        if (band.handleBarClick(mx, my)) return true
+        if (band.handleSwatchClick(mx, my)) return true
 
         // Empty category: a click anywhere in the card zone opens the add-skin overlay.
         val inGrid = mx >= gridLeft() && mx < gridRight() && my >= gridTop && my < gridBottom
@@ -954,23 +793,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         return result
     }
 
-    private fun swatchAt(mx: Int, my: Int): Int? {
-        val by = bandY()
-        if (!bandExpanded || selectedCategory == null || my < gridTop) return null
-        val x0 = gridLeft() + 8
-        val y0 = by + 24
-        if (mx < x0 || my < y0) return null
-        val hue = (mx - x0) / (BAND_SWATCH_SIZE + BAND_SWATCH_GAP)
-        val row = (my - y0) / (BAND_SWATCH_SIZE + BAND_SWATCH_GAP)
-        if (hue !in 0..9 || row !in 0..1) return null
-        val swatches = SkinCategoryPalette.swatches()
-        val idx = hue * 2 + row
-        return if (idx in swatches.indices) swatches[idx] else null
-    }
-
-    private fun confirmCategoryDelete() {
+    internal fun confirmCategoryDelete() {
         val category = selectedCategory
-        confirmingCategoryDelete = false
+        band.confirmingDelete = false
         if (category != null) {
             SkinCategoriesStore.removeCategory(category)
             selectCategory(null)
@@ -979,7 +804,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     private fun selectCategory(category: SkinCategory?) {
         selectedCategory = category
-        bandExpanded = false
+        band.expanded = false
         scrollY = 0
         reloadView()
         rebuildCards()
