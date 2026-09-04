@@ -719,6 +719,10 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     // ------------------------------------------------------------------
 
     internal fun beginCardReorder(card: SkinLibraryCard, mouseX: Int, mouseY: Int) {
+        // TEMP-DEBUG: drag-reorder audit
+        fr.raconteur.simpleskinswapper.SimpleSkinSwapper.LOGGER.info(
+            "[DragDebug] begin card={} category={}", card.entry.file.name, selectedCategory?.name
+        )
         cardDrag.begin(card, mouseX, mouseY)
         reorderDraggingCard = card
     }
@@ -726,11 +730,18 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     private fun finishCardReorder(mouseX: Int, mouseY: Int) {
         val card = reorderDraggingCard ?: return
         reorderDraggingCard = null
-        if (cards.indexOf(card) < 0) return
+        val cardsIdx = cards.indexOf(card)
+        // TEMP-DEBUG: drag-reorder audit
+        fr.raconteur.simpleskinswapper.SimpleSkinSwapper.LOGGER.info(
+            "[DragDebug] finish card={} cardsIdx={} category={} insertionIndex={} drop=({},{})",
+            card.entry.file.name, cardsIdx, selectedCategory?.name, cardDrag.insertionIndex, mouseX, mouseY
+        )
+        if (cardsIdx < 0) return
 
         // Drop on a tab = cross-category move / unassign.
         val tab = tabs.tabAt(mouseY, mouseX)
         if (tab != null) {
+            fr.raconteur.simpleskinswapper.SimpleSkinSwapper.LOGGER.info("[DragDebug] branch=tab-drop tab={}", tab)
             if (tab == 0 && selectedCategory != null) {
                 // Dragging from a category onto All skins = unassign; the file stays in the folder.
                 SkinCategoriesStore.removeFromAll(card.entry.file.name)
@@ -749,15 +760,27 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         val category = selectedCategory
         if (category != null && cardDrag.insertionIndex in 0..category.skins.size) {
             val from = category.skins.indexOf(card.entry.file.name)
+            fr.raconteur.simpleskinswapper.SimpleSkinSwapper.LOGGER.info(
+                "[DragDebug] branch=reorder from={} skins={}", from, category.skins
+            )
             if (from >= 0) {
                 var to = cardDrag.insertionIndex
                 if (to > from) to--
                 category.skins.removeAt(from)
                 category.skins.add(to.coerceIn(0, category.skins.size), card.entry.file.name)
                 SkinCategoriesStore.save()
+                fr.raconteur.simpleskinswapper.SimpleSkinSwapper.LOGGER.info("[DragDebug] saved newOrder={}", category.skins)
             }
+        } else {
+            fr.raconteur.simpleskinswapper.SimpleSkinSwapper.LOGGER.info(
+                "[DragDebug] branch=SKIPPED categoryNull={} insertionInRange={}",
+                category == null, cardDrag.insertionIndex in 0..(category?.skins?.size ?: -1)
+            )
         }
         cardDrag.stop()
+        // Re-order `entries` from the store before rebuilding — rebuildCards() iterates
+        // `entries`, not `category.skins`, so the new order must be loaded into it.
+        reloadView()
         rebuildCards()
     }
 
