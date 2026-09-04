@@ -19,6 +19,10 @@ jobs:
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
 
+      - name: detekt
+        # Rule gate (gradle/detekt/detekt.yml): fails on any violation of adopted rules.
+        run: ./gradlew detekt
+
       - name: Build every Minecraft version
         # The IDE only type-checks the active Stonecutter version; the root
         # `build` task compiles all version projects (1.21.11, 26.1.2, 26.2, 26.3).

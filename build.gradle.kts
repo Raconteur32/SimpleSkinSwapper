@@ -28,6 +28,29 @@ base {
 	archivesName.set(sc.properties["mod.id"] as String)
 }
 
+// Lint gate (rule ledger: gradle/detekt/detekt.yml), registered on the active version project
+// only so `./gradlew detekt` analyzes src/main/kotlin once. Runs the detekt CLI on the JDK 21
+// toolchain via JavaExec because detekt 1.23.8's embedded parser crashes on the JDK 25 runtime
+// the 26.x builds use; analysis only parses sources, so the toolchain version is irrelevant.
+if (sc.current.isActive) {
+	val detektCli = configurations.create("detektCli")
+	dependencies {
+		"detektCli"("io.gitlab.arturbosch.detekt:detekt-cli:1.23.8")
+	}
+	tasks.register<JavaExec>("detekt") {
+		group = "verification"
+		description = "Runs detekt over src/main/kotlin (rule ledger: gradle/detekt/detekt.yml)."
+		classpath = detektCli
+		mainClass.set("io.gitlab.arturbosch.detekt.cli.Main")
+		javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(21)) })
+		setArgs(listOf(
+			"--input", rootDir.resolve("src/main/kotlin").path,
+			"--config", rootProject.file("gradle/detekt/detekt.yml").path,
+			"--report", "html:${layout.buildDirectory.file("reports/detekt/report.html").get().asFile.path}",
+		))
+	}
+}
+
 loom {
 	runs {
 		named("client") {
