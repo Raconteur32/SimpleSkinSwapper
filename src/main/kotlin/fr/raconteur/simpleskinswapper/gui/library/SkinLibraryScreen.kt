@@ -651,9 +651,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     // Card grid positioning
     // ------------------------------------------------------------------
 
-    // Complexity debt: drag/easing dispatch over cards, add card and band — deferred
-    // to the SkinLibraryScreen Extract Class refactoring change.
-    @Suppress("CyclomaticComplexMethod")
     private fun updateCardPositions(mouseX: Int, mouseY: Int) {
         // Band widgets track the scrolled band position every frame.
         band.refreshWidgets()

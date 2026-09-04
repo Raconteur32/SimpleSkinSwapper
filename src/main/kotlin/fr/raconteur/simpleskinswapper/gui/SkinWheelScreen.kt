@@ -70,9 +70,6 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
     // -------------------------------------------------------------------------
 
     //? if >=26.1 {
-    // Complexity debt: wheel render/interaction dispatch — deferred to a dedicated
-    // wheel refactoring change.
-    @Suppress("CyclomaticComplexMethod")
     override fun extractRenderState(context: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
     //?} else {
     /*override fun render(context: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {

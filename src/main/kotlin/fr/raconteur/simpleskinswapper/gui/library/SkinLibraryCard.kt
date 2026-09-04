@@ -293,9 +293,6 @@ class SkinLibraryCard(
     }
 
     //? if >=26.1 {
-    // Complexity debt: layered card render dispatch — deferred to the card/Extract Class
-    // refactoring change.
-    @Suppress("CyclomaticComplexMethod")
     override fun extractWidgetRenderState(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
     //?} else {
     /*override fun renderWidget(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
