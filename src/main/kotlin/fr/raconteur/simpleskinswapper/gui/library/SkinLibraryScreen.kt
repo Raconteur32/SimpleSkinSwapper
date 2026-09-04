@@ -515,7 +515,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             val y = tabs.tabY(i)
             if (y + tabH < top || y > tabBottom) continue
             if (isSelectedTab(i)) continue
-            drawTab(graphics, i, y, mouseX, mouseY)
+            drawTab(graphics, i, y)
         }
         drawAddCategoryEntry(graphics, mouseX, mouseY)
         graphics.disableScissor()
@@ -566,11 +566,14 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         val y = tabs.addEntryY()
         if (y + tabH < top || y > tabs.stripAlignedBottom()) return
         val outline = if (tabs.addEntryAt(mouseY, mouseX)) 0xFFC5C5C5.toInt() else 0xFF999999.toInt()
-        val right = STRIP_X + TAB_W
-        graphics.fill(STRIP_X, y, right, y + 1, outline)
-        graphics.fill(STRIP_X, y + tabH - 1, right, y + tabH, outline)
-        graphics.fill(STRIP_X, y, STRIP_X + 1, y + tabH, outline)
-        graphics.fill(right - 1, y, right, y + tabH, outline)
+        // Inset one pixel from the slot so the frame doesn't touch its neighbours' edges.
+        val left = STRIP_X + 1
+        val right = STRIP_X + TAB_W - 1
+        val bottom = y + tabH - 1
+        graphics.fill(left, y + 1, right, y + 2, outline)
+        graphics.fill(left, bottom - 1, right, bottom, outline)
+        graphics.fill(left, y + 1, left + 1, bottom, outline)
+        graphics.fill(right - 1, y + 1, right, bottom, outline)
         graphics.centeredText(font, Component.literal("+"), STRIP_X + TAB_W / 2, y + (tabH - font.lineHeight) / 2, outline)
     }
 
@@ -583,11 +586,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         return if (idx >= 0) idx + 1 else -1
     }
 
-    private fun drawTab(graphics: GuiGraphicsExtractor, index: Int, y: Int, mouseX: Int, mouseY: Int) {
-        val hovered = mouseX >= STRIP_X && mouseX < STRIP_X + TAB_W && mouseY >= y && mouseY < y + tabH
-        if (hovered) {
-            graphics.fill(STRIP_X, y, STRIP_X + TAB_W, y + tabH, 0x30FFFFFF)
-        }
+    private fun drawTab(graphics: GuiGraphicsExtractor, index: Int, y: Int) {
         drawTabContent(graphics, index, y)
     }
 
