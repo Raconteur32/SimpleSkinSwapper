@@ -6,7 +6,7 @@ import net.minecraft.resources.Identifier
 
 //? if >=26.1 {
 import net.minecraft.client.resources.model.sprite.SpriteId
-import net.minecraft.data.AtlasIds
+import net.minecraft.client.renderer.texture.TextureAtlas
 //?} else {
 /*import net.minecraft.client.renderer.texture.TextureAtlas
 import net.minecraft.client.resources.model.Material
@@ -25,7 +25,7 @@ internal object DyeIcons {
     fun draw(graphics: GuiGraphicsExtractor, dyeName: String, x: Int, y: Int, size: Int) {
         val id = spriteId(dyeName)
         //? if >=26.1 {
-        val sprite = graphics.getSprite(SpriteId(AtlasIds.ITEMS, id))
+        val sprite = graphics.getSprite(SpriteId(TextureAtlas.LOCATION_ITEMS, id))
         //?} else {
         /*val sprite = graphics.getSprite(Material(TextureAtlas.LOCATION_BLOCKS, id))
         *///?}
