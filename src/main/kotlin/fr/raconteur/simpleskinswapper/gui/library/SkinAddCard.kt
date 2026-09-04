@@ -15,17 +15,17 @@ class SkinAddCard(
     private val parent: SkinLibraryScreen,
     width: Int,
     height: Int
-) : AbstractWidget(0, 0, width, height, Component.translatable("simpleskinswapper.screen.add.confirm")) {
+) : AbstractWidget(0, 0, width, height, Component.translatable("simpleskinswapper.screen.add.confirm")), GridSlottedWidget {
 
     private val client: Minecraft = Minecraft.getInstance()
 
     // The grid viewport (same convention as SkinLibraryCard), updated by the parent.
-    internal var clipLeft = Int.MIN_VALUE
-    internal var clipTop = Int.MIN_VALUE
-    internal var clipRight = Int.MAX_VALUE
-    internal var clipBottom = Int.MAX_VALUE
+    override var clipLeft = Int.MIN_VALUE
+    override var clipTop = Int.MIN_VALUE
+    override var clipRight = Int.MAX_VALUE
+    override var clipBottom = Int.MAX_VALUE
 
-    internal fun overridePosition(newX: Int, newY: Int) {
+    override fun overridePosition(newX: Int, newY: Int) {
         setX(newX)
         setY(newY)
     }

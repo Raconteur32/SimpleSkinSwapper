@@ -47,6 +47,18 @@ import java.util.IdentityHashMap
  * scrolling grid of skin cards on the right, plus a collapsible per-category config band.
  * Replaces the old horizontal carousel screen.
  */
+/**
+ * A grid widget the screen repositions every frame: dragged along with card easing and
+ * clipped to the shared grid viewport (see [SkinLibraryScreen.easeWidgetToSlot]).
+ */
+internal interface GridSlottedWidget {
+    var clipLeft: Int
+    var clipTop: Int
+    var clipRight: Int
+    var clipBottom: Int
+    fun overridePosition(newX: Int, newY: Int)
+}
+
 class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translatable("simpleskinswapper.title")) {
 
     private val client get() = minecraft
@@ -661,36 +673,39 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                 card.overridePosition(cardDrag.cursorX - cardDrag.grabX, cardDrag.cursorY - cardDrag.grabY)
                 continue
             }
-            // Every card renders through the same fixed viewport scissor: cards sliding in
-            // and out are smoothly half-clipped by the page border instead of popping.
-            card.clipLeft = panelX - 6 + PAGE_BORDER
-            card.clipTop = gridTop
-            card.clipRight = this.width - PAD - PAGE_BORDER
-            card.clipBottom = gridBottom
-            val display = cardDisplay.getOrPut(card) { FloatArray(2) }
-            val (ex, ey) = cardDrag.easeToward(display, slot, t, card.x == 0 && card.y == 0)
-            card.overridePosition(ex, ey)
+            easeWidgetToSlot(card, card.x == 0 && card.y == 0, slot, t, cardDisplay.getOrPut(card) { FloatArray(2) })
         }
 
-        // The trailing "+" card slides like a card: it sits one slot after the last skin
-        // and shifts when a reorder insertion gap opens before it. An empty category
-        // hides it entirely — clicking anywhere in the zone opens the add overlay instead.
-        addCard?.let { ac ->
-            if (selectedCategory != null && cards.isEmpty()) {
-                ac.visible = false
-                return@let
-            }
-            ac.visible = true
-            ac.clipLeft = panelX - 6 + PAGE_BORDER
-            ac.clipTop = gridTop
-            ac.clipRight = this.width - PAD - PAGE_BORDER
-            ac.clipBottom = gridBottom
-            val slot = cardDrag.slotFor(cards.size, dragIndex)
-            val display = addCardDisplay.getOrPut(ac) { FloatArray(2) }
-            val (ex, ey) = cardDrag.easeToward(display, slot, t, ac.x == 0 && ac.y == 0)
-            ac.overridePosition(ex, ey)
-        }
+        updateAddCardPosition(dragIndex, t)
         lastCardEaseNanos = now
+    }
+
+    /**
+     * Every grid widget renders through the same fixed viewport scissor: widgets sliding in
+     * and out are smoothly half-clipped by the page border instead of popping.
+     */
+    private fun easeWidgetToSlot(widget: GridSlottedWidget, unpositioned: Boolean, slot: Pair<Int, Int>, t: Float, display: FloatArray) {
+        widget.clipLeft = panelX - 6 + PAGE_BORDER
+        widget.clipTop = gridTop
+        widget.clipRight = this.width - PAD - PAGE_BORDER
+        widget.clipBottom = gridBottom
+        val (ex, ey) = cardDrag.easeToward(display, slot, t, unpositioned)
+        widget.overridePosition(ex, ey)
+    }
+
+    /**
+     * The trailing "+" card slides like a card: it sits one slot after the last skin
+     * and shifts when a reorder insertion gap opens before it. An empty category
+     * hides it entirely — clicking anywhere in the zone opens the add overlay instead.
+     */
+    private fun updateAddCardPosition(dragIndex: Int, t: Float) {
+        val ac = addCard ?: return
+        if (selectedCategory != null && cards.isEmpty()) {
+            ac.visible = false
+            return
+        }
+        ac.visible = true
+        easeWidgetToSlot(ac, ac.x == 0 && ac.y == 0, cardDrag.slotFor(cards.size, dragIndex), t, addCardDisplay.getOrPut(ac) { FloatArray(2) })
     }
 
     // ------------------------------------------------------------------

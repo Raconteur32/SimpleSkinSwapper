@@ -35,7 +35,7 @@ class SkinLibraryCard(
     internal val entry: SkinEntry,
     width: Int,
     height: Int
-) : AbstractWidget(0, 0, width, height, Component.nullToEmpty(entry.displayName)), ContainerEventHandler {
+) : AbstractWidget(0, 0, width, height, Component.nullToEmpty(entry.displayName)), ContainerEventHandler, GridSlottedWidget {
 
     private val client: Minecraft = Minecraft.getInstance()
 
@@ -56,10 +56,10 @@ class SkinLibraryCard(
     // The grid viewport (the page's inner area inside its baked border), updated by the
     // parent every frame. All cards render through this one fixed scissor rect, so cards
     // sliding in and out are smoothly half-clipped instead of popping in and out.
-    internal var clipLeft = Int.MIN_VALUE
-    internal var clipTop = Int.MIN_VALUE
-    internal var clipRight = Int.MAX_VALUE
-    internal var clipBottom = Int.MAX_VALUE
+    override var clipLeft = Int.MIN_VALUE
+    override var clipTop = Int.MIN_VALUE
+    override var clipRight = Int.MAX_VALUE
+    override var clipBottom = Int.MAX_VALUE
 
     init {
         // Single bottom row: only the replay (apply) button — model type and delete live
@@ -148,7 +148,7 @@ class SkinLibraryCard(
         client.player?.overlayMessage(text)
     }
 
-    fun overridePosition(newX: Int, newY: Int) {
+    override fun overridePosition(newX: Int, newY: Int) {
         val dx = newX - x
         val dy = newY - y
         if (dx == 0 && dy == 0) return
