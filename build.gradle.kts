@@ -50,6 +50,36 @@ if (sc.current.isActive) {
 			"--report", "html:${layout.buildDirectory.file("reports/detekt/report.html").get().asFile.path}",
 		))
 	}
+
+	// Per-version lint gate: stonecutter resolves every version's source tree (branch
+	// selection, API rewrites) under versions/<v>/build/generated/stonecutter — code the
+	// single-tree `detekt` task above cannot see. Same CLI, same ledger, one run per
+	// version; keep the list in sync with versions(...) in settings.gradle.kts.
+	val detektVersionTrees = listOf("1.21.11", "26.1.2", "26.2", "26.3")
+	val detektTreeTasks = detektVersionTrees.map { version ->
+		tasks.register<JavaExec>("detektTree$version") {
+			group = "verification"
+			description = "Runs detekt over the $version generated tree (rule ledger: gradle/detekt/detekt.yml)."
+			classpath = detektCli
+			mainClass.set("io.gitlab.arturbosch.detekt.cli.Main")
+			javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(21)) })
+			dependsOn(":$version:stonecutterGenerate")
+			doFirst {
+				val tree = rootDir.resolve("versions/$version/build/generated/stonecutter/main/kotlin")
+				require(tree.isDirectory) { "Generated tree missing for $version — run ./gradlew build first (${tree.path})" }
+			}
+			setArgs(listOf(
+				"--input", rootDir.resolve("versions/$version/build/generated/stonecutter/main/kotlin").path,
+				"--config", rootProject.file("gradle/detekt/detekt.yml").path,
+				"--report", "html:${layout.buildDirectory.file("reports/detekt/report-$version.html").get().asFile.path}",
+			))
+		}
+	}
+	tasks.register("detektAll") {
+		group = "verification"
+		description = "Runs detekt over every stonecutter-generated version tree (rule ledger: gradle/detekt/detekt.yml)."
+		dependsOn(detektTreeTasks)
+	}
 }
 
 loom {
