@@ -41,6 +41,7 @@ import java.util.IdentityHashMap
 import kotlin.math.ceil
 import kotlin.math.exp
 import kotlin.math.roundToInt
+import fr.raconteur.simpleskinswapper.changeskin.AccountSkinFetcher
 
 /**
  * Category-based skin library: a vertical category tab strip on the left (pinned "All skins"
@@ -373,15 +374,14 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         return panel
     }
 
-    /** Copies a staged skin into skins/ and registers its stores. False on collision/IO error. */
-    fun confirmAddSkin(source: File, name: String, display: String, type: SkinType): Boolean {
-        val sanitized = name.replace(Regex("[^A-Za-z0-9_\\- ]"), "_").trim()
-        if (sanitized.isEmpty()) return false
+    /** Transitional ingest: the display name doubles as the file name until the registry
+     *  switchover; uniqueness is enforced instead of refusing collisions. */
+    fun confirmAddSkin(source: File, display: String, type: SkinType): Boolean {
+        val base = display.replace(Regex("[^A-Za-z0-9_\\- ]"), "_").trim().ifBlank { "New Skin" }
         val skinsDir = FabricLoader.getInstance().gameDir.resolve("skins")
         return try {
             Files.createDirectories(skinsDir)
-            val target = skinsDir.resolve("$sanitized.png")
-            if (Files.exists(target)) return false
+            val target = AccountSkinFetcher.uniqueFile(skinsDir.resolve("$base.png"))
             watcher.markSelfTriggered(target.fileName.toString())
             Files.copy(source.toPath(), target, StandardCopyOption.REPLACE_EXISTING)
             SkinTypes.setType(target.fileName.toString(), type)
@@ -393,7 +393,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             rebuildCards()
             true
         } catch (e: IOException) {
-            SimpleSkinSwapper.LOGGER.warn("Could not add skin {}: {}", sanitized, e.message)
+            SimpleSkinSwapper.LOGGER.warn("Could not add skin {}: {}", base, e.message)
             false
         }
     }

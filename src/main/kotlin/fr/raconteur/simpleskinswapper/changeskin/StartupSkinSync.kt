@@ -164,7 +164,9 @@ object StartupSkinSync {
         }
     }
 
-    private fun extractSkinType(base64Value: String): SkinType {
+    /** Model declared by the texture metadata ("slim"), or classic when absent. */
+    @JvmStatic
+    fun extractSkinType(base64Value: String): SkinType {
         try {
             val payload = json.decodeFromString(
                 TexturePayloadDto.serializer(), String(Base64.getDecoder().decode(base64Value))

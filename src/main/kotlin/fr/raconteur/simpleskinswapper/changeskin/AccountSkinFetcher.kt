@@ -3,6 +3,7 @@ package fr.raconteur.simpleskinswapper.changeskin
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
+import fr.raconteur.simpleskinswapper.gui.SkinType
 import net.minecraft.client.Minecraft
 import java.io.File
 import java.io.IOException
@@ -13,6 +14,7 @@ import java.net.http.HttpResponse
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
+import java.util.function.BiConsumer
 import java.util.function.Consumer
 
 /**
@@ -28,18 +30,19 @@ object AccountSkinFetcher {
     private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
 
     /**
-     * Fetches the given account's current skin and writes it to `destination`.
+     * Fetches the given account's current skin and writes it to `destination`, reporting
+     * the model declared by the texture metadata (more reliable than pixel detection).
      * The destination is chosen by the caller upfront so it can track the file before
      * the write happens (e.g. to tell a directory watcher to ignore its own creation event).
      */
     @JvmStatic
-    fun fetch(username: String, destination: Path, onSuccess: Consumer<File>, onFailure: Runnable) {
+    fun fetch(username: String, destination: Path, onSuccess: BiConsumer<File, SkinType>, onFailure: Runnable) {
         val thread = Thread({ run(username, destination, onSuccess, onFailure) }, "SimpleSkinSwapper-AccountFetch")
         thread.isDaemon = true
         thread.start()
     }
 
-    private fun run(username: String, destination: Path, onSuccess: Consumer<File>, onFailure: Runnable) {
+    private fun run(username: String, destination: Path, onSuccess: BiConsumer<File, SkinType>, onFailure: Runnable) {
         val client = Minecraft.getInstance()
         try {
             val uuid = fetchUuid(username)
@@ -54,6 +57,7 @@ object AccountSkinFetcher {
                 return
             }
 
+            val model = StartupSkinSync.extractSkinType(property.value())
             val skinUrl = StartupSkinSync.extractSkinUrl(property.value())
             if (skinUrl == null) {
                 client.execute(onFailure)
@@ -70,7 +74,7 @@ object AccountSkinFetcher {
             Files.write(destination, skinBytes)
 
             val file = destination.toFile()
-            client.execute { onSuccess.accept(file) }
+            client.execute { onSuccess.accept(file, model) }
         } catch (e: IOException) {
             SimpleSkinSwapper.LOGGER.warn("AccountSkinFetcher failed: {}", e.message)
             client.execute(onFailure)

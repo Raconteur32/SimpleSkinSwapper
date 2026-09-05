@@ -11,7 +11,6 @@ import net.minecraft.network.chat.Component
 import net.minecraft.resources.Identifier
 import net.fabricmc.loader.api.FabricLoader
 import java.io.File
-import java.nio.file.Files
 
 /**
  * Add-skin overlay, opened from the trailing "+" card. Same shell as the detail overlay:
@@ -24,7 +23,6 @@ class SkinAddPanel(
 ) : AbstractSkinOverlayPanel(parent) {
 
     private val usernameField: EditBox
-    private val fileNameField: EditBox
     private val displayNameField: EditBox
     private val fromFileButton: EdgeSafeButtonWidget
     private val fromMcNameButton: EdgeSafeButtonWidget
@@ -43,7 +41,7 @@ class SkinAddPanel(
     init {
         fromFileButton = EdgeSafeButtonWidget(0, 0, 100, FIELD_HEIGHT + 2,
             Component.translatable("simpleskinswapper.screen.add.from_file")
-        ) { parent.pickSkinFile { file -> stage(file, file.nameWithoutExtension) } }
+        ) { parent.pickSkinFile { file -> stage(file, null) } }
         addChild(fromFileButton)
 
         usernameField = EditBox(
@@ -70,13 +68,6 @@ class SkinAddPanel(
         displayNameField.setMaxLength(64)
         addChild(displayNameField)
 
-        fileNameField = EditBox(
-            client.font, 0, 0, 100, FIELD_HEIGHT,
-            Component.translatable("simpleskinswapper.screen.detail.file_name")
-        )
-        fileNameField.setMaxLength(64)
-        addChild(fileNameField)
-
         confirmButton = EdgeSafeButtonWidget(0, 0, 60, FIELD_HEIGHT + 2,
             Component.translatable("simpleskinswapper.screen.add.confirm")
         ) { confirmAdd() }
@@ -98,7 +89,6 @@ class SkinAddPanel(
         cleanupStaging()
         usernameField.setValue("")
         displayNameField.setValue("")
-        fileNameField.setValue("")
         stagedType = SkinType.CLASSIC
         stagedTextureId = null
         fetching = false
@@ -129,11 +119,11 @@ class SkinAddPanel(
         stagedTextureId = null
     }
 
-    /** Stages a skin for the preview: auto-detects the model and suggests a file name. */
-    private fun stage(file: File, suggestedName: String) {
+    /** Stages a skin for the preview: pre-selects the model — from the account's texture
+     *  metadata when known, pixel detection otherwise — and stays user-editable. */
+    private fun stage(file: File, modelHint: SkinType?) {
         stagedFile = file
-        stagedType = SkinUtils.detectSkinType(file)
-        fileNameField.setValue(suggestedName)
+        stagedType = modelHint ?: SkinUtils.detectSkinType(file)
         stagedTextureId = null
         SkinUtils.loadSkinTextureAsync(file, "skin/add_staging") { id -> stagedTextureId = id }
     }
@@ -145,10 +135,10 @@ class SkinAddPanel(
         fromMcNameButton.active = false
         AccountSkinFetcher.fetch(
             username, stagingFile().toPath(),
-            { file ->
+            { file, model ->
                 fetching = false
                 fromMcNameButton.active = usernameField.value.isNotBlank()
-                stage(file, AccountSkinFetcher.sanitizeFilename(username))
+                stage(file, model)
             },
             {
                 fetching = false
@@ -173,22 +163,12 @@ class SkinAddPanel(
         }
     }
 
-    /** A skin is staged, the file name is valid and the target does not exist yet. */
-    private fun canConfirm(): Boolean {
-        val name = sanitize(fileNameField.value)
-        if (stagedFile == null || name.isEmpty()) return false
-        val target = FabricLoader.getInstance().gameDir.resolve("skins").resolve("$name.png")
-        return !Files.exists(target)
-    }
-
-    private fun sanitize(value: String): String =
-        value.replace(Regex("[^A-Za-z0-9_\\- ]"), "_").trim()
+    /** A skin is staged — dedup against existing textures happens at confirm time. */
+    private fun canConfirm(): Boolean = stagedFile != null
 
     private fun confirmAdd() {
         val file = stagedFile ?: return
-        val name = sanitize(fileNameField.value)
-        if (name.isEmpty()) return
-        if (parent.confirmAddSkin(file, name, displayNameField.value.trim(), stagedType)) {
+        if (parent.confirmAddSkin(file, displayNameField.value.trim(), stagedType)) {
             // Ownership of the staging file transferred to the skins folder.
             stagedFile = null
             close(instant = true)
@@ -207,11 +187,7 @@ class SkinAddPanel(
 
     private fun dispFieldY(): Int = dispLabelY() + LABEL_LINE
 
-    private fun fileLabelY(): Int = dispFieldY() + FIELD_HEIGHT + ROW_GAP
-
-    private fun fileFieldY(): Int = fileLabelY() + LABEL_LINE
-
-    override fun switchRowY(): Int = fileFieldY() + FIELD_HEIGHT + ROW_GAP
+    override fun switchRowY(): Int = dispFieldY() + FIELD_HEIGHT + ROW_GAP
 
     override fun repositionChildren() {
         val t = targetRect()
@@ -231,8 +207,6 @@ class SkinAddPanel(
 
         displayNameField.setWidth(leftW)
         displayNameField.setPosition(t[0] + PANEL_PAD, dispFieldY())
-        fileNameField.setWidth(leftW)
-        fileNameField.setPosition(t[0] + PANEL_PAD, fileFieldY())
 
         // Confirm/cancel split the column in two so cancel never overflows past it.
         val buttonY = switchRowY() + SWITCH_BODY_H + ROW_GAP
@@ -274,7 +248,6 @@ class SkinAddPanel(
     private fun drawLabels(graphics: GuiGraphicsExtractor, t: IntArray) {
         val x = t[0] + PANEL_PAD
         graphics.text(client.font, Component.translatable("simpleskinswapper.screen.detail.display_name"), x, dispLabelY(), 0xFFB0B8C0.toInt())
-        graphics.text(client.font, Component.translatable("simpleskinswapper.screen.detail.file_name"), x, fileLabelY(), 0xFFB0B8C0.toInt())
     }
 
     // ------------------------------------------------------------------
