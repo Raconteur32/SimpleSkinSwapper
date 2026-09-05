@@ -22,6 +22,7 @@ class LibraryMigrator(
     private val registry: SkinRegistry,
     private val cards: SkinCardStore,
     private val hasher: Hasher,
+    private val colorToDye: (String) -> String = { SkinCardStore.DEFAULT_CATEGORY_DYE },
 ) {
 
     @Serializable
@@ -113,7 +114,9 @@ class LibraryMigrator(
         Files.deleteIfExists(legacyFile)
         for (dto in legacy.categories ?: emptyList()) {
             val name = dto.name ?: continue
-            val category = cards.createCategory(name, dto.color ?: SkinCardStore.DEFAULT_CATEGORY_COLOR)
+            // Legacy hex colors resolve to a dye NAME through the injected resolver
+            // (Minecraft-side); unknown colors fall back to white.
+            val category = cards.createCategory(name, colorToDye(dto.color ?: ""))
             category.maxWheels = (dto.maxWheels ?: 0).coerceAtLeast(0)
             for (file in dto.skins ?: emptyList()) {
                 val skinId = skinIdByFile[file] ?: continue

@@ -418,7 +418,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     fun allocationColorFor(card: SkinLibraryCard): Int? {
         val category = selectedCategory ?: return null
         val idx = cards.indexOf(card)
-        return if (idx in 0 until category.maxWheels * WHEEL_SIZE) SkinCategoryPalette.parse(category.colorHex) else null
+        return if (idx in 0 until category.maxWheels * WHEEL_SIZE) SkinCategoryPalette.colorOf(category.dye) else null
     }
 
     fun deleteEntry(entry: SkinEntry) {
@@ -746,14 +746,12 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                 // Center the square on the glyphs' optical center (same line as the text),
                 // not on the full tab height — the 9px font renders in the top 7px of its line.
                 val y0 = textY + (font.lineHeight - s) / 2
-                val color = SkinCategoryPalette.parse(it.colorHex)
-                // Dye icon when the stored color is one of the 16 dyes; legacy colors
-                // predate the dye palette and keep their flat color square instead.
-                val entry = SkinCategoryPalette.ENTRIES.firstOrNull { e -> e.argb == color }
+                // Categories store the dye NAME: the icon always resolves on this version.
+                val entry = SkinCategoryPalette.ENTRIES.firstOrNull { e -> e.dyeName == it.dye }
                 if (entry != null) {
                     DyeIcons.draw(graphics, entry.dyeName, x0, y0, s)
                 } else {
-                    graphics.fill(x0, y0, x0 + s, y0 + s, color)
+                    graphics.fill(x0, y0, x0 + s, y0 + s, SkinCategoryPalette.colorOf(it.dye))
                 }
             }
         }
@@ -976,11 +974,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     private fun createCategory() {
-        // Derive from THIS version's dye list: the default must exactly match the white
-        // dye entry's argb or the tab renders the fallback square instead of its icon
-        // (the vanilla map color constant differs across the supported versions).
-        val whiteHex = SkinCategoryPalette.toHex(SkinCategoryPalette.ENTRIES.first { it.dyeName == "white" }.argb)
-        val category = SkinCategories.createCategory(nextDefaultCategoryName(), whiteHex)
+        // Categories store the dye NAME; the color derives from the running version.
+        val category = SkinCategories.createCategory(nextDefaultCategoryName(), "white")
         selectCategory(category)
         band.expanded = true
         band.refreshWidgets()

@@ -58,6 +58,7 @@ class LibraryMigratorTest {
         SkinRegistry(SkinLibraryEnv { dir }),
         SkinCardStore(SkinLibraryEnv { dir }),
         TextureHashing.sha256,
+        colorToDye = { if (it == "#99834D") "red" else "white" },
     )
 
     @Test
@@ -95,6 +96,8 @@ class LibraryMigratorTest {
         val pvp = cards.all().single()
         assertEquals("PvP", pvp.name)
         assertEquals(1, pvp.maxWheels)
+        // The legacy hex resolved to a dye NAME through the injected resolver.
+        assertEquals("red", pvp.dye)
         assertEquals(listOf(steveSkin.id), pvp.cards.map { it.skinId })
 
         // a second run is a no-op

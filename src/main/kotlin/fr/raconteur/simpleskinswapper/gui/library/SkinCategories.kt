@@ -8,7 +8,7 @@ object SkinCategories {
     private val instance get() = LibraryServices.cards
 
     @JvmStatic fun all(): List<LibraryCategory> = instance.all()
-    @JvmStatic fun createCategory(name: String, colorHex: String): LibraryCategory = instance.createCategory(name, colorHex)
+    @JvmStatic fun createCategory(name: String, dye: String): LibraryCategory = instance.createCategory(name, dye)
     @JvmStatic fun removeCategory(category: LibraryCategory) = instance.removeCategory(category)
     @JvmStatic fun moveCategory(from: Int, to: Int) = instance.moveCategory(from, to)
 

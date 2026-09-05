@@ -20,7 +20,7 @@ class SkinCardStoreTest {
     @Test
     fun `adding a card appends and persists`() {
         val store = store()
-        val category = store.createCategory("PvP", "#F9FFFE")
+        val category = store.createCategory("PvP", "white")
         store.addCard(category, "abc_slim")
         val reloaded = store()
         val cards = reloaded.all().single().cards
@@ -29,7 +29,7 @@ class SkinCardStoreTest {
 
     @Test
     fun `a category never holds the same skin twice`() {
-        val category = store().createCategory("PvP", "#F9FFFE")
+        val category = store().createCategory("PvP", "white")
         assertTrue(store().addCard(category, "abc_slim"))
         assertFalse(store().addCard(category, "abc_slim"))
         assertEquals(1, category.cards.size)
@@ -38,8 +38,8 @@ class SkinCardStoreTest {
     @Test
     fun `a skin may be referenced by several categories`() {
         val store = store()
-        val a = store.createCategory("A", "#F9FFFE")
-        val b = store.createCategory("B", "#F9FFFE")
+        val a = store.createCategory("A", "white")
+        val b = store.createCategory("B", "white")
         store.addCard(a, "abc_slim")
         store.addCard(b, "abc_slim")
         assertEquals(listOf("A", "B"), store.categoriesOf("abc_slim").map { it.name })
@@ -48,8 +48,8 @@ class SkinCardStoreTest {
     @Test
     fun `removing a card keeps the other categories`() {
         val store = store()
-        val a = store.createCategory("A", "#F9FFFE")
-        val b = store.createCategory("B", "#F9FFFE")
+        val a = store.createCategory("A", "white")
+        val b = store.createCategory("B", "white")
         store.addCard(a, "abc_slim")
         store.addCard(b, "abc_slim")
         store.removeCard(a, "abc_slim")
@@ -60,7 +60,7 @@ class SkinCardStoreTest {
     @Test
     fun `per-category card names persist`() {
         val store = store()
-        val category = store.createCategory("PvP", "#F9FFFE")
+        val category = store.createCategory("PvP", "white")
         store.addCard(category, "abc_slim")
         store.setCardName(category, "abc_slim", "Hero")
         val card = store().all().single().cards.single()
@@ -70,8 +70,8 @@ class SkinCardStoreTest {
     @Test
     fun `category order can move and persists`() {
         val store = store()
-        store.createCategory("A", "#F9FFFE")
-        store.createCategory("B", "#F9FFFE")
+        store.createCategory("A", "white")
+        store.createCategory("B", "white")
         store.moveCategory(1, 0)
         assertEquals(listOf("B", "A"), store().all().map { it.name })
         assertNotNull(store().all().first())

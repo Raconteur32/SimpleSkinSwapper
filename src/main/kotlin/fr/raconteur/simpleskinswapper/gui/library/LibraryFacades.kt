@@ -9,6 +9,8 @@ import fr.raconteur.simpleskinswapper.library.TextureHashing
 import fr.raconteur.simpleskinswapper.library.TextureLifecycle
 import fr.raconteur.simpleskinswapper.library.TextureNamer
 
+// resolveur de couleurs legacy : voir LibraryServices.migrator
+
 /** Single production wiring for the library core. Every facade shares these instances —
  *  two registries would diverge in memory and overwrite each other's saves. */
 internal object LibraryServices {
@@ -16,7 +18,11 @@ internal object LibraryServices {
     val cards by lazy { SkinCardStore(FabricSkinLibraryEnv) }
     val namer by lazy { TextureNamer(FabricSkinLibraryEnv, TextureHashing.sha256) }
     val lifecycle by lazy { TextureLifecycle(FabricSkinLibraryEnv, registry, namer) }
-    val migrator by lazy { LibraryMigrator(FabricSkinLibraryEnv, registry, cards, TextureHashing.sha256) }
+    val migrator by lazy {
+        LibraryMigrator(FabricSkinLibraryEnv, registry, cards, TextureHashing.sha256) { hex ->
+            SkinCategoryPalette.dyeNameForColor(hex) ?: SkinCardStore.DEFAULT_CATEGORY_DYE
+        }
+    }
 }
 
 /** GUI-facing singleton over the skin registry. */

@@ -10,10 +10,11 @@ class CardEntry(
     @JvmField var name: String,
 )
 
-/** A category: display name, dye color, wheel allocation, and its ordered card list. */
+/** A category: display name, dye NAME (the color derives from the running version's dye
+ *  table at render time), wheel allocation, and its ordered card list. */
 class LibraryCategory(
     @JvmField var name: String,
-    @JvmField var colorHex: String,
+    @JvmField var dye: String,
     @JvmField var maxWheels: Int,
     @JvmField val cards: ArrayList<CardEntry> = ArrayList(),
 )
@@ -35,7 +36,7 @@ class SkinCardStore(env: SkinLibraryEnv) {
     @Serializable
     internal data class CategoryDto(
         val name: String? = null,
-        val color: String? = null,
+        val dye: String? = null,
         val maxWheels: Int? = null,
         val cards: List<CardDto>? = null,
     )
@@ -57,9 +58,9 @@ class SkinCardStore(env: SkinLibraryEnv) {
         return categories
     }
 
-    fun createCategory(name: String, colorHex: String): LibraryCategory {
+    fun createCategory(name: String, dye: String): LibraryCategory {
         ensureLoaded()
-        val category = LibraryCategory(name, colorHex, 0)
+        val category = LibraryCategory(name, dye, 0)
         categories.add(category)
         save()
         return category
@@ -114,7 +115,7 @@ class SkinCardStore(env: SkinLibraryEnv) {
         store.save(CardsFileDto(version = FORMAT_VERSION, categories = categories.map {
             CategoryDto(
                 name = it.name,
-                color = it.colorHex,
+                dye = it.dye,
                 maxWheels = it.maxWheels,
                 cards = it.cards.map { card -> CardDto(ref = card.skinId, name = card.name) },
             )
@@ -126,23 +127,22 @@ class SkinCardStore(env: SkinLibraryEnv) {
         loaded = true
         for (dto in store.load().categories ?: emptyList()) {
             val name = dto.name ?: continue
-            val color = dto.color ?: DEFAULT_CATEGORY_COLOR
+            val dye = dto.dye ?: DEFAULT_CATEGORY_DYE
             val maxWheels = (dto.maxWheels ?: 0).coerceAtLeast(0)
             val cards = ArrayList<CardEntry>()
             for (card in dto.cards ?: emptyList()) {
                 val ref = card.ref ?: continue
                 cards.add(CardEntry(ref, card.name ?: ""))
             }
-            categories.add(LibraryCategory(name, color, maxWheels, cards))
+            categories.add(LibraryCategory(name, dye, maxWheels, cards))
         }
     }
 
     companion object {
-        /** White dye's wool map color — the palette's default (kept here so the pure
-         *  core never touches the Minecraft-backed palette object). */
-        const val DEFAULT_CATEGORY_COLOR = "#F9FFFE"
+        /** Categories without a dye fall back to white (pure-core default). */
+        const val DEFAULT_CATEGORY_DYE = "white"
 
         /** Marks categories.json as registry-format (the migrator's re-entry guard). */
-        const val FORMAT_VERSION = 1
+        const val FORMAT_VERSION = 2
     }
 }

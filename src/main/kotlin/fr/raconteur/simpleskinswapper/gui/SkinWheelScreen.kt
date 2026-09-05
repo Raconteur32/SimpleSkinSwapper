@@ -159,8 +159,8 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
                 paginationDots.add(dx to fy)
                 if (Math.hypot((mouseX - dx).toDouble(), (mouseY - fy).toDouble()) <= DOT_HIT_RADIUS) hoverDot = d
                 val dotColor = when {
-                    multiCategory && d == activeWheel -> SkinCategoryPalette.parse(wheelCategories[d].colorHex)
-                    multiCategory -> (0x80 shl 24) or (SkinCategoryPalette.parse(wheelCategories[d].colorHex) and 0xFFFFFF)
+                    multiCategory && d == activeWheel -> SkinCategoryPalette.colorOf(wheelCategories[d].dye)
+                    multiCategory -> (0x80 shl 24) or (SkinCategoryPalette.colorOf(wheelCategories[d].dye) and 0xFFFFFF)
                     d == activeWheel -> COLOR_TEXT
                     else -> COLOR_PAGINATION_DIM
                 }

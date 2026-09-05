@@ -104,16 +104,16 @@ internal class CategoryBand(private val screen: SkinLibraryScreen) {
         return true
     }
 
-    /** Expanded-band swatch pick; true when consumed. */
+    /** Expanded-band swatch pick; true when consumed. Categories store the dye NAME. */
     fun handleSwatchClick(mouseX: Int, mouseY: Int): Boolean {
         if (!expanded || screen.selectedCategory == null) return false
-        val swatch = swatchAt(mouseX, mouseY) ?: return false
-        screen.selectedCategory?.colorHex = SkinCategoryPalette.toHex(swatch)
+        val dyeName = swatchAt(mouseX, mouseY) ?: return false
+        screen.selectedCategory?.dye = dyeName
         SkinCategories.save()
         return true
     }
 
-    fun swatchAt(mouseX: Int, mouseY: Int): Int? {
+    fun swatchAt(mouseX: Int, mouseY: Int): String? {
         val by = y()
         if (!expanded || screen.selectedCategory == null || mouseY < screen.gridTop) return null
         val x0 = screen.gridLeft() + 8
@@ -123,7 +123,7 @@ internal class CategoryBand(private val screen: SkinLibraryScreen) {
         val row = (mouseY - y0) / (BAND_SWATCH_SIZE + BAND_SWATCH_GAP)
         if (hue !in 0..7 || row !in 0..1) return null
         val idx = hue * 2 + row
-        return SkinCategoryPalette.ENTRIES.getOrNull(idx)?.argb
+        return SkinCategoryPalette.ENTRIES.getOrNull(idx)?.dyeName
     }
 
     /** Vanilla dye item name tooltip for the hovered picker cell; null when none. */
@@ -155,7 +155,6 @@ internal class CategoryBand(private val screen: SkinLibraryScreen) {
         if (expanded) {
             // Dye icon grid (8 columns × 2 rows) at the left; controls column at the right.
             // Geometry mirrored by the layout_check script — do not move without re-running it.
-            val categoryColor = SkinCategoryPalette.parse(category.colorHex)
             val sx0 = left + 8
             val sy0 = by + 24
             for ((i, entry) in SkinCategoryPalette.ENTRIES.withIndex()) {
@@ -165,7 +164,7 @@ internal class CategoryBand(private val screen: SkinLibraryScreen) {
                 val y0 = sy0 + row * (BAND_SWATCH_SIZE + BAND_SWATCH_GAP)
                 val hovered = mouseX >= sx && mouseX < sx + BAND_SWATCH_SIZE && mouseY >= y0 && mouseY < y0 + BAND_SWATCH_SIZE
                 graphics.fill(sx - 1, y0 - 1, sx + BAND_SWATCH_SIZE + 1, y0 + BAND_SWATCH_SIZE + 1,
-                    if (entry.argb == categoryColor) 0xFFFFFFFF.toInt()
+                    if (entry.dyeName == category.dye) 0xFFFFFFFF.toInt()
                     else if (hovered) 0xFF606060.toInt() else 0xFF202020.toInt())
                 DyeIcons.draw(graphics, entry.dyeName, sx, y0, BAND_SWATCH_SIZE)
             }
