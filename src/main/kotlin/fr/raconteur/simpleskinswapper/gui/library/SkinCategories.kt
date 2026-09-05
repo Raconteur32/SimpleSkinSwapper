@@ -1,13 +1,11 @@
 package fr.raconteur.simpleskinswapper.gui.library
 
-import fr.raconteur.simpleskinswapper.data.FabricSkinLibraryEnv
 import fr.raconteur.simpleskinswapper.library.LibraryCategory
-import fr.raconteur.simpleskinswapper.library.SkinCardStore
 
 /** GUI-facing singleton over the card store: categories hold card references. */
 object SkinCategories {
 
-    private val instance by lazy { SkinCardStore(FabricSkinLibraryEnv) }
+    private val instance get() = LibraryServices.cards
 
     @JvmStatic fun all(): List<LibraryCategory> = instance.all()
     @JvmStatic fun createCategory(name: String, colorHex: String): LibraryCategory = instance.createCategory(name, colorHex)

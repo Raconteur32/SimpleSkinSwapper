@@ -38,15 +38,10 @@ import java.util.IdentityHashMap
 import kotlin.math.ceil
 import kotlin.math.exp
 import kotlin.math.roundToInt
-import fr.raconteur.simpleskinswapper.library.TextureHashing
-import fr.raconteur.simpleskinswapper.library.SkinRegistry
-import fr.raconteur.simpleskinswapper.library.SkinCardStore
 import fr.raconteur.simpleskinswapper.library.DeleteDecision
 import fr.raconteur.simpleskinswapper.library.DeleteSource
 import fr.raconteur.simpleskinswapper.library.LibraryCategory
 import fr.raconteur.simpleskinswapper.library.SkinRecord
-import fr.raconteur.simpleskinswapper.library.LibraryMigrator
-import fr.raconteur.simpleskinswapper.data.FabricSkinLibraryEnv
 
 /**
  * Category-based skin library: a vertical category tab strip on the left (pinned "All skins"
@@ -206,13 +201,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     /** One-shot legacy migration, then pruning of skins whose texture vanished externally. */
     private fun migrateLegacyLibraryIfNeeded() {
-        val migrator = LibraryMigrator(
-            FabricSkinLibraryEnv,
-            SkinRegistry(FabricSkinLibraryEnv),
-            SkinCardStore(FabricSkinLibraryEnv),
-            TextureHashing.sha256,
-        )
-        migrator.migrate()
+        LibraryServices.migrator.migrate()
         for (id in SkinLifecycle.pruneMissingTextures()) SkinCategories.removeEverywhere(id)
     }
 
@@ -383,6 +372,15 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         scrollY = Mth.clamp(scrollY, 0, maxScroll)
         band.refreshWidgets()
         rebindDetail()
+        // Cards were re-added after the overlays: raise the open ones back to the top
+        // of the widget order, or they would render (and hit) behind the fresh cards.
+        raiseOverlays()
+    }
+
+    /** Re-appends the open overlays so they stay last in the widget order (on top). */
+    private fun raiseOverlays() {
+        detail?.let { removeWidget(it); addRenderableWidget(it) }
+        addPanel?.let { removeWidget(it); addRenderableWidget(it) }
     }
 
     fun indexOfCard(card: SkinLibraryCard): Int = cards.indexOf(card)
