@@ -5,9 +5,12 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import com.mojang.authlib.properties.Property
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
-import fr.raconteur.simpleskinswapper.gui.SkinEntry
 import fr.raconteur.simpleskinswapper.gui.SkinType
 import fr.raconteur.simpleskinswapper.gui.SkinUtils
+import fr.raconteur.simpleskinswapper.gui.library.SkinLifecycle
+import fr.raconteur.simpleskinswapper.gui.library.SkinRecords
+import fr.raconteur.simpleskinswapper.library.SkinRecord
+import fr.raconteur.simpleskinswapper.library.TextureHashing
 import fr.raconteur.simpleskinswapper.networking.MineSkinCache
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.client.Minecraft
@@ -16,10 +19,7 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
-import java.nio.file.Files
-import java.text.SimpleDateFormat
 import java.util.Base64
-import java.util.Date
 import java.util.UUID
 
 object StartupSkinSync {
@@ -71,55 +71,40 @@ object StartupSkinSync {
             }
 
             val stored = SelectedSkinStore.get()
-            var matchesStored = false
-            if (stored.isPresent) {
-                val storedUrl = extractSkinUrl(stored.get().value())
-                matchesStored = mojangUrl == storedUrl
-            }
-
-            if (!matchesStored) {
+            val storedUrl = stored.map { extractSkinUrl(it.value()) }.orElse(null)
+            if (mojangUrl != storedUrl) {
                 SimpleSkinSwapper.LOGGER.info("StartupSkinSync: skin mismatch, updating stored selection.")
                 SelectedSkinStore.set(mojangProperty)
             } else {
                 SimpleSkinSwapper.LOGGER.info("StartupSkinSync: stored selection matches Mojang skin.")
             }
 
-            // Preview texture is never persisted, so it must be reloaded from a matching local file every launch.
+            // The library mirrors the online skin: match by canonical texture hash through
+            // the registry, ingest on miss — unconditionally (the old flow skipped the
+            // download when the stored selection already matched, leaving gaps possible).
             val mojangSkinType = extractSkinType(mojangProperty.value())
-            val matchingEntry = findMatchingEntry(mojangUrl)
-
-            if (matchingEntry != null) {
-                SimpleSkinSwapper.LOGGER.info("StartupSkinSync: matched existing file {}.", matchingEntry.displayName)
-                val skinType = matchingEntry.skinType
-                SkinUtils.loadSkinTextureAsync(matchingEntry.file, "selected_preview") { id ->
-                    SelectedSkinStore.setPreview(id, skinType)
-                }
-                return
-            }
-
-            if (matchesStored) {
-                SimpleSkinSwapper.LOGGER.info("StartupSkinSync: no local file to preview, skipping download.")
-                return
-            }
-
             val skinBytes = downloadUrl(mojangUrl) ?: return
 
-            val pseudo = client.user.name
-            val timestamp = SimpleDateFormat("dd-MM-yyyy-HH-mm-ss").format(Date())
-            val skinsDir = FabricLoader.getInstance().gameDir.resolve("skins")
-            Files.createDirectories(skinsDir)
-            val outFile = skinsDir.resolve("$pseudo-$timestamp.png")
-            Files.write(outFile, skinBytes)
-            SimpleSkinSwapper.LOGGER.info("StartupSkinSync: saved Mojang skin as {}.", outFile.fileName)
+            findRegistryMatch(skinBytes, mojangSkinType)?.let { record ->
+                SimpleSkinSwapper.LOGGER.info("StartupSkinSync: matched local skin {}.", record.name)
+                loadPreview(record.file, mojangSkinType)
+                return
+            }
 
-            val hash = MineSkinCache.fileHash(outFile.toFile())
+            val created = SkinLifecycle.createSkin(skinBytes, mojangSkinType.mojangVariant, client.user.name)
+            if (created == null) {
+                SimpleSkinSwapper.LOGGER.warn("StartupSkinSync: online skin could not be ingested (undecodable).")
+                return
+            }
+            SimpleSkinSwapper.LOGGER.info("StartupSkinSync: ingested the online skin as {}.", created.file)
+
+            val outFile = FabricLoader.getInstance().gameDir.resolve("skins").resolve(created.file).toFile()
+            val hash = MineSkinCache.fileHash(outFile)
             if (hash != null) {
+                // Seeds the upload cache: re-applying this skin skips the MineSkin upload.
                 MineSkinCache.put("${mojangSkinType.mojangVariant}_$hash", mojangProperty)
             }
-
-            SkinUtils.loadSkinTextureAsync(outFile.toFile(), "selected_preview") { id ->
-                SelectedSkinStore.setPreview(id, mojangSkinType)
-            }
+            loadPreview(created.file, mojangSkinType)
         } catch (e: Exception) {
             SimpleSkinSwapper.LOGGER.warn("StartupSkinSync failed: {}", e.message)
         }
@@ -178,17 +163,20 @@ object StartupSkinSync {
         return SkinType.CLASSIC
     }
 
-    private fun findMatchingEntry(mojangUrl: String): SkinEntry? {
-        val entries = SkinEntry.loadSkins()
-        for (entry in entries) {
-            val hash = MineSkinCache.fileHash(entry.file) ?: continue
-            for (variant in listOf("classic", "slim")) {
-                val cached = MineSkinCache.get("${variant}_$hash") ?: continue
-                val cachedUrl = extractSkinUrl(cached.value())
-                if (mojangUrl == cachedUrl) return entry
-            }
+    /** The registry skin whose texture content matches [skinBytes] with [type], or null. */
+    private fun findRegistryMatch(skinBytes: ByteArray, type: SkinType): SkinRecord? {
+        val value = TextureHashing.canonicalPixels(skinBytes) ?: return null
+        val model = if (type == SkinType.SLIM) SkinRecord.MODEL_SLIM else SkinRecord.MODEL_CLASSIC
+        val hash = TextureHashing.toHex(TextureHashing.sha256.digest(value))
+        return SkinRecords.find(hash, model)
+    }
+
+    /** Loads the menu preview from a local library file (never persisted across launches). */
+    private fun loadPreview(fileName: String, type: SkinType) {
+        val file = FabricLoader.getInstance().gameDir.resolve("skins").resolve(fileName).toFile()
+        SkinUtils.loadSkinTextureAsync(file, "selected_preview") { id ->
+            SelectedSkinStore.setPreview(id, type)
         }
-        return null
     }
 
     internal fun downloadUrl(url: String): ByteArray? {
