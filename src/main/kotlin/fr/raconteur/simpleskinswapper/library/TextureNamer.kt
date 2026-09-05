@@ -22,6 +22,9 @@ class TextureNamer(private val env: SkinLibraryEnv, private val hasher: Hasher) 
         }
     }
 
+    /** Full hash (hex) of a canonical value — the identity used by the registry. */
+    fun fullHashHex(value: ByteArray): String = TextureHashing.toHex(hasher.digest(value))
+
     /** The file name of an existing identical texture, or null when [value] is new. */
     fun existingFileNameFor(value: ByteArray): String? {
         val digest = hasher.digest(value)

@@ -13,6 +13,7 @@ class SkinRecord(
     @JvmField val textureHash: String,
     @JvmField val model: String,
     @JvmField var name: String,
+    @JvmField val file: String,
 ) {
     val id: String get() = "${textureHash}_$model"
 
@@ -34,6 +35,7 @@ class SkinRegistry(env: SkinLibraryEnv) {
         val hash: String? = null,
         val model: String? = null,
         val name: String? = null,
+        val file: String? = null,
     )
 
     @Serializable
@@ -61,10 +63,10 @@ class SkinRegistry(env: SkinLibraryEnv) {
     fun find(textureHash: String, model: String): SkinRecord? = lookup("\${textureHash}_\$model")
 
     /** Creates a skin; returns null when the (texture, model) pair already exists. */
-    fun create(textureHash: String, model: String, name: String): SkinRecord? {
+    fun create(textureHash: String, model: String, name: String, file: String): SkinRecord? {
         ensureLoaded()
         if (skins.any { it.textureHash == textureHash && it.model == model }) return null
-        val record = SkinRecord(textureHash, model, name)
+        val record = SkinRecord(textureHash, model, name, file)
         skins.add(record)
         save()
         return record
@@ -88,7 +90,7 @@ class SkinRegistry(env: SkinLibraryEnv) {
 
     fun save() {
         store.save(RegistryDto(version = FORMAT_VERSION, skins = skins.map {
-            SkinDto(hash = it.textureHash, model = it.model, name = it.name)
+            SkinDto(hash = it.textureHash, model = it.model, name = it.name, file = it.file)
         }))
     }
 
@@ -103,7 +105,7 @@ class SkinRegistry(env: SkinLibraryEnv) {
         for (dto in store.load().skins ?: emptyList()) {
             val hash = dto.hash ?: continue
             val model = dto.model ?: continue
-            skins.add(SkinRecord(hash, model, dto.name ?: ""))
+            skins.add(SkinRecord(hash, model, dto.name ?: "", dto.file ?: ""))
         }
     }
 

@@ -18,7 +18,7 @@ class SkinRegistryTest {
 
     @Test
     fun `created skins persist across instances`() {
-        val record = registry().create("abc123", SkinRecord.MODEL_SLIM, "Steve")
+        val record = registry().create("abc123", SkinRecord.MODEL_SLIM, "Steve", "abc123ab.png")
         assertNotNull(record)
         val reloaded = registry()
         assertEquals(listOf("abc123_slim"), reloaded.all().map { it.id })
@@ -27,8 +27,8 @@ class SkinRegistryTest {
 
     @Test
     fun `a duplicate texture-model pair is refused`() {
-        val first = registry().create("abc123", SkinRecord.MODEL_SLIM, "Steve")
-        val second = registry().create("abc123", SkinRecord.MODEL_SLIM, "Other")
+        val first = registry().create("abc123", SkinRecord.MODEL_SLIM, "Steve", "abc123ab.png")
+        val second = registry().create("abc123", SkinRecord.MODEL_SLIM, "Other", "abc123ab.png")
         assertNotNull(first)
         assertNull(second)
         assertEquals(1, registry().all().size)
@@ -36,14 +36,14 @@ class SkinRegistryTest {
 
     @Test
     fun `the same texture may serve both models`() {
-        registry().create("abc123", SkinRecord.MODEL_SLIM, "Slim Steve")
-        registry().create("abc123", SkinRecord.MODEL_CLASSIC, "Wide Steve")
+        registry().create("abc123", SkinRecord.MODEL_SLIM, "Slim Steve", "abc123ab.png")
+        registry().create("abc123", SkinRecord.MODEL_CLASSIC, "Wide Steve", "abc123ab.png")
         assertEquals(2, registry().all().size)
     }
 
     @Test
     fun `removal persists`() {
-        registry().create("abc123", SkinRecord.MODEL_SLIM, "Steve")
+        registry().create("abc123", SkinRecord.MODEL_SLIM, "Steve", "abc123ab.png")
         registry().remove("abc123_slim")
         assertNull(registry().findById("abc123_slim"))
         assertEquals(0, registry().all().size)
@@ -51,7 +51,7 @@ class SkinRegistryTest {
 
     @Test
     fun `rename persists`() {
-        registry().create("abc123", SkinRecord.MODEL_SLIM, "Steve")
+        registry().create("abc123", SkinRecord.MODEL_SLIM, "Steve", "abc123ab.png")
         registry().rename("abc123_slim", "Hero")
         assertEquals("Hero", registry().findById("abc123_slim")?.name)
     }
