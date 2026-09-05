@@ -723,7 +723,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             index == 1 -> Component.translatable("simpleskinswapper.screen.library.uncategorized")
             else -> Component.nullToEmpty(SkinCategories.all().getOrNull(index - 2)?.name ?: "")
         }
-        val nameX = if (index == 0) STRIP_X + 6 else STRIP_X + 16
+        // Same text origin for every tab — All skins has no dye icon but stays aligned.
+        val nameX = STRIP_X + 16
         val nameRight = STRIP_X + TAB_W - 3
         val textY = y + (tabH - font.lineHeight) / 2
         // Truncate overlong names with an ellipsis instead of hard-clipping mid-glyph;
