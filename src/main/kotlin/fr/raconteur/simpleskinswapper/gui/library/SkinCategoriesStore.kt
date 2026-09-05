@@ -1,8 +1,9 @@
 package fr.raconteur.simpleskinswapper.gui.library
 
+import fr.raconteur.simpleskinswapper.data.FabricSkinLibraryEnv
 import fr.raconteur.simpleskinswapper.data.JsonFileStore
+import fr.raconteur.simpleskinswapper.data.SkinLibraryEnv
 import kotlinx.serialization.Serializable
-import net.fabricmc.loader.api.FabricLoader
 
 /** One user-defined skin group: display name, palette color, wheel allocation, ordered skin files. */
 class SkinCategory(
@@ -17,8 +18,9 @@ class SkinCategory(
  * category with its own ordered skin file list. Every mutation is written through immediately.
  * The skins folder stays the source of truth for which files exist; dangling names are skipped
  * by consumers. The format intentionally allows the same file in several categories.
+ * Receives its [SkinLibraryEnv] by constructor so tests can run it against a temp folder.
  */
-object SkinCategoriesStore {
+class SkinCategoriesStore(private val env: SkinLibraryEnv) {
 
     /** On-disk shape of categories.json; fields stay lenient to match the Gson-era semantics. */
     @Serializable
@@ -34,26 +36,23 @@ object SkinCategoriesStore {
 
     private val store = JsonFileStore(
         fileLabel = "categories.json",
-        path = { FabricLoader.getInstance().gameDir.resolve("skins").resolve("categories.json") },
+        path = { env.skinsDir().resolve("categories.json") },
         serializer = CategoriesFileDto.serializer(),
         fresh = { CategoriesFileDto() },
     )
     private val categories = ArrayList<SkinCategory>()
     private var loaded = false
 
-    @JvmStatic
     fun all(): List<SkinCategory> {
         ensureLoaded()
         return categories
     }
 
-    @JvmStatic
     fun categoryOf(fileName: String): SkinCategory? {
         ensureLoaded()
         return categories.firstOrNull { fileName in it.skins }
     }
 
-    @JvmStatic
     fun addCategory(name: String, colorHex: String): SkinCategory {
         ensureLoaded()
         val category = SkinCategory(name, colorHex, 0)
@@ -62,13 +61,11 @@ object SkinCategoriesStore {
         return category
     }
 
-    @JvmStatic
     fun removeCategory(category: SkinCategory) {
         ensureLoaded()
         if (categories.remove(category)) save()
     }
 
-    @JvmStatic
     fun moveCategory(from: Int, to: Int) {
         ensureLoaded()
         if (from == to || from !in categories.indices || to !in categories.indices) return
@@ -78,7 +75,6 @@ object SkinCategoriesStore {
     }
 
     /** Appends [fileName] to [category] and removes it from every other category. */
-    @JvmStatic
     fun assignSkin(category: SkinCategory, fileName: String) {
         ensureLoaded()
         var changed = removeFromAll(fileName)
@@ -90,7 +86,6 @@ object SkinCategoriesStore {
     }
 
     /** Removes [fileName] from every category (unassign), keeping the file itself untouched. */
-    @JvmStatic
     fun removeFromAll(fileName: String): Boolean {
         ensureLoaded()
         var changed = false
@@ -121,7 +116,6 @@ object SkinCategoriesStore {
      * `maxWheels * 10` file names from its ordered list. Categories with allocation 0
      * contribute nothing.
      */
-    @JvmStatic
     fun wheelComposition(): List<Pair<SkinCategory, List<String>>> {
         ensureLoaded()
         val result = ArrayList<Pair<SkinCategory, List<String>>>()
@@ -133,7 +127,6 @@ object SkinCategoriesStore {
         return result
     }
 
-    @JvmStatic
     fun save() {
         store.save(CategoriesFileDto(categories.map {
             CategoryDto(name = it.name, color = it.colorHex, maxWheels = it.maxWheels, skins = it.skins.toList())
@@ -151,4 +144,22 @@ object SkinCategoriesStore {
             categories.add(SkinCategory(name, color, maxWheels, ArrayList(dto.skins ?: emptyList())))
         }
     }
+
+}
+
+/** GUI-facing singleton delegating to the production-backed instance. */
+object SkinCategories {
+
+    private val instance by lazy { SkinCategoriesStore(FabricSkinLibraryEnv) }
+
+    @JvmStatic fun all(): List<SkinCategory> = instance.all()
+    @JvmStatic fun categoryOf(fileName: String): SkinCategory? = instance.categoryOf(fileName)
+    @JvmStatic fun addCategory(name: String, colorHex: String): SkinCategory = instance.addCategory(name, colorHex)
+    @JvmStatic fun removeCategory(category: SkinCategory) = instance.removeCategory(category)
+    @JvmStatic fun moveCategory(from: Int, to: Int) = instance.moveCategory(from, to)
+    @JvmStatic fun assignSkin(category: SkinCategory, fileName: String) = instance.assignSkin(category, fileName)
+    @JvmStatic fun removeFromAll(fileName: String): Boolean = instance.removeFromAll(fileName)
+    fun renameInAll(oldFileName: String, newFileName: String) = instance.renameInAll(oldFileName, newFileName)
+    @JvmStatic fun wheelComposition(): List<Pair<SkinCategory, List<String>>> = instance.wheelComposition()
+    @JvmStatic fun save() = instance.save()
 }

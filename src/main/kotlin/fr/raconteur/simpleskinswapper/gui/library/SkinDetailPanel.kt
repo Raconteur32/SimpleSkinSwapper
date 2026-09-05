@@ -4,9 +4,9 @@ import fr.raconteur.simpleskinswapper.changeskin.SkinChange
 import fr.raconteur.simpleskinswapper.changeskin.SkinSwapperState
 import fr.raconteur.simpleskinswapper.gui.EdgeSafeButtonWidget
 import fr.raconteur.simpleskinswapper.gui.SkinEntry
-import fr.raconteur.simpleskinswapper.gui.SkinNameStore
+import fr.raconteur.simpleskinswapper.gui.SkinNames
 import fr.raconteur.simpleskinswapper.gui.SkinType
-import fr.raconteur.simpleskinswapper.gui.SkinTypeStore
+import fr.raconteur.simpleskinswapper.gui.SkinTypes
 import fr.raconteur.simpleskinswapper.overlayMessage
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.components.EditBox
@@ -49,7 +49,7 @@ class SkinDetailPanel(
         displayNameField.setResponder { text ->
             val e = entry ?: return@setResponder
             e.displayNameOverride = text.trim().ifEmpty { null }
-            SkinNameStore.setName(e.file.name, text.trim())
+            SkinNames.setName(e.file.name, text.trim())
         }
         addChild(displayNameField)
 
@@ -209,7 +209,7 @@ class SkinDetailPanel(
     override fun toggleSkinType() {
         val e = entry ?: return
         e.skinType = if (e.skinType == SkinType.CLASSIC) SkinType.SLIM else SkinType.CLASSIC
-        SkinTypeStore.setType(e.file.name, e.skinType)
+        SkinTypes.setType(e.file.name, e.skinType)
     }
 
     override fun onCloseRequested(instant: Boolean) {

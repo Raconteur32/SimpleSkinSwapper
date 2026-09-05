@@ -3,10 +3,10 @@ package fr.raconteur.simpleskinswapper.gui.library
 import com.mojang.blaze3d.platform.InputConstants
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
 import fr.raconteur.simpleskinswapper.gui.EdgeSafeButtonWidget
-import fr.raconteur.simpleskinswapper.gui.SkinNameStore
+import fr.raconteur.simpleskinswapper.gui.SkinNames
 import fr.raconteur.simpleskinswapper.gui.SkinEntry
 import fr.raconteur.simpleskinswapper.gui.SkinType
-import fr.raconteur.simpleskinswapper.gui.SkinTypeStore
+import fr.raconteur.simpleskinswapper.gui.SkinTypes
 import fr.raconteur.simpleskinswapper.gui.config.YaclConfigScreen
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.client.gui.GuiGraphicsExtractor
@@ -38,6 +38,9 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.IdentityHashMap
+import kotlin.math.ceil
+import kotlin.math.exp
+import kotlin.math.roundToInt
 
 /**
  * Category-based skin library: a vertical category tab strip on the left (pinned "All skins"
@@ -207,9 +210,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // list is shorter — and centers the rounding remainder instead of showing it.
         val zoneTop = gridTop
         val zoneHeight = gridBottom - zoneTop
-        val slots = SkinCategoriesStore.all().size + 2
-        val densitySlots = Math.max(1, Math.round(zoneHeight / 28f))
-        val fillSlots = Math.min(slots, densitySlots)
+        val slots = SkinCategories.all().size + 2
+        val densitySlots = 1.coerceAtLeast((zoneHeight / 28f).roundToInt())
+        val fillSlots = slots.coerceAtMost(densitySlots)
         tabH = (zoneHeight + TAB_OVERLAP * (fillSlots - 1)) / fillSlots
         val bandH = (fillSlots - 1) * (tabH - TAB_OVERLAP) + tabH
         stripZoneTop = zoneTop + (zoneHeight - bandH) / 2
@@ -223,7 +226,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         cols = ((gridW - gap) / (MIN_CELL_W + gap)).toInt().coerceIn(3, MAX_COLS)
         cellW = (gridW - gap * (cols - 1)) / cols
         val viewH = gridBottom - gridTop
-        cellH = Math.min(cellW * 4 / 3, viewH - GRID_MARGIN * 2).coerceAtLeast(MIN_CELL_H)
+        cellH = (cellW * 4 / 3).coerceAtMost(viewH - GRID_MARGIN * 2).coerceAtLeast(MIN_CELL_H)
         val totalW = cols * cellW + gap * (cols - 1)
         gridOffsetX = gridLeft + (gridW - totalW) / 2
         updateMaxScroll()
@@ -233,9 +236,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // The config band scrolls away with the content, so it counts toward it.
         // The trailing "+" card occupies one extra cell after the last skin.
         val bandH = if (selectedCategory != null) band.height(true) + GRID_GAP else 0
-        val rows = Math.ceil((cards.size + 1) / cols.toDouble()).toInt()
+        val rows = ceil((cards.size + 1) / cols.toDouble()).toInt()
         val contentH = bandH + rows * (cellH + GRID_GAP) - GRID_GAP
-        maxScroll = Math.max(0, contentH - (gridBottom - gridTop - GRID_MARGIN * 2))
+        maxScroll = 0.coerceAtLeast(contentH - (gridBottom - gridTop - GRID_MARGIN * 2))
     }
 
     /** Card-area inner edges: the page's baked border plus the grid margin. The config band uses them too. */
@@ -309,9 +312,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             SimpleSkinSwapper.LOGGER.warn("Could not delete skin file {}.", entry.file.name)
             return
         }
-        SkinTypeStore.removeType(entry.file.name)
-        SkinNameStore.removeName(entry.file.name)
-        SkinCategoriesStore.removeFromAll(entry.file.name)
+        SkinTypes.removeType(entry.file.name)
+        SkinNames.removeName(entry.file.name)
+        SkinCategories.removeFromAll(entry.file.name)
         reloadView()
         rebuildCards()
     }
@@ -330,9 +333,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             SimpleSkinSwapper.LOGGER.warn("Could not rename skin file {}.", oldName)
             return false
         }
-        SkinTypeStore.renameType(oldName, target.name)
-        SkinNameStore.renameKey(oldName, target.name)
-        SkinCategoriesStore.renameInAll(oldName, target.name)
+        SkinTypes.renameType(oldName, target.name)
+        SkinNames.renameKey(oldName, target.name)
+        SkinCategories.renameInAll(oldName, target.name)
         entry.file = target
         entry.textureId = null
         entry.textureLoading = false
@@ -381,11 +384,11 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             if (Files.exists(target)) return false
             watcher.markSelfTriggered(target.fileName.toString())
             Files.copy(source.toPath(), target, StandardCopyOption.REPLACE_EXISTING)
-            SkinTypeStore.setType(target.fileName.toString(), type)
-            if (display.isNotBlank()) SkinNameStore.setName(target.fileName.toString(), display)
+            SkinTypes.setType(target.fileName.toString(), type)
+            if (display.isNotBlank()) SkinNames.setName(target.fileName.toString(), display)
             // Adding from a selected category files the skin into it; from All skins the
             // skin stays unassigned (see the add-flow spec scenarios).
-            selectedCategory?.let { SkinCategoriesStore.assignSkin(it, target.fileName.toString()) }
+            selectedCategory?.let { SkinCategories.assignSkin(it, target.fileName.toString()) }
             reloadView()
             rebuildCards()
             true
@@ -485,7 +488,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                 val tab = tabs.tabAt(mouseY, mouseX)
                 if (tab != null) {
                     val label = if (tab == 0) Component.translatable("simpleskinswapper.screen.library.all_skins")
-                    else Component.nullToEmpty(SkinCategoriesStore.all()[tab - 1].name)
+                    else Component.nullToEmpty(SkinCategories.all()[tab - 1].name)
                     drawTooltip(graphics, mouseX, mouseY, label)
                 }
                 // Tooltip for hovered dye picker cell in the expanded band
@@ -526,11 +529,11 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
         // Unselected tabs, clipped to the strip — All Skins is a tab like the others.
         graphics.enableScissor(-PANEL_BLEED, top, STRIP_X + TAB_W + 2, tabBottom)
-        for (i in 0..SkinCategoriesStore.all().size) {
+        for (i in 0..SkinCategories.all().size) {
             val y = tabs.tabY(i)
             // Whole tabs only: a partially-visible tab at the band's bottom edge would
             // show a dangling overlap border past the last full tab.
-            if (y + tabH < top || y + tabH > tabBottom) continue
+            if (y + tabH !in top..tabBottom) continue
             if (isSelectedTab(i)) continue
             drawTab(graphics, i, y)
         }
@@ -571,7 +574,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // Insertion line: after [tabInsertionIndex] categories (pre-removal space).
         if (tabs.tabDragActive && tabs.tabInsertionIndex >= 0) {
             val lineY = tabs.insertionLineY()
-            if (lineY >= top && lineY <= tabBottom) {
+            if (lineY in top..tabBottom) {
                 graphics.fill(STRIP_X, lineY - 1, STRIP_X + TAB_W, lineY + 1, 0xFFFFFFFF.toInt())
             }
         }
@@ -590,11 +593,11 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     private fun isSelectedTab(index: Int): Boolean =
-        if (index == 0) selectedCategory == null else selectedCategory === SkinCategoriesStore.all().getOrNull(index - 1)
+        if (index == 0) selectedCategory == null else selectedCategory === SkinCategories.all().getOrNull(index - 1)
 
     private fun selectedTabIndex(): Int {
         val category = selectedCategory ?: return 0
-        val idx = SkinCategoriesStore.all().indexOf(category)
+        val idx = SkinCategories.all().indexOf(category)
         return if (idx >= 0) idx + 1 else -1
     }
 
@@ -608,7 +611,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     private fun drawTabContent(graphics: GuiGraphicsExtractor, index: Int, y: Int) {
         val label = if (index == 0) Component.translatable("simpleskinswapper.screen.library.all_skins")
-        else Component.nullToEmpty(SkinCategoriesStore.all().getOrNull(index - 1)?.name ?: "")
+        else Component.nullToEmpty(SkinCategories.all().getOrNull(index - 1)?.name ?: "")
         val nameX = if (index == 0) STRIP_X + 6 else STRIP_X + 16
         val nameRight = STRIP_X + TAB_W - 3
         val textY = y + (tabH - font.lineHeight) / 2
@@ -626,7 +629,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             graphics.disableScissor()
         }
         if (index > 0) {
-            SkinCategoriesStore.all().getOrNull(index - 1)?.let {
+            SkinCategories.all().getOrNull(index - 1)?.let {
                 val s = 8
                 val x0 = STRIP_X + 4
                 // Center the square on the glyphs' optical center (same line as the text),
@@ -671,7 +674,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
         val now = System.nanoTime()
         val dt = if (lastCardEaseNanos == 0L) 1.0F else ((now - lastCardEaseNanos) / 1_000_000_000.0F).coerceAtMost(0.1F)
-        val t = 1.0F - Math.exp((-CARD_SLIDE_SPEED * dt).toDouble()).toFloat()
+        val t = 1.0F - exp((-CARD_SLIDE_SPEED * dt).toDouble()).toFloat()
 
         for (i in cards.indices) {
             val card = cards[i]
@@ -734,11 +737,11 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         if (tab != null) {
             if (tab == 0 && selectedCategory != null) {
                 // Dragging from a category onto All skins = unassign; the file stays in the folder.
-                SkinCategoriesStore.removeFromAll(card.entry.file.name)
+                SkinCategories.removeFromAll(card.entry.file.name)
             } else if (tab > 0) {
-                val target = SkinCategoriesStore.all().getOrNull(tab - 1)
+                val target = SkinCategories.all().getOrNull(tab - 1)
                 if (target != null && target !== selectedCategory) {
-                    SkinCategoriesStore.assignSkin(target, card.entry.file.name)
+                    SkinCategories.assignSkin(target, card.entry.file.name)
                 }
             }
             reloadView()
@@ -755,7 +758,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                 if (to > from) to--
                 category.skins.removeAt(from)
                 category.skins.add(to.coerceIn(0, category.skins.size), card.entry.file.name)
-                SkinCategoriesStore.save()
+                SkinCategories.save()
             }
         }
         cardDrag.stop()
@@ -858,13 +861,13 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         val category = selectedCategory
         band.confirmingDelete = false
         if (category != null) {
-            SkinCategoriesStore.removeCategory(category)
+            SkinCategories.removeCategory(category)
             selectCategory(null)
         }
     }
 
     private fun createCategory() {
-        val category = SkinCategoriesStore.addCategory(nextDefaultCategoryName(), SkinCategoryPalette.DEFAULT_HEX)
+        val category = SkinCategories.addCategory(nextDefaultCategoryName(), SkinCategoryPalette.DEFAULT_HEX)
         selectCategory(category)
         band.expanded = true
         band.refreshWidgets()
@@ -873,7 +876,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     /** "New Category", incremented to the first free suffix among live category names. */
     private fun nextDefaultCategoryName(): String {
         val base = Component.translatable("simpleskinswapper.screen.library.add_category").string
-        val taken = SkinCategoriesStore.all().mapTo(HashSet()) { it.name }
+        val taken = SkinCategories.all().mapTo(HashSet()) { it.name }
         if (base !in taken) return base
         var n = 2
         while ("$base $n" in taken) n++
@@ -912,12 +915,12 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         if (tabs.tabDragCategoryIndex >= 0) {
             when (val result = tabs.release(click.button() == InputConstants.MOUSE_BUTTON_LEFT)) {
                 is TabStripController.Release.Move -> {
-                    SkinCategoriesStore.moveCategory(result.from, result.to)
+                    SkinCategories.moveCategory(result.from, result.to)
                     rebuildCards()
                 }
                 is TabStripController.Release.Select -> {
                     if (result.tabIndex == 0) selectCategory(null)
-                    else selectCategory(SkinCategoriesStore.all().getOrNull(result.tabIndex - 1))
+                    else selectCategory(SkinCategories.all().getOrNull(result.tabIndex - 1))
                 }
                 TabStripController.Release.None -> {}
             }

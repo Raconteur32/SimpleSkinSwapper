@@ -3,7 +3,7 @@ package fr.raconteur.simpleskinswapper.gui
 import com.mojang.blaze3d.platform.InputConstants
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapperClient
 import fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig
-import fr.raconteur.simpleskinswapper.gui.library.SkinCategoriesStore
+import fr.raconteur.simpleskinswapper.gui.library.SkinCategories
 import fr.raconteur.simpleskinswapper.gui.library.SkinCategory
 import fr.raconteur.simpleskinswapper.gui.library.SkinCategoryPalette
 import fr.raconteur.simpleskinswapper.overlayMessage
@@ -438,7 +438,7 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
     private fun buildWheels(): Pair<List<List<SkinEntry>>, List<SkinCategory>> {
         val wheelList = ArrayList<List<SkinEntry>>()
         val owners = ArrayList<SkinCategory>()
-        for ((category, names) in SkinCategoriesStore.wheelComposition()) {
+        for ((category, names) in SkinCategories.wheelComposition()) {
             for (chunk in names.chunked(WHEEL_SIZE)) {
                 val resolved = chunk.mapNotNull { byName[it] }
                 if (resolved.isNotEmpty()) {

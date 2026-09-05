@@ -80,6 +80,17 @@ if (sc.current.isActive) {
 		description = "Runs detekt over every stonecutter-generated version tree (rule ledger: gradle/detekt/detekt.yml)."
 		dependsOn(detektTreeTasks)
 	}
+
+	// Unit tests for the Minecraft-free library core (JUnit 5) run on the active tree
+	// only — the core is version-agnostic, so running it once is enough.
+	dependencies {
+		testImplementation(platform("org.junit:junit-bom:5.11.4"))
+		testImplementation("org.junit.jupiter:junit-jupiter")
+		testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+	}
+	tasks.withType<Test>().configureEach {
+		useJUnitPlatform()
+	}
 }
 
 loom {

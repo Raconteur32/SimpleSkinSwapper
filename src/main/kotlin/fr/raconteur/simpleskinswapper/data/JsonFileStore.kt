@@ -1,12 +1,12 @@
 package fr.raconteur.simpleskinswapper.data
 
-import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.logging.Logger
 
 /**
  * Typed JSON file persistence for small stores. `load()` returns [fresh] when the file is
@@ -27,10 +27,10 @@ class JsonFileStore<T>(
         return try {
             JSON.decodeFromString(serializer, Files.readString(file))
         } catch (e: SerializationException) {
-            SimpleSkinSwapper.LOGGER.warn("Could not read {}: {}", fileLabel, e.message)
+            warn("Could not read {}: {}", fileLabel, e.message)
             fresh()
         } catch (e: IOException) {
-            SimpleSkinSwapper.LOGGER.warn("Could not read {}: {}", fileLabel, e.message)
+            warn("Could not read {}: {}", fileLabel, e.message)
             fresh()
         }
     }
@@ -41,11 +41,14 @@ class JsonFileStore<T>(
             Files.createDirectories(file.parent)
             Files.writeString(file, JSON.encodeToString(serializer, value))
         } catch (e: IOException) {
-            SimpleSkinSwapper.LOGGER.warn("Could not write {}: {}", fileLabel, e.message)
+            warn("Could not write {}: {}", fileLabel, e.message)
         }
     }
 
     private companion object {
+        private val LOGGER = System.getLogger(JsonFileStore::class.java.name)
+        private fun warn(message: String, vararg args: Any?) =
+            LOGGER.log(System.Logger.Level.WARNING, message, *args)
         val JSON = Json { prettyPrint = true; ignoreUnknownKeys = true }
     }
 }

@@ -27,11 +27,11 @@ internal class CategoryBand(private val screen: SkinLibraryScreen) {
     }
 
     val wheelsMinus: EdgeSafeButtonWidget = EdgeSafeButtonWidget(0, 0, 20, BAND_FIELD_HEIGHT, Component.literal("-")) {
-        screen.selectedCategory?.let { it.maxWheels = (it.maxWheels - 1).coerceAtLeast(0); SkinCategoriesStore.save() }
+        screen.selectedCategory?.let { it.maxWheels = (it.maxWheels - 1).coerceAtLeast(0); SkinCategories.save() }
     }
 
     val wheelsPlus: EdgeSafeButtonWidget = EdgeSafeButtonWidget(0, 0, 20, BAND_FIELD_HEIGHT, Component.literal("+")) {
-        screen.selectedCategory?.let { it.maxWheels = (it.maxWheels + 1).coerceAtLeast(0); SkinCategoriesStore.save() }
+        screen.selectedCategory?.let { it.maxWheels = (it.maxWheels + 1).coerceAtLeast(0); SkinCategories.save() }
     }
 
     val deleteButton: EdgeSafeButtonWidget = EdgeSafeButtonWidget(0, 0, 20, BAND_FIELD_HEIGHT, Component.literal("✕")) {
@@ -85,7 +85,7 @@ internal class CategoryBand(private val screen: SkinLibraryScreen) {
         val trimmed = text.trim()
         if (trimmed.isNotEmpty() && trimmed != category.name) {
             category.name = trimmed
-            SkinCategoriesStore.save()
+            SkinCategories.save()
         }
     }
 
@@ -106,7 +106,7 @@ internal class CategoryBand(private val screen: SkinLibraryScreen) {
         if (!expanded || screen.selectedCategory == null) return false
         val swatch = swatchAt(mouseX, mouseY) ?: return false
         screen.selectedCategory?.colorHex = SkinCategoryPalette.toHex(swatch)
-        SkinCategoriesStore.save()
+        SkinCategories.save()
         return true
     }
 

@@ -64,7 +64,7 @@ class   TabStripController(
             // Convert the pre-removal insertion point to moveCategory's post-removal target.
             val from = tabIndex - 1
             val to = (if (from < insertion) insertion - 1 else insertion)
-                .coerceIn(0, SkinCategoriesStore.all().size - 1)
+                .coerceIn(0, SkinCategories.all().size - 1)
             return if (to != from) Release.Move(from, to) else Release.None
         }
         if (!wasActive) {
@@ -89,7 +89,7 @@ class   TabStripController(
     internal fun maxTabScroll(): Int {
         // Whole-slot scroll steps: the range is a multiple of slotH, so no tab is ever
         // caught half-hidden at the scroll limit (the strip shows whole tabs only).
-        val slots = SkinCategoriesStore.all().size + 2
+        val slots = SkinCategories.all().size + 2
         val contentH = (slots - 1) * slotH() + tabH()
         val alignedH = stripAlignedBottom() - stripTop()
         if (contentH <= alignedH) return 0
@@ -107,7 +107,7 @@ class   TabStripController(
     }
 
     /** Y of the add-category entry: the strip slot after the last category tab. */
-    internal fun addEntryY(): Int = tabY(SkinCategoriesStore.all().size + 1)
+    internal fun addEntryY(): Int = tabY(SkinCategories.all().size + 1)
 
     /** True when the cursor sits on the add-category entry slot at the end of the strip. */
     internal fun addEntryAt(cursorY: Int, cursorX: Int): Boolean {
@@ -127,7 +127,7 @@ class   TabStripController(
     internal fun tabAt(cursorY: Int, cursorX: Int): Int? {
         if (cursorX < SkinLibraryScreen.STRIP_X || cursorX > SkinLibraryScreen.STRIP_X + SkinLibraryScreen.TAB_W + 4) return null
         if (cursorY < stripTop() || cursorY >= stripAlignedBottom()) return null
-        for (i in SkinCategoriesStore.all().size downTo 0) {
+        for (i in SkinCategories.all().size downTo 0) {
             val top = tabY(i)
             if (top < stripTop() || top + tabH() > stripAlignedBottom()) continue
             if (cursorY >= top && cursorY < top + tabH()) return i
@@ -163,7 +163,7 @@ class   TabStripController(
 
     /** Insertion point p in [0..count]: the gap sits after p categories (pre-removal space). */
     private fun updateTabInsertion() {
-        val count = SkinCategoriesStore.all().size
+        val count = SkinCategories.all().size
         var p = count
         for (storeIdx in 0 until count) {
             val yTop = stripTop() + (storeIdx + 1) * slotH() - tabScroll.toInt()
