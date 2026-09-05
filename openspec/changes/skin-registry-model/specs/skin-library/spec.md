@@ -84,7 +84,7 @@ The library core (registry, hashing and naming, texture lifecycle, migration, de
 
 ### Requirement: Card drag is split between rotate and reorder zones
 
-Dragging the skin model on a card SHALL keep the existing drag-to-rotate behavior unchanged. Dragging a card by its handle or frame SHALL NOT reorder it: cards keep their positions, no insertion gap shows, and the view order stays the default order. During any drag, hovered rotation and the hover walk animation SHALL not apply to the dragged card.
+Dragging the skin model on a card SHALL keep the existing drag-to-rotate behavior unchanged. In a category view, dragging a card by its handle or frame SHALL reorder it: the card follows the cursor, an insertion gap shows where it will land, and on release the category's card order updates and persists. In the All skins and Uncategorized views dragging SHALL NOT reorder — the order stays the default order and no insertion gap shows. During any drag, hovered rotation and the hover walk animation SHALL not apply to the dragged card.
 
 #### Scenario: Rotating the model is unaffected
 
@@ -93,13 +93,18 @@ Dragging the skin model on a card SHALL keep the existing drag-to-rotate behavio
 
 #### Scenario: Reorder by the handle
 
-- **WHEN** the user drags a card by its handle and releases between two cards
-- **THEN** no reorder happens: the card returns to its slot, the other cards keep their positions, and the view order is unchanged
+- **WHEN** the user drags a card by its handle and releases between two cards in a category
+- **THEN** the card moves to that position, the other cards shift in reading order, and the order persists
 
 #### Scenario: Reorder by the frame
 
-- **WHEN** the user drags a card by its frame border rather than the model or handle
-- **THEN** the card behaves exactly as when dragged by the handle: no reorder, positions unchanged
+- **WHEN** the user drags a card by its frame border rather than the model or handle in a category
+- **THEN** the card reorders exactly as when dragged by the handle
+
+#### Scenario: Dragging in a derived view does not reorder
+
+- **WHEN** the user drags a card in the All skins or Uncategorized view
+- **THEN** no insertion gap shows, the other cards keep their positions, and the view order is unchanged
 
 ### Requirement: Cards can be moved between categories by dropping on tabs
 

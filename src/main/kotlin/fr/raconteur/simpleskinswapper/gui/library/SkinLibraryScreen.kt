@@ -780,8 +780,10 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         band.refreshWidgets()
 
         val dragged = reorderDraggingCard
-        // No reorder: the other cards never shift, so no insertion gap exists (-1).
-        val dragIndex = -1
+        // Insertion gap only where a reorder exists: category views. The derived views
+        // (All skins, Uncategorized) keep a fixed default order, so nothing shifts there.
+        val dragIndex = if (selectedCategory != null) dragged?.let { cards.indexOf(it) } ?: -1 else -1
+        if (dragIndex >= 0) cardDrag.updateInsertionIndex(cards.size, mouseX, mouseY)
 
         val now = System.nanoTime()
         val dt = if (lastCardEaseNanos == 0L) 1.0F else ((now - lastCardEaseNanos) / 1_000_000_000.0F).coerceAtMost(0.1F)
@@ -844,13 +846,30 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         if (cards.indexOf(card) < 0) return
 
         // Drop on a category tab = COPY the card there; the source keeps its own and the
-        // view tabs (All skins, Uncategorized) are not drop targets. No grid reorder:
-        // cards return to their slot and the view order is the default order.
+        // view tabs (All skins, Uncategorized) are not drop targets.
         val tab = tabs.tabAt(mouseY, mouseX)
         if (tab != null && tab >= 2) {
             val target = SkinCategories.all().getOrNull(tab - 2)
             if (target != null && target !== selectedCategory) {
                 SkinCategories.addCard(target, card.entry.skinId)
+            }
+            cardDrag.stop()
+            reloadView()
+            rebuildCards()
+            return
+        }
+
+        // Grid drop in a category = reorder within it (the CardEntry moves whole, keeping
+        // its custom name). Derived views keep the default order: the card snaps back.
+        val category = selectedCategory
+        if (category != null && cardDrag.insertionIndex in 0..category.cards.size) {
+            val from = category.cards.indexOfFirst { it.skinId == card.entry.skinId }
+            if (from >= 0) {
+                var to = cardDrag.insertionIndex
+                if (to > from) to--
+                val moved = category.cards.removeAt(from)
+                category.cards.add(to.coerceIn(0, category.cards.size), moved)
+                SkinCategories.save()
             }
         }
         cardDrag.stop()

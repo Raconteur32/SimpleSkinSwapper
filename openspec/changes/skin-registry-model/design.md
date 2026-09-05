@@ -38,7 +38,7 @@ Marker field in the new registry file. Per legacy png: hash pixels → write has
 
 ### D6 — Drag semantics
 
-Drag keeps rotate; the reorder gesture is removed (no gap animation). Dropping a card on a category tab copies the reference (source keeps it; no-op on view tabs; no duplicate ref in the target). The wheel keeps counting cards per category — a skin in two allocated categories occupies slots in both (confirmed).
+Drag keeps rotate; the reorder gesture is removed from the derived views only — categories keep drag-reorder. Dropping a card on a category tab copies the reference (source keeps it; no-op on view tabs; no duplicate ref in the target). The reorder gesture survives in category views (gap, persist); only the derived views (All skins, Uncategorized) keep a fixed default order with no gap. The wheel keeps counting cards per category — a skin in two allocated categories occupies slots in both (confirmed).
 
 ### D7 — Model switch is a deferred replacement
 
