@@ -34,7 +34,7 @@ JUnit 5 (`useJUnitPlatform`), wired on the active stonecutter tree only (same `i
 
 ### D5 — Migration is one-shot, versioned, and never destroys originals
 
-Marker field in the new registry file. Per legacy png: hash pixels → write hash-named texture → registry entry (model from the legacy type store or detection, name from the legacy name store or base name); original file moved unchanged into `skins/User Files/`; `categories.json` remapped filename → card ref (no custom names); the persisted selected skin remapped to the skin id. A second load is a no-op.
+Marker field in the new registry file. Per legacy png: hash pixels → write hash-named texture → registry entry (model from the legacy type store or detection, name from the legacy name store or base name); original file moved unchanged into `skins/User Files/`; `categories.json` remapped filename → card ref (no custom names). The equipped-skin store (`selected.json`) holds a signed Mojang property rather than a library reference, so nothing there is remapped. A second load is a no-op.
 
 ### D6 — Drag semantics
 

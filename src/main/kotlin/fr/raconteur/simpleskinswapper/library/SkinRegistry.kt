@@ -60,7 +60,7 @@ class SkinRegistry(env: SkinLibraryEnv) {
 
     fun findById(id: String): SkinRecord? = lookup(id)
 
-    fun find(textureHash: String, model: String): SkinRecord? = lookup("\${textureHash}_\$model")
+    fun find(textureHash: String, model: String): SkinRecord? = lookup("${textureHash}_$model")
 
     /** Creates a skin; returns null when the (texture, model) pair already exists. */
     fun create(textureHash: String, model: String, name: String, file: String): SkinRecord? {
