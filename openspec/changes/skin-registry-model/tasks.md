@@ -2,7 +2,7 @@
 
 - [x] 1. Bootstrap tests: JUnit 5 on the active tree (`useJUnitPlatform`, deps under `isActive`), `SkinLibraryEnv` seam, convert the store layer to env-receiving classes with production facades, one trivial green test; commit
 - [x] 2. Texture hashing and naming: canonical pixel hashing behind `Hasher`, short-hash file naming with progressive lengthening, plus tests (including a forced collision via injected hasher); commit
-- [ ] 3. Skin registry: unique (texture, model) pairs, display names, persistence (`skins.json`), plus tests; commit
+- [x] 3. Skin registry: unique (texture, model) pairs, display names, persistence (`skins.json`), plus tests; commit
 - [ ] 4. Cards: categories store card references (skin ref + optional per-category name), one ref per category, multi-membership, copy-add semantics at store level, plus tests; commit
 - [ ] 5. Texture lifecycle: create-only-if-skin-accepted, delete-on-last-ref, registry validation pruning on load/refresh, plus tests; commit
 - [ ] 6. Delete decision: extract the pure `(view, categoryCount) → options + message args` function with tests; commit
