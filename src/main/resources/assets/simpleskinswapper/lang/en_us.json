@@ -65,5 +65,7 @@
   "simpleskinswapper.screen.add.username": "Account name",
   "simpleskinswapper.screen.add.none": "No skin selected",
   "simpleskinswapper.screen.add.confirm": "Add",
-  "simpleskinswapper.screen.library.add_category": "New Category"
+  "simpleskinswapper.screen.library.add_category": "New Category",
+  "simpleskinswapper.screen.library.uncategorized": "Uncategorized",
+  "simpleskinswapper.screen.library.empty_uncategorized": "Nothing outside categories — every skin is filed\nor drag a card onto a category tab to file it"
 }

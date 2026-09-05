@@ -91,6 +91,10 @@ if (sc.current.isActive) {
 	tasks.withType<Test>().configureEach {
 		useJUnitPlatform()
 	}
+} else {
+	// Unit tests are active-tree-only (version-agnostic core): the other trees skip them.
+	tasks.named("compileTestKotlin") { enabled = false }
+	tasks.named("test") { enabled = false }
 }
 
 loom {

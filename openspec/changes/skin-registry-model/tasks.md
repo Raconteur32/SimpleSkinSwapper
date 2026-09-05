@@ -8,5 +8,5 @@
 - [x] 6. Delete decision: extract the pure `(view, categoryCount) → options + message args` function with tests; commit
 - [x] 7. Migration: versioned one-shot (hash textures, registry entries, `User Files/` preservation, category remap, selected-skin remap) with fixture-folder tests; commit
 - [x] 8. Ingest wiring: add-from-file and add-from-account (Mojang metadata model, pixel fallback) through the deduplicating ingest, model pre-fill editable in the panel; commit
-- [ ] 9. Views: Uncategorized derived view and tab, drag reorder removal, drop-on-tab copy wiring, no drop on view tabs; commit
+- [x] 9. Views: Uncategorized derived view and tab, drag reorder removal, drop-on-tab copy wiring, no drop on view tabs; commit
 - [ ] 10. GUI: dynamic delete dialog, detail panel global + per-category name fields (rename never touches files), legacy stores retired; full build + `detektAll` green; commit

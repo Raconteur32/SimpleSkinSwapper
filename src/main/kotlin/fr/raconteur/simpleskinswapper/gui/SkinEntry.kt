@@ -1,6 +1,7 @@
 package fr.raconteur.simpleskinswapper.gui
 
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
+import fr.raconteur.simpleskinswapper.library.SkinRecord
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.resources.Identifier
 import java.io.File
@@ -25,6 +26,10 @@ class SkinEntry(@JvmField var file: File) {
 
     @JvmField
     var skinType: SkinType
+
+    /** Registry id of the skin this entry renders (empty for legacy scan entries). */
+    @JvmField
+    var skinId: String = ""
 
     /** GPU texture identifier, null until loaded. */
     @JvmField
@@ -63,6 +68,17 @@ class SkinEntry(@JvmField var file: File) {
     }
 
     companion object {
+        /** Builds the render entry for a registry record (registry-backed views). */
+        @JvmStatic
+        fun fromRecord(record: SkinRecord): SkinEntry {
+            val file = FabricLoader.getInstance().gameDir.resolve("skins").resolve(record.file).toFile()
+            val entry = SkinEntry(file)
+            entry.skinId = record.id
+            if (record.name.isNotBlank()) entry.displayNameOverride = record.name
+            entry.skinType = if (record.model == SkinRecord.MODEL_SLIM) SkinType.SLIM else SkinType.CLASSIC
+            return entry
+        }
+
         /**
          * Scan the game's skins/ directory and return all .png files as SkinEntry objects.
          */

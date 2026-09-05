@@ -1,6 +1,8 @@
 package fr.raconteur.simpleskinswapper.gui.library
 
 import fr.raconteur.simpleskinswapper.data.FabricSkinLibraryEnv
+import fr.raconteur.simpleskinswapper.library.LibraryCategory
+import fr.raconteur.simpleskinswapper.library.SkinCardStore
 import fr.raconteur.simpleskinswapper.data.JsonFileStore
 import fr.raconteur.simpleskinswapper.data.SkinLibraryEnv
 import kotlinx.serialization.Serializable
@@ -147,19 +149,35 @@ class SkinCategoriesStore(private val env: SkinLibraryEnv) {
 
 }
 
-/** GUI-facing singleton delegating to the production-backed instance. */
+/** GUI-facing singleton over the card store: categories hold card references. */
 object SkinCategories {
 
-    private val instance by lazy { SkinCategoriesStore(FabricSkinLibraryEnv) }
+    private val instance by lazy { SkinCardStore(FabricSkinLibraryEnv) }
 
-    @JvmStatic fun all(): List<SkinCategory> = instance.all()
-    @JvmStatic fun categoryOf(fileName: String): SkinCategory? = instance.categoryOf(fileName)
-    @JvmStatic fun addCategory(name: String, colorHex: String): SkinCategory = instance.addCategory(name, colorHex)
-    @JvmStatic fun removeCategory(category: SkinCategory) = instance.removeCategory(category)
+    @JvmStatic fun all(): List<LibraryCategory> = instance.all()
+    @JvmStatic fun createCategory(name: String, colorHex: String): LibraryCategory = instance.createCategory(name, colorHex)
+    @JvmStatic fun removeCategory(category: LibraryCategory) = instance.removeCategory(category)
     @JvmStatic fun moveCategory(from: Int, to: Int) = instance.moveCategory(from, to)
-    @JvmStatic fun assignSkin(category: SkinCategory, fileName: String) = instance.assignSkin(category, fileName)
-    @JvmStatic fun removeFromAll(fileName: String): Boolean = instance.removeFromAll(fileName)
-    fun renameInAll(oldFileName: String, newFileName: String) = instance.renameInAll(oldFileName, newFileName)
-    @JvmStatic fun wheelComposition(): List<Pair<SkinCategory, List<String>>> = instance.wheelComposition()
+
+    /** Copy semantics: appends a card for [skinId]; other categories are untouched. */
+    @JvmStatic fun addCard(category: LibraryCategory, skinId: String): Boolean = instance.addCard(category, skinId)
+    @JvmStatic fun removeCard(category: LibraryCategory, skinId: String): Boolean = instance.removeCard(category, skinId)
+    @JvmStatic fun categoriesOf(skinId: String): List<LibraryCategory> = instance.categoriesOf(skinId)
+
+    /** Wheel composition: allocated categories in order, each contributing at most
+     *  `maxWheels * 10` skin ids from its card list. */
+    @JvmStatic fun wheelComposition(): List<Pair<LibraryCategory, List<String>>> =
+        instance.all().filter { it.maxWheels > 0 }
+            .map { it to it.cards.take(it.maxWheels * 10).map { card -> card.skinId } }
+
+    /** Removes every card for [skinId] (skin deleted or pruned). */
+    @JvmStatic fun removeEverywhere(skinId: String): Boolean {
+        var changed = false
+        for (category in instance.all()) {
+            changed = instance.removeCard(category, skinId) || changed
+        }
+        return changed
+    }
+
     @JvmStatic fun save() = instance.save()
 }

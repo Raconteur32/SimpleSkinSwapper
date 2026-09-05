@@ -5,7 +5,7 @@ import net.minecraft.util.Mth
 /**
  * Tab strip state machine: scroll, drag-to-reorder with insertion gap and edge auto-scroll.
  * Selection is applied by the screen via [Release] — the controller owns no selection state.
- * Tab indexes are 0 = All, i>0 = category i-1 (same convention everywhere).
+ * Tab indexes are 0 = All, 1 = Uncategorized, i>1 = category i-2 (same convention everywhere).
  */
 class   TabStripController(
     internal val stripTop: () -> Int,
@@ -13,7 +13,7 @@ class   TabStripController(
     private val tabH: () -> Int,
 ) {
 
-    // Press/drag state (-1 = none, 0 = All, >0 = category index + 1).
+    // Press/drag state (-1 = none, 0 = All, 1 = Uncategorized, >1 = category index + 2).
     internal var tabDragCategoryIndex = -1
         private set
     internal var tabDragActive = false
@@ -38,7 +38,7 @@ class   TabStripController(
 
     /** Tracks an in-progress drag; false when no drag is in progress for this button. */
     fun drag(tabIndex: Int, isLeftButton: Boolean, cursorY: Int): Boolean {
-        if (tabIndex <= 0 || !isLeftButton) return false
+        if (tabIndex <= 1 || !isLeftButton) return false
         if (!tabDragActive && Math.abs(cursorY - tabDragStartY) > TAB_DRAG_THRESHOLD) {
             tabDragActive = true
         }
@@ -60,9 +60,9 @@ class   TabStripController(
         tabDragActive = false
         tabAutoScrollNanos = 0L
         tabInsertionIndex = -1
-        if (wasActive && tabIndex > 0 && insertion >= 0) {
+        if (wasActive && tabIndex > 1 && insertion >= 0) {
             // Convert the pre-removal insertion point to moveCategory's post-removal target.
-            val from = tabIndex - 1
+            val from = tabIndex - 2
             val to = (if (from < insertion) insertion - 1 else insertion)
                 .coerceIn(0, SkinCategories.all().size - 1)
             return if (to != from) Release.Move(from, to) else Release.None
@@ -78,18 +78,18 @@ class   TabStripController(
         tabScroll = Mth.clamp(tabScroll - amount, 0.0F, maxTabScroll().toFloat())
     }
 
-    /** Y of tab [index]: 0 = All, i>0 = category i-1. All tabs scroll alike; the insertion gap shifts later tabs. */
+    /** Y of tab [index]: 0 = All, 1 = Uncategorized, i>1 = category i-2. All tabs scroll alike; the insertion gap shifts later tabs. */
     internal fun tabY(index: Int): Int {
         var y = stripTop() + index * slotH()
         // The insertion gap opens after category [tabInsertionIndex], shifting later tabs down.
-        if (tabDragActive && tabInsertionIndex >= 0 && index >= tabInsertionIndex + 1) y += slotH()
+        if (tabDragActive && tabInsertionIndex >= 0 && index >= tabInsertionIndex + 2) y += slotH()
         return y - tabScroll.toInt()
     }
 
     internal fun maxTabScroll(): Int {
         // Whole-slot scroll steps: the range is a multiple of slotH, so no tab is ever
         // caught half-hidden at the scroll limit (the strip shows whole tabs only).
-        val slots = SkinCategories.all().size + 2
+        val slots = SkinCategories.all().size + 3
         val contentH = (slots - 1) * slotH() + tabH()
         val alignedH = stripAlignedBottom() - stripTop()
         if (contentH <= alignedH) return 0
@@ -107,7 +107,7 @@ class   TabStripController(
     }
 
     /** Y of the add-category entry: the strip slot after the last category tab. */
-    internal fun addEntryY(): Int = tabY(SkinCategories.all().size + 1)
+    internal fun addEntryY(): Int = tabY(SkinCategories.all().size + 2)
 
     /** True when the cursor sits on the add-category entry slot at the end of the strip. */
     internal fun addEntryAt(cursorY: Int, cursorX: Int): Boolean {
@@ -122,12 +122,12 @@ class   TabStripController(
      *  panel's top border covers the one above — the drawn-last (lower) tab wins clicks. */
     internal fun slotH(): Int = tabH() - SkinLibraryScreen.TAB_OVERLAP
 
-    /** Tab under the cursor, accounting for the insertion gap; null when none. 0 = All, i>0 = category i-1.
+    /** Tab under the cursor, accounting for the insertion gap; null when none. 0 = All, 1 = Uncategorized, i>1 = category i-2.
      *  Scanned bottom-up: lower tabs draw on top, so their overlap band is theirs to click. */
     internal fun tabAt(cursorY: Int, cursorX: Int): Int? {
         if (cursorX < SkinLibraryScreen.STRIP_X || cursorX > SkinLibraryScreen.STRIP_X + SkinLibraryScreen.TAB_W + 4) return null
         if (cursorY < stripTop() || cursorY >= stripAlignedBottom()) return null
-        for (i in SkinCategories.all().size downTo 0) {
+        for (i in SkinCategories.all().size + 1 downTo 0) {
             val top = tabY(i)
             if (top < stripTop() || top + tabH() > stripAlignedBottom()) continue
             if (cursorY >= top && cursorY < top + tabH()) return i
@@ -166,7 +166,7 @@ class   TabStripController(
         val count = SkinCategories.all().size
         var p = count
         for (storeIdx in 0 until count) {
-            val yTop = stripTop() + (storeIdx + 1) * slotH() - tabScroll.toInt()
+            val yTop = stripTop() + (storeIdx + 2) * slotH() - tabScroll.toInt()
             if (tabDragCursorY < yTop + tabH() / 2) {
                 p = storeIdx
                 break
@@ -177,7 +177,7 @@ class   TabStripController(
 
     /** Outcome of releasing a tab press/drag. */
     sealed class Release {
-        /** Click without movement on tab index (0 = All). */
+        /** Click without movement on tab index (0 = All, 1 = Uncategorized). */
         data class Select(val tabIndex: Int) : Release()
 
         /** Move category [from] to slot [to] (post-removal indexes). */
@@ -186,7 +186,7 @@ class   TabStripController(
         data object None : Release()
     }
 
-    internal fun insertionLineY(): Int = stripTop() + (tabInsertionIndex + 1) * slotH() - tabScroll.toInt()
+    internal fun insertionLineY(): Int = stripTop() + (tabInsertionIndex + 2) * slotH() - tabScroll.toInt()
 
     private companion object {
         const val TAB_DRAG_THRESHOLD = 5.0

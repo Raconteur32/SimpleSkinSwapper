@@ -4,7 +4,8 @@ import com.mojang.blaze3d.platform.InputConstants
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapperClient
 import fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig
 import fr.raconteur.simpleskinswapper.gui.library.SkinCategories
-import fr.raconteur.simpleskinswapper.gui.library.SkinCategory
+import fr.raconteur.simpleskinswapper.library.LibraryCategory
+import fr.raconteur.simpleskinswapper.gui.library.SkinRecords
 import fr.raconteur.simpleskinswapper.gui.library.SkinCategoryPalette
 import fr.raconteur.simpleskinswapper.overlayMessage
 import fr.raconteur.simpleskinswapper.changeskin.SkinChange
@@ -26,14 +27,14 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
 
     private val client get() = minecraft
 
-    private val byName: Map<String, SkinEntry> = SkinEntry.loadSkins().associateBy { it.file.name }
+    private val byId: Map<String, SkinEntry> = SkinRecords.all().associate { it.id to SkinEntry.fromRecord(it) }
 
     // Wheels composed from the user's categories: allocated categories in order, each
     // contributing at most maxWheels wheels of ten. wheelCategories[w] owns wheels[w].
-    private val wheelBuild: Pair<List<List<SkinEntry>>, List<SkinCategory>> = buildWheels()
+    private val wheelBuild: Pair<List<List<SkinEntry>>, List<LibraryCategory>> = buildWheels()
     private val wheels: List<List<SkinEntry>> = wheelBuild.first
-    private val wheelCategories: List<SkinCategory> = wheelBuild.second
-    private val firstWheelIndexOf: Map<SkinCategory, Int> = buildFirstWheelIndex()
+    private val wheelCategories: List<LibraryCategory> = wheelBuild.second
+    private val firstWheelIndexOf: Map<LibraryCategory, Int> = buildFirstWheelIndex()
     private val wheelCount: Int = wheels.size
 
     // Continuous wheel position: wheelPos eases toward the integer targetPos. Both live in an
@@ -123,7 +124,7 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
     private fun drawEmptyState(
         context: GuiGraphicsExtractor, cx: Float, cy: Float, mouseX: Int, mouseY: Int, delta: Float
     ) {
-        val key = if (byName.isEmpty()) "simpleskinswapper.screen.carousel.no_skins"
+        val key = if (byId.isEmpty()) "simpleskinswapper.screen.carousel.no_skins"
         else "simpleskinswapper.screen.wheel.empty"
         context.centeredText(
             font,
@@ -435,12 +436,12 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
         *///?}
     }
 
-    private fun buildWheels(): Pair<List<List<SkinEntry>>, List<SkinCategory>> {
+    private fun buildWheels(): Pair<List<List<SkinEntry>>, List<LibraryCategory>> {
         val wheelList = ArrayList<List<SkinEntry>>()
-        val owners = ArrayList<SkinCategory>()
-        for ((category, names) in SkinCategories.wheelComposition()) {
-            for (chunk in names.chunked(WHEEL_SIZE)) {
-                val resolved = chunk.mapNotNull { byName[it] }
+        val owners = ArrayList<LibraryCategory>()
+        for ((category, ids) in SkinCategories.wheelComposition()) {
+            for (chunk in ids.chunked(WHEEL_SIZE)) {
+                val resolved = chunk.mapNotNull { byId[it] }
                 if (resolved.isNotEmpty()) {
                     wheelList.add(resolved)
                     owners.add(category)
@@ -450,8 +451,8 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
         return wheelList to owners
     }
 
-    private fun buildFirstWheelIndex(): Map<SkinCategory, Int> {
-        val map = HashMap<SkinCategory, Int>()
+    private fun buildFirstWheelIndex(): Map<LibraryCategory, Int> {
+        val map = HashMap<LibraryCategory, Int>()
         for (w in 0..<wheelCount) {
             map.putIfAbsent(wheelCategories[w], w)
         }

@@ -36,12 +36,16 @@ import java.io.IOException
 import java.nio.file.FileSystems
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
 import java.util.IdentityHashMap
 import kotlin.math.ceil
 import kotlin.math.exp
 import kotlin.math.roundToInt
-import fr.raconteur.simpleskinswapper.changeskin.AccountSkinFetcher
+import fr.raconteur.simpleskinswapper.library.TextureHashing
+import fr.raconteur.simpleskinswapper.library.SkinRegistry
+import fr.raconteur.simpleskinswapper.library.SkinCardStore
+import fr.raconteur.simpleskinswapper.library.LibraryCategory
+import fr.raconteur.simpleskinswapper.library.LibraryMigrator
+import fr.raconteur.simpleskinswapper.data.FabricSkinLibraryEnv
 
 /**
  * Category-based skin library: a vertical category tab strip on the left (pinned "All skins"
@@ -73,7 +77,10 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     private val cards = ArrayList<SkinLibraryCard>()
 
     /** Currently selected view: null category = the pinned All skins view. */
-    internal var selectedCategory: SkinCategory? = null
+    internal var selectedCategory: LibraryCategory? = null
+
+    /** True when the built-in Uncategorized view is selected ([selectedCategory] is null). */
+    internal var uncategorizedSelected = false
     internal val band = CategoryBand(this)
 
     // Card reorder drag (started by a card's frame/handle zone).
@@ -130,6 +137,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     override fun init() {
         super.init()
+        migrateLegacyLibraryIfNeeded()
         reloadView()
         initBandAndFooter()
         rebuildCards()
@@ -137,6 +145,18 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         reattachOverlays()
         watcher.stop()
         watcher.start()
+    }
+
+    /** One-shot legacy migration, then pruning of skins whose texture vanished externally. */
+    private fun migrateLegacyLibraryIfNeeded() {
+        val migrator = LibraryMigrator(
+            FabricSkinLibraryEnv,
+            SkinRegistry(FabricSkinLibraryEnv),
+            SkinCardStore(FabricSkinLibraryEnv),
+            TextureHashing.sha256,
+        )
+        migrator.migrate()
+        for (id in SkinLifecycle.pruneMissingTextures()) SkinCategories.removeEverywhere(id)
     }
 
     /** Band widgets, page footer and the category-creation button under the tab strip. */
@@ -211,7 +231,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // list is shorter — and centers the rounding remainder instead of showing it.
         val zoneTop = gridTop
         val zoneHeight = gridBottom - zoneTop
-        val slots = SkinCategories.all().size + 2
+        val slots = SkinCategories.all().size + 3
         val densitySlots = 1.coerceAtLeast((zoneHeight / 28f).roundToInt())
         val fillSlots = slots.coerceAtMost(densitySlots)
         tabH = (zoneHeight + TAB_OVERLAP * (fillSlots - 1)) / fillSlots
@@ -264,13 +284,20 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     private fun reloadView() {
         entries.clear()
+        val registry = SkinRecords.all()
         val category = selectedCategory
         if (category == null) {
-            entries.addAll(SkinEntry.loadSkins())
+            // All skins: every registry entry — Uncategorized: the ones no category holds.
+            val source = if (uncategorizedSelected) {
+                registry.filter { SkinCategories.categoriesOf(it.id).isEmpty() }
+            } else {
+                registry
+            }
+            for (record in source) entries.add(SkinEntry.fromRecord(record))
         } else {
-            val byName = SkinEntry.loadSkins().associateBy { it.file.name }
-            for (name in category.skins) {
-                byName[name]?.let { entries.add(it) }
+            val byId = registry.associateBy { it.id }
+            for (card in category.cards) {
+                byId[card.skinId]?.let { entries.add(SkinEntry.fromRecord(it)) }
             }
         }
     }
@@ -308,38 +335,18 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     fun deleteEntry(entry: SkinEntry) {
         watcher.markSelfTriggered(entry.file.name)
-        if (!entry.file.delete()) {
-            watcher.unmarkSelfTriggered(entry.file.name)
-            SimpleSkinSwapper.LOGGER.warn("Could not delete skin file {}.", entry.file.name)
-            return
-        }
-        SkinTypes.removeType(entry.file.name)
-        SkinNames.removeName(entry.file.name)
-        SkinCategories.removeFromAll(entry.file.name)
+        SkinLifecycle.removeSkin(entry.skinId)
+        SkinCategories.removeEverywhere(entry.skinId)
         reloadView()
         rebuildCards()
     }
 
-    /** Renames a skin file (no extension), migrating the per-file stores. */
+    /** Renames a skin: display name only — the texture file name never changes. */
     fun renameEntry(entry: SkinEntry, newName: String): Boolean {
-        val sanitized = newName.replace(Regex("[^A-Za-z0-9_\\- ]"), "_").trim()
-        if (sanitized.isEmpty()) return false
-        val target = File(entry.file.parentFile, "$sanitized.png")
-        if (target.path == entry.file.path) return false
-        if (target.exists()) return false
-        val oldName = entry.file.name
-        watcher.markSelfTriggered(oldName)
-        watcher.markSelfTriggered(target.name)
-        if (!entry.file.renameTo(target)) {
-            SimpleSkinSwapper.LOGGER.warn("Could not rename skin file {}.", oldName)
-            return false
-        }
-        SkinTypes.renameType(oldName, target.name)
-        SkinNames.renameKey(oldName, target.name)
-        SkinCategories.renameInAll(oldName, target.name)
-        entry.file = target
-        entry.textureId = null
-        entry.textureLoading = false
+        val name = newName.trim()
+        if (name.isEmpty()) return false
+        SkinRecords.rename(entry.skinId, name)
+        entry.displayNameOverride = name
         reloadView()
         rebuildCards()
         return true
@@ -374,28 +381,21 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         return panel
     }
 
-    /** Transitional ingest: the display name doubles as the file name until the registry
-     *  switchover; uniqueness is enforced instead of refusing collisions. */
+    /** Ingests the staged skin through the registry (dedup by texture value); adding from
+     *  a selected category adds a card there — copy semantics, other categories untouched. */
     fun confirmAddSkin(source: File, display: String, type: SkinType): Boolean {
-        val base = display.replace(Regex("[^A-Za-z0-9_\\- ]"), "_").trim().ifBlank { "New Skin" }
-        val skinsDir = FabricLoader.getInstance().gameDir.resolve("skins")
-        return try {
-            Files.createDirectories(skinsDir)
-            val target = AccountSkinFetcher.uniqueFile(skinsDir.resolve("$base.png"))
-            watcher.markSelfTriggered(target.fileName.toString())
-            Files.copy(source.toPath(), target, StandardCopyOption.REPLACE_EXISTING)
-            SkinTypes.setType(target.fileName.toString(), type)
-            if (display.isNotBlank()) SkinNames.setName(target.fileName.toString(), display)
-            // Adding from a selected category files the skin into it; from All skins the
-            // skin stays unassigned (see the add-flow spec scenarios).
-            selectedCategory?.let { SkinCategories.assignSkin(it, target.fileName.toString()) }
-            reloadView()
-            rebuildCards()
-            true
+        val bytes = try {
+            Files.readAllBytes(source.toPath())
         } catch (e: IOException) {
-            SimpleSkinSwapper.LOGGER.warn("Could not add skin {}: {}", base, e.message)
-            false
+            SimpleSkinSwapper.LOGGER.warn("Could not read staged skin: {}", e.message)
+            return false
         }
+        val record = SkinLifecycle.createSkin(bytes, type.mojangVariant, display) ?: return false
+        watcher.markSelfTriggered(record.file)
+        selectedCategory?.let { SkinCategories.addCard(it, record.id) }
+        reloadView()
+        rebuildCards()
+        return true
     }
 
     /** Re-points the detail panel at the fresh entry after a reload, closing it if the skin is gone. */
@@ -485,11 +485,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
             // Tooltip for hovered tab
             if (tabs.tabDragCategoryIndex == -1 && reorderDraggingCard == null && !band.confirmingDelete) {
-                val tab = tabs.tabAt(mouseY, mouseX)
-                if (tab != null) {
-                    val label = if (tab == 0) Component.translatable("simpleskinswapper.screen.library.all_skins")
-                    else Component.nullToEmpty(SkinCategories.all()[tab - 1].name)
-                    drawTooltip(graphics, mouseX, mouseY, label)
+                tabs.tabAt(mouseY, mouseX)?.let { tab ->
+                    drawTooltip(graphics, mouseX, mouseY, tabTooltipLabel(tab))
                 }
                 // Tooltip for hovered dye picker cell in the expanded band
                 band.hoveredDyeTooltip(mouseX, mouseY)?.let { drawTooltip(graphics, mouseX, mouseY, it) }
@@ -497,13 +494,20 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         }
     }
 
+    /** Tab tooltip: built-in view names, or the live category name. */
+    private fun tabTooltipLabel(tab: Int): Component = when {
+        tab == 0 -> Component.translatable("simpleskinswapper.screen.library.all_skins")
+        tab == 1 -> Component.translatable("simpleskinswapper.screen.library.uncategorized")
+        else -> Component.nullToEmpty(SkinCategories.all().getOrNull(tab - 2)?.name ?: "")
+    }
+
     /** Centered hint when the current view has no skins (never added, or empty category). */
     private fun drawEmptyStateMessage(graphics: GuiGraphicsExtractor) {
         if (cards.isNotEmpty()) return
-        val messageKey = if (selectedCategory == null) {
-            "simpleskinswapper.screen.carousel.no_skins"
-        } else {
-            "simpleskinswapper.screen.library.empty_category"
+        val messageKey = when {
+            selectedCategory != null -> "simpleskinswapper.screen.library.empty_category"
+            uncategorizedSelected -> "simpleskinswapper.screen.library.empty_uncategorized"
+            else -> "simpleskinswapper.screen.carousel.no_skins"
         }
         // A "\n" in the translation splits the message into centered lines (the
         // empty-category hint reads better balanced on two lines).
@@ -529,7 +533,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
         // Unselected tabs, clipped to the strip — All Skins is a tab like the others.
         graphics.enableScissor(-PANEL_BLEED, top, STRIP_X + TAB_W + 2, tabBottom)
-        for (i in 0..SkinCategories.all().size) {
+        for (i in 0..SkinCategories.all().size + 1) {
             val y = tabs.tabY(i)
             // Whole tabs only: a partially-visible tab at the band's bottom edge would
             // show a dangling overlap border past the last full tab.
@@ -593,12 +597,16 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     private fun isSelectedTab(index: Int): Boolean =
-        if (index == 0) selectedCategory == null else selectedCategory === SkinCategories.all().getOrNull(index - 1)
+        when {
+            index == 0 -> selectedCategory == null && !uncategorizedSelected
+            index == 1 -> selectedCategory == null && uncategorizedSelected
+            else -> selectedCategory === SkinCategories.all().getOrNull(index - 2)
+        }
 
     private fun selectedTabIndex(): Int {
-        val category = selectedCategory ?: return 0
+        val category = selectedCategory ?: return if (uncategorizedSelected) 1 else 0
         val idx = SkinCategories.all().indexOf(category)
-        return if (idx >= 0) idx + 1 else -1
+        return if (idx >= 0) idx + 2 else -1
     }
 
     private fun drawTab(graphics: GuiGraphicsExtractor, index: Int, y: Int) {
@@ -610,8 +618,11 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     private fun drawTabContent(graphics: GuiGraphicsExtractor, index: Int, y: Int) {
-        val label = if (index == 0) Component.translatable("simpleskinswapper.screen.library.all_skins")
-        else Component.nullToEmpty(SkinCategories.all().getOrNull(index - 1)?.name ?: "")
+        val label = when {
+            index == 0 -> Component.translatable("simpleskinswapper.screen.library.all_skins")
+            index == 1 -> Component.translatable("simpleskinswapper.screen.library.uncategorized")
+            else -> Component.nullToEmpty(SkinCategories.all().getOrNull(index - 2)?.name ?: "")
+        }
         val nameX = if (index == 0) STRIP_X + 6 else STRIP_X + 16
         val nameRight = STRIP_X + TAB_W - 3
         val textY = y + (tabH - font.lineHeight) / 2
@@ -628,8 +639,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             graphics.text(client.font, Component.nullToEmpty(text), nameX, textY, 0xFFFFFFFF.toInt())
             graphics.disableScissor()
         }
-        if (index > 0) {
-            SkinCategories.all().getOrNull(index - 1)?.let {
+        if (index > 1) {
+            SkinCategories.all().getOrNull(index - 2)?.let {
                 val s = 8
                 val x0 = STRIP_X + 4
                 // Center the square on the glyphs' optical center (same line as the text),
@@ -669,8 +680,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         band.refreshWidgets()
 
         val dragged = reorderDraggingCard
-        val dragIndex = dragged?.let { cards.indexOf(it) } ?: -1
-        cardDrag.updateInsertionIndex(cards.size, mouseX, mouseY)
+        // No reorder: the other cards never shift, so no insertion gap exists (-1).
+        val dragIndex = -1
 
         val now = System.nanoTime()
         val dt = if (lastCardEaseNanos == 0L) 1.0F else ((now - lastCardEaseNanos) / 1_000_000_000.0F).coerceAtMost(0.1F)
@@ -732,38 +743,17 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         reorderDraggingCard = null
         if (cards.indexOf(card) < 0) return
 
-        // Drop on a tab = cross-category move / unassign.
+        // Drop on a category tab = COPY the card there; the source keeps its own and the
+        // view tabs (All skins, Uncategorized) are not drop targets. No grid reorder:
+        // cards return to their slot and the view order is the default order.
         val tab = tabs.tabAt(mouseY, mouseX)
-        if (tab != null) {
-            if (tab == 0 && selectedCategory != null) {
-                // Dragging from a category onto All skins = unassign; the file stays in the folder.
-                SkinCategories.removeFromAll(card.entry.file.name)
-            } else if (tab > 0) {
-                val target = SkinCategories.all().getOrNull(tab - 1)
-                if (target != null && target !== selectedCategory) {
-                    SkinCategories.assignSkin(target, card.entry.file.name)
-                }
-            }
-            reloadView()
-            rebuildCards()
-            return
-        }
-
-        // Grid drop = reorder within the current category (the All view has no explicit order).
-        val category = selectedCategory
-        if (category != null && cardDrag.insertionIndex in 0..category.skins.size) {
-            val from = category.skins.indexOf(card.entry.file.name)
-            if (from >= 0) {
-                var to = cardDrag.insertionIndex
-                if (to > from) to--
-                category.skins.removeAt(from)
-                category.skins.add(to.coerceIn(0, category.skins.size), card.entry.file.name)
-                SkinCategories.save()
+        if (tab != null && tab >= 2) {
+            val target = SkinCategories.all().getOrNull(tab - 2)
+            if (target != null && target !== selectedCategory) {
+                SkinCategories.addCard(target, card.entry.skinId)
             }
         }
         cardDrag.stop()
-        // Re-order `entries` from the store before rebuilding — rebuildCards() iterates
-        // `entries`, not `category.skins`, so the new order must be loaded into it.
         reloadView()
         rebuildCards()
     }
@@ -867,7 +857,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     private fun createCategory() {
-        val category = SkinCategories.addCategory(nextDefaultCategoryName(), SkinCategoryPalette.DEFAULT_HEX)
+        val category = SkinCategories.createCategory(nextDefaultCategoryName(), SkinCategoryPalette.DEFAULT_HEX)
         selectCategory(category)
         band.expanded = true
         band.refreshWidgets()
@@ -883,7 +873,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         return "$base $n"
     }
 
-    private fun selectCategory(category: SkinCategory?) {
+    private fun selectCategory(category: LibraryCategory?) {
+        uncategorizedSelected = false
         selectedCategory = category
         band.expanded = false
         scrollY = 0
@@ -919,8 +910,19 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                     rebuildCards()
                 }
                 is TabStripController.Release.Select -> {
-                    if (result.tabIndex == 0) selectCategory(null)
-                    else selectCategory(SkinCategories.all().getOrNull(result.tabIndex - 1))
+                    when {
+                        result.tabIndex == 0 -> selectCategory(null)
+                        result.tabIndex == 1 -> {
+                            selectedCategory = null
+                            uncategorizedSelected = true
+                            band.expanded = false
+                            scrollY = 0
+                            reloadView()
+                            rebuildCards()
+                            recomputeLayout()
+                        }
+                        else -> selectCategory(SkinCategories.all().getOrNull(result.tabIndex - 2))
+                    }
                 }
                 TabStripController.Release.None -> {}
             }

@@ -65,5 +65,7 @@
   "simpleskinswapper.screen.add.username": "Nom du compte",
   "simpleskinswapper.screen.add.none": "Aucun skin sélectionné",
   "simpleskinswapper.screen.add.confirm": "Ajouter",
-  "simpleskinswapper.screen.library.add_category": "Nouvelle catégorie"
+  "simpleskinswapper.screen.library.add_category": "Nouvelle catégorie",
+  "simpleskinswapper.screen.library.uncategorized": "Non catégorisés",
+  "simpleskinswapper.screen.library.empty_uncategorized": "Rien hors catégories — chaque skin est rangé\nou glisse une carte sur un onglet pour la ranger"
 }
