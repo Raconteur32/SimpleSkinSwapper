@@ -5,7 +5,7 @@
 - [x] 3. Skin registry: unique (texture, model) pairs, display names, persistence (`skins.json`), plus tests; commit
 - [x] 4. Cards: categories store card references (skin ref + optional per-category name), one ref per category, multi-membership, copy-add semantics at store level, plus tests; commit
 - [x] 5. Texture lifecycle: create-only-if-skin-accepted, delete-on-last-ref, registry validation pruning on load/refresh, plus tests; commit
-- [ ] 6. Delete decision: extract the pure `(view, categoryCount) → options + message args` function with tests; commit
+- [x] 6. Delete decision: extract the pure `(view, categoryCount) → options + message args` function with tests; commit
 - [ ] 7. Migration: versioned one-shot (hash textures, registry entries, `User Files/` preservation, category remap, selected-skin remap) with fixture-folder tests; commit
 - [ ] 8. Ingest wiring: add-from-file and add-from-account (Mojang metadata model, pixel fallback) through the deduplicating ingest, model pre-fill editable in the panel; commit
 - [ ] 9. Views: Uncategorized derived view and tab, drag reorder removal, drop-on-tab copy wiring, no drop on view tabs; commit
