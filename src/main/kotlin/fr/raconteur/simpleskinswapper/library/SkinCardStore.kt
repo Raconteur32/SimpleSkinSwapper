@@ -41,7 +41,7 @@ class SkinCardStore(env: SkinLibraryEnv) {
     )
 
     @Serializable
-    internal data class CardsFileDto(val categories: List<CategoryDto>? = null)
+    internal data class CardsFileDto(val version: Int? = null, val categories: List<CategoryDto>? = null)
 
     private val store = JsonFileStore(
         fileLabel = "categories.json",
@@ -111,7 +111,7 @@ class SkinCardStore(env: SkinLibraryEnv) {
     }
 
     fun save() {
-        store.save(CardsFileDto(categories.map {
+        store.save(CardsFileDto(version = FORMAT_VERSION, categories = categories.map {
             CategoryDto(
                 name = it.name,
                 color = it.colorHex,
@@ -141,5 +141,8 @@ class SkinCardStore(env: SkinLibraryEnv) {
         /** White dye's wool map color — the palette's default (kept here so the pure
          *  core never touches the Minecraft-backed palette object). */
         const val DEFAULT_CATEGORY_COLOR = "#F9FFFE"
+
+        /** Marks categories.json as registry-format (the migrator's re-entry guard). */
+        const val FORMAT_VERSION = 1
     }
 }

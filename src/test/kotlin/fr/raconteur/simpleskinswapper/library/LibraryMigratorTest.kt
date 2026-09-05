@@ -84,7 +84,11 @@ class LibraryMigratorTest {
         assertTrue(Files.exists(userFiles.resolve("Alex.png")))
         assertEquals(steve.toList(), Files.readAllBytes(userFiles.resolve("Steve.png")).toList())
         assertEquals(2, (dir.toFile().listFiles { _, n -> n.endsWith(".png") } ?: emptyArray()).size)
-        assertTrue(steveSkin.file.endsWith(".png"))
+        // The root files ARE the hash names the registry points at (the regression this guards).
+        assertTrue(steveSkin.file.matches(Regex("[0-9a-f]{8}\\.png")), steveSkin.file)
+        assertTrue(Files.exists(dir.resolve(steveSkin.file)))
+        assertTrue(alexSkin.file.matches(Regex("[0-9a-f]{8}\\.png")), alexSkin.file)
+        assertTrue(Files.exists(dir.resolve(alexSkin.file)))
 
         // categories remapped to card references
         val cards = SkinCardStore(SkinLibraryEnv { dir })
@@ -118,6 +122,30 @@ class LibraryMigratorTest {
         assertTrue(SkinRegistry(SkinLibraryEnv { dir }).all().isEmpty())
         assertTrue(Files.exists(dir.resolve("User Files").resolve("junk.png")))
         assertTrue((dir.toFile().listFiles { _, n -> n.endsWith(".png") } ?: emptyArray()).isEmpty())
+    }
+
+    @Test
+    fun `a re-migration repairs file names and keeps new-format category cards`() {
+        writePng("Steve.png", 0xFF112233.toInt())
+        legacyCategoriesJson()
+        migrator().migrate()
+        val registry = SkinRegistry(SkinLibraryEnv { dir })
+        val id = registry.all().single().id
+
+        // Simulate the legacy-name bug: the root file carries its old name again and the
+        // registry marker is gone, while categories.json is already registry-format.
+        val badFile = dir.resolve(registry.all().single().file)
+        Files.move(badFile, dir.resolve("Steve.png"))
+        Files.delete(dir.resolve("skins.json"))
+        Files.deleteIfExists(dir.resolve("User Files").resolve("Steve.png"))
+
+        assertEquals(1, migrator().migrate())
+        val repaired = SkinRegistry(SkinLibraryEnv { dir }).all().single()
+        assertEquals(id, repaired.id)
+        assertTrue(repaired.file.matches(Regex("[0-9a-f]{8}\\.png")), repaired.file)
+        assertTrue(Files.exists(dir.resolve(repaired.file)))
+        val cards = SkinCardStore(SkinLibraryEnv { dir }).all().single().cards
+        assertEquals(listOf(id), cards.map { it.skinId })
     }
 
     @Test

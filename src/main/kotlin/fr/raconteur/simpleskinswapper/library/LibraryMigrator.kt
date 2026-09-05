@@ -55,32 +55,34 @@ class LibraryMigrator(
         val dir = env.skinsDir()
         val legacyFiles = (dir.toFile().listFiles { _, n -> n.lowercase().endsWith(".png") } ?: emptyArray())
             .sortedBy { it.name }
-        for (file in legacyFiles) {
-            val bytes = file.readBytes()
-            val value = TextureHashing.canonicalPixels(bytes)
-            var writtenFile: String? = null
-            if (value != null) {
-                val namer = TextureNamer(env, hasher)
-                val hash = namer.fullHashHex(value)
-                val target = namer.existingFileNameFor(value) ?: namer.uniqueFileNameFor(value)
-                val model = if (types[file.name] == SkinRecord.MODEL_SLIM) SkinRecord.MODEL_SLIM else SkinRecord.MODEL_CLASSIC
-                val baseName = file.name.removeSuffix(".png")
-                val record = registry.create(hash, model, names[baseName] ?: baseName, target)
-                    ?: registry.find(hash, model)
-                if (record != null) {
-                    skinIdByFile[file.name] = record.id
-                    writtenFile = record.file
-                }
+        // Phase 1 — preserve every original FIRST: the root then holds only migrated
+        // textures, so the namer can never "reuse" a legacy name for a hash name.
+        val preserved: Map<String, Path> = legacyFiles.associate { file ->
+            file.name to preserveOriginal(file.toPath())
+        }
+        // Phase 2 — ingest each preserved copy (bytes are the untouched originals).
+        for ((name, preservedPath) in preserved) {
+            val bytes = Files.readAllBytes(preservedPath)
+            val value = TextureHashing.canonicalPixels(bytes) ?: continue
+            val namer = TextureNamer(env, hasher)
+            val hash = namer.fullHashHex(value)
+            val target = namer.existingFileNameFor(value) ?: namer.uniqueFileNameFor(value)
+            val model = if (types[name] == SkinRecord.MODEL_SLIM) SkinRecord.MODEL_SLIM else SkinRecord.MODEL_CLASSIC
+            val baseName = name.removeSuffix(".png")
+            val record = registry.create(hash, model, names[baseName] ?: baseName, target)
+                ?: registry.find(hash, model)
+            if (record != null) {
+                skinIdByFile[name] = record.id
+                Files.write(dir.resolve(record.file), bytes)
             }
-            preserveOriginal(file.toPath())
-            if (writtenFile != null) Files.write(dir.resolve(writtenFile), bytes)
         }
         migrateCategories(skinIdByFile)
         return skinIdByFile.size
     }
 
-    /** Moves the original into `User Files/`, never overwriting an existing namesake. */
-    private fun preserveOriginal(original: Path) {
+    /** Moves the original into `User Files/`, never overwriting an existing namesake;
+     *  returns the preserved copy's path. */
+    private fun preserveOriginal(original: Path): Path {
         Files.createDirectories(userFilesDir)
         val name = original.fileName.toString()
         var target = userFilesDir.resolve(name)
@@ -91,11 +93,15 @@ class LibraryMigrator(
             i++
         }
         Files.move(original, target)
+        return target
     }
 
     private fun migrateCategories(skinIdByFile: Map<String, String>) {
         val legacyFile = env.skinsDir().resolve("categories.json")
         if (!Files.exists(legacyFile)) return
+        // A file already in the registry format (version marker) keeps its cards — a
+        // re-migration must not wipe remapped memberships.
+        if (categoriesFileHasVersion(legacyFile)) return
         val legacy = JsonFileStore(
             fileLabel = "categories.json",
             path = { legacyFile },
@@ -115,6 +121,18 @@ class LibraryMigrator(
             }
         }
     }
+
+    /** True when categories.json already carries the registry-format version marker. */
+    private fun categoriesFileHasVersion(file: Path): Boolean =
+        JsonFileStore(
+            fileLabel = "categories.json",
+            path = { file },
+            serializer = FormatProbeDto.serializer(),
+            fresh = { FormatProbeDto() },
+        ).load().version != null
+
+    @Serializable
+    internal data class FormatProbeDto(val version: Int? = null)
 
     private fun loadMap(label: String): Map<String, String> {
         val file = env.skinsDir().resolve(label)
