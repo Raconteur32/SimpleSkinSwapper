@@ -12,15 +12,18 @@ import java.nio.file.Files
  */
 class TextureNamer(private val env: SkinLibraryEnv, private val hasher: Hasher) {
 
-    /** Existing texture files: name -> full hash of their canonical pixels. */
-    private val existing: Map<String, ByteArray> by lazy {
-        val dir = env.skinsDir().toFile()
-        val files = dir.listFiles { _, name -> name.lowercase().endsWith(".png") } ?: emptyArray()
-        files.associate { file ->
-            val value = TextureHashing.canonicalPixels(file.readBytes())
-            file.name to hasher.digest(value ?: file.readBytes())
+    /** Existing texture files: name -> full hash of their canonical pixels. Rescanned on
+     *  every access — a shared namer must never serve a stale folder view (a missed file
+     *  would let a different value overwrite it on a short-hash collision). */
+    private val existing: Map<String, ByteArray>
+        get() {
+            val dir = env.skinsDir().toFile()
+            val files = dir.listFiles { _, name -> name.lowercase().endsWith(".png") } ?: emptyArray()
+            return files.associate { file ->
+                val value = TextureHashing.canonicalPixels(file.readBytes())
+                file.name to hasher.digest(value ?: file.readBytes())
+            }
         }
-    }
 
     /** Full hash (hex) of a canonical value — the identity used by the registry. */
     fun fullHashHex(value: ByteArray): String = TextureHashing.toHex(hasher.digest(value))
