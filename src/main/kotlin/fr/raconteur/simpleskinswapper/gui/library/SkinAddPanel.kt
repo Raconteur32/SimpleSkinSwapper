@@ -41,7 +41,7 @@ class SkinAddPanel(
     init {
         fromFileButton = EdgeSafeButtonWidget(0, 0, 100, FIELD_HEIGHT + 2,
             Component.translatable("simpleskinswapper.screen.add.from_file")
-        ) { parent.pickSkinFile { file -> stage(file, null) } }
+        ) { parent.pickSkinFile { file -> stage(file, null, file.nameWithoutExtension) } }
         addChild(fromFileButton)
 
         usernameField = EditBox(
@@ -119,11 +119,13 @@ class SkinAddPanel(
         stagedTextureId = null
     }
 
-    /** Stages a skin for the preview: pre-selects the model — from the account's texture
-     *  metadata when known, pixel detection otherwise — and stays user-editable. */
-    private fun stage(file: File, modelHint: SkinType?) {
+    /** Stages a skin for the preview: pre-selects the model (from the account's texture
+     *  metadata when known, pixel detection otherwise) and pre-fills the display name
+     *  with the suggested one — both stay user-editable. */
+    private fun stage(file: File, modelHint: SkinType?, suggestedName: String) {
         stagedFile = file
         stagedType = modelHint ?: SkinUtils.detectSkinType(file)
+        displayNameField.setValue(suggestedName)
         stagedTextureId = null
         SkinUtils.loadSkinTextureAsync(file, "skin/add_staging") { id -> stagedTextureId = id }
     }
@@ -138,7 +140,7 @@ class SkinAddPanel(
             { file, model ->
                 fetching = false
                 fromMcNameButton.active = usernameField.value.isNotBlank()
-                stage(file, model)
+                stage(file, model, username)
             },
             {
                 fetching = false
