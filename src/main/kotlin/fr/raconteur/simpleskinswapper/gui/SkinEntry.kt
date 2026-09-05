@@ -18,7 +18,7 @@ class SkinEntry(@JvmField var file: File) {
 
     /** Optional user-set display name (null = show the file name). */
     @JvmField
-    var displayNameOverride: String? = SkinNames.getName(file.name)
+    var displayNameOverride: String? = null
 
     /** Name shown in the UI: the override when set, the file name otherwise. */
     val displayName: String
@@ -39,8 +39,7 @@ class SkinEntry(@JvmField var file: File) {
     var textureLoading = false
 
     init {
-        val detected = SkinUtils.detectSkinType(file)
-        skinType = SkinTypes.getType(file.name, detected)
+        skinType = SkinUtils.detectSkinType(file)
 
         // Base display name: filename without extension
         val name = file.name

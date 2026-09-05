@@ -67,5 +67,13 @@
   "simpleskinswapper.screen.add.confirm": "Ajouter",
   "simpleskinswapper.screen.library.add_category": "Nouvelle catégorie",
   "simpleskinswapper.screen.library.uncategorized": "Non catégorisés",
-  "simpleskinswapper.screen.library.empty_uncategorized": "Rien hors catégories — chaque skin est rangé\nou glisse une carte sur un onglet pour la ranger"
+  "simpleskinswapper.screen.library.empty_uncategorized": "Rien hors catégories — chaque skin est rangé\nou glisse une carte sur un onglet pour la ranger",
+  "simpleskinswapper.screen.detail.category_name": "Nom dans cette catégorie",
+  "simpleskinswapper.screen.detail.remove_card": "Retirer de la catégorie",
+  "simpleskinswapper.screen.detail.switch_exists": "L'autre modèle existe déjà pour cette texture",
+  "simpleskinswapper.screen.detail.switch_in_category": "L'autre modèle est déjà dans cette catégorie",
+  "simpleskinswapper.screen.detail.delete_context_category_others": "Aussi présent dans %s autres catégories",
+  "simpleskinswapper.screen.detail.delete_context_category_last": "Présent dans aucune autre catégorie",
+  "simpleskinswapper.screen.detail.delete_context_all": "Supprimera les occurrences dans %s catégories",
+  "simpleskinswapper.screen.detail.delete_context_uncategorized": "Référencé nulle part — la suppression n'affecte rien d'autre"
 }

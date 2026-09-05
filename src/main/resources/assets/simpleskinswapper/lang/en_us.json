@@ -67,5 +67,13 @@
   "simpleskinswapper.screen.add.confirm": "Add",
   "simpleskinswapper.screen.library.add_category": "New Category",
   "simpleskinswapper.screen.library.uncategorized": "Uncategorized",
-  "simpleskinswapper.screen.library.empty_uncategorized": "Nothing outside categories — every skin is filed\nor drag a card onto a category tab to file it"
+  "simpleskinswapper.screen.library.empty_uncategorized": "Nothing outside categories — every skin is filed\nor drag a card onto a category tab to file it",
+  "simpleskinswapper.screen.detail.category_name": "Name in this category",
+  "simpleskinswapper.screen.detail.remove_card": "Remove from category",
+  "simpleskinswapper.screen.detail.switch_exists": "The other model already exists for this texture",
+  "simpleskinswapper.screen.detail.switch_in_category": "The other model is already in this category",
+  "simpleskinswapper.screen.detail.delete_context_category_others": "Also in %s other categories",
+  "simpleskinswapper.screen.detail.delete_context_category_last": "Not in any other category",
+  "simpleskinswapper.screen.detail.delete_context_all": "Will remove the occurrences in %s categories",
+  "simpleskinswapper.screen.detail.delete_context_uncategorized": "Referenced nowhere - nothing else is affected"
 }

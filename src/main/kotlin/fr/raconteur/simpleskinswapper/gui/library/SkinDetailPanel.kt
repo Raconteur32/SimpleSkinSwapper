@@ -4,21 +4,21 @@ import fr.raconteur.simpleskinswapper.changeskin.SkinChange
 import fr.raconteur.simpleskinswapper.changeskin.SkinSwapperState
 import fr.raconteur.simpleskinswapper.gui.EdgeSafeButtonWidget
 import fr.raconteur.simpleskinswapper.gui.SkinEntry
-import fr.raconteur.simpleskinswapper.gui.SkinNames
 import fr.raconteur.simpleskinswapper.gui.SkinType
-import fr.raconteur.simpleskinswapper.gui.SkinTypes
+import fr.raconteur.simpleskinswapper.library.DeleteDecision
+import fr.raconteur.simpleskinswapper.library.DeleteSource
 import fr.raconteur.simpleskinswapper.overlayMessage
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.components.EditBox
-import net.minecraft.client.gui.components.events.GuiEventListener
 import net.minecraft.network.chat.Component
 
 /**
  * Full-screen detail overlay for one skin. Opens as an animated scale-up of the clicked
  * card into a large rectangle (the base screen stays visible around it). Right side: the
- * skin preview in bulk, drag to rotate. Left side: file-name rename, display name, a
- * wide/slim switch built from the card sprites (dark thin body, full-color square knob
- * sliding over the active side's head: Steve left, Alex right) and a two-step delete.
+ * skin preview in bulk, drag to rotate. Left column: the read-only texture file name
+ * (hash — never editable), the global display name, the per-category name (category views
+ * only), the wide/slim switch — which switches to the sibling skin of the same texture —
+ * the dynamic delete controls (remove card here vs delete everywhere) and apply.
  */
 class SkinDetailPanel(
     parent: SkinLibraryScreen
@@ -26,11 +26,15 @@ class SkinDetailPanel(
 
     private val fileNameField: EditBox
     private val displayNameField: EditBox
+    private val categoryNameField: EditBox
+    private val removeCardButton: EdgeSafeButtonWidget
     private val deleteButton: EdgeSafeButtonWidget
     private val applyButton: EdgeSafeButtonWidget
     private var deleteArmed = false
 
     private var entry: SkinEntry? = null
+
+    private val inCategory: Boolean get() = parent.selectedCategory != null
 
     init {
         fileNameField = EditBox(
@@ -38,6 +42,7 @@ class SkinDetailPanel(
             Component.translatable("simpleskinswapper.screen.detail.file_name")
         )
         fileNameField.setMaxLength(64)
+        fileNameField.setEditable(false)
         addChild(fileNameField)
 
         displayNameField = EditBox(
@@ -45,20 +50,41 @@ class SkinDetailPanel(
             Component.translatable("simpleskinswapper.screen.detail.display_name")
         )
         displayNameField.setMaxLength(64)
-        // Live update: a blank value clears the override so the file name shows again.
+        // Live update: renames the skin in the registry; blank falls back to the file name.
         displayNameField.setResponder { text ->
             val e = entry ?: return@setResponder
-            e.displayNameOverride = text.trim().ifEmpty { null }
-            SkinNames.setName(e.file.name, text.trim())
+            val value = text.trim()
+            e.displayNameOverride = value.ifEmpty { null }
+            SkinRecords.rename(e.skinId, value)
         }
         addChild(displayNameField)
 
-        deleteButton = EdgeSafeButtonWidget(0, 0, DELETE_W, FIELD_HEIGHT + 2, deleteLabel()) {
+        categoryNameField = EditBox(
+            client.font, 0, 0, 100, FIELD_HEIGHT,
+            Component.translatable("simpleskinswapper.screen.detail.category_name")
+        )
+        categoryNameField.setMaxLength(64)
+        // Live update: renames the card for this category only; blank uses the global name.
+        categoryNameField.setResponder { text ->
+            val e = entry ?: return@setResponder
+            val category = parent.selectedCategory ?: return@setResponder
+            val value = text.trim()
+            SkinCategories.setCardName(category, e.skinId, value)
+            e.displayNameOverride = value.ifEmpty { SkinRecords.findById(e.skinId)?.name }
+        }
+        addChild(categoryNameField)
+
+        removeCardButton = EdgeSafeButtonWidget(0, 0, BTN_W, FIELD_HEIGHT + 2,
+            Component.translatable("simpleskinswapper.screen.detail.remove_card")
+        ) { removeFromCategory() }
+        addChild(removeCardButton)
+
+        deleteButton = EdgeSafeButtonWidget(0, 0, BTN_W, FIELD_HEIGHT + 2, deleteLabel()) {
             onDeleteClicked()
         }
         addChild(deleteButton)
 
-        applyButton = EdgeSafeButtonWidget(0, 0, APPLY_W, FIELD_HEIGHT + 2,
+        applyButton = EdgeSafeButtonWidget(0, 0, BTN_W, FIELD_HEIGHT + 2,
             Component.translatable("simpleskinswapper.screen.carousel.apply")
         ) { applySkin() }
         addChild(applyButton)
@@ -73,23 +99,31 @@ class SkinDetailPanel(
         entry = card.entry
         deleteArmed = false
         deleteButton.message = deleteLabel()
-
-        val e = entry!!
-        fileNameField.setValue(e.baseName)
-        displayNameField.setValue(e.displayNameOverride ?: "")
-
+        refreshFields()
         openFrom(card.x, card.y, card.width, card.height)
     }
 
-    /** Re-points the panel at a fresh entry after a reload (file renamed / list rebuilt). */
+    /** Re-points the panel at a fresh entry after a reload (list rebuilt / model switch). */
     fun rebind(fresh: SkinEntry) {
         entry = fresh
-        fileNameField.setValue(fresh.baseName)
-        displayNameField.setValue(fresh.displayNameOverride ?: "")
+        deleteArmed = false
+        deleteButton.message = deleteLabel()
+        refreshFields()
     }
 
-    val entryFileName: String?
-        get() = entry?.file?.name
+    val entrySkinId: String?
+        get() = entry?.skinId
+
+    private fun refreshFields() {
+        val e = entry ?: return
+        fileNameField.setValue(e.baseName)
+        displayNameField.setValue(e.displayNameOverride ?: "")
+        categoryNameField.setValue(
+            parent.selectedCategory?.cards?.firstOrNull { it.skinId == e.skinId }?.name ?: ""
+        )
+        categoryNameField.visible = inCategory
+        removeCardButton.visible = inCategory
+    }
 
     // ------------------------------------------------------------------
     // Layout
@@ -97,20 +131,37 @@ class SkinDetailPanel(
 
     private fun labelY(row: Int): Int = targetRect()[1] + PANEL_PAD + row * (LABEL_LINE + FIELD_HEIGHT + ROW_GAP)
 
-    /** Top of the switch row: one ROW_GAP below the display-name field — the left column
-     *  keeps the same 10 px rhythm between every element (field, switch, buttons). */
-    override fun switchRowY(): Int = labelY(1) + LABEL_LINE + FIELD_HEIGHT + ROW_GAP
+    /** Top of the switch row: one ROW_GAP below the last field row. */
+    override fun switchRowY(): Int = labelY(if (inCategory) 2 else 1) + LABEL_LINE + FIELD_HEIGHT + ROW_GAP
 
     override fun repositionChildren() {
         val t = targetRect()
         val leftW = leftWidth(t)
         fileNameField.setWidth(leftW)
-        displayNameField.setWidth(leftW)
         fileNameField.setPosition(t[0] + PANEL_PAD, labelY(0) + LABEL_LINE)
+        displayNameField.setWidth(leftW)
         displayNameField.setPosition(t[0] + PANEL_PAD, labelY(1) + LABEL_LINE)
+        categoryNameField.setVisible(inCategory)
+        removeCardButton.visible = inCategory
+        if (inCategory) {
+            categoryNameField.setWidth(leftW)
+            categoryNameField.setPosition(t[0] + PANEL_PAD, labelY(2) + LABEL_LINE)
+        }
         val buttonY = switchRowY() + SWITCH_BODY_H + ROW_GAP
-        deleteButton.setPosition(t[0] + PANEL_PAD, buttonY)
-        applyButton.setPosition(t[0] + PANEL_PAD + DELETE_W + 8, buttonY)
+        if (inCategory) {
+            val w = (leftW - 16) / 3
+            removeCardButton.setWidth(w)
+            removeCardButton.setPosition(t[0] + PANEL_PAD, buttonY)
+            deleteButton.setWidth(w)
+            deleteButton.setPosition(t[0] + PANEL_PAD + w + 8, buttonY)
+            applyButton.setWidth(w)
+            applyButton.setPosition(t[0] + PANEL_PAD + (w + 8) * 2, buttonY)
+        } else {
+            deleteButton.setWidth(BTN_W)
+            deleteButton.setPosition(t[0] + PANEL_PAD, buttonY)
+            applyButton.setWidth(BTN_W)
+            applyButton.setPosition(t[0] + PANEL_PAD + BTN_W + 8, buttonY)
+        }
     }
 
     // ------------------------------------------------------------------
@@ -127,6 +178,13 @@ class SkinDetailPanel(
         deleteArmed = false
         close(instant = true)
         parent.deleteEntry(e)
+    }
+
+    /** Removes this card from the current category only — the skin and its other cards stay. */
+    private fun removeFromCategory() {
+        val e = entry ?: return
+        close(instant = true)
+        parent.removeCardOf(e)
     }
 
     /** Applies the skin (same flow as the card's replay button), then leaves the screen. */
@@ -149,20 +207,6 @@ class SkinDetailPanel(
     private fun deleteLabel(): Component =
         Component.translatable("simpleskinswapper.screen.detail.delete")
 
-    private fun commitRename() {
-        val e = entry ?: return
-        val value = fileNameField.value.trim()
-        if (value.isEmpty() || value == e.baseName) {
-            fileNameField.setValue(e.baseName)
-            return
-        }
-        if (parent.renameEntry(e, value)) {
-            fileNameField.setValue(e.file.nameWithoutExtension)
-        } else {
-            fileNameField.setValue(e.baseName)
-        }
-    }
-
     private fun disarmDelete() {
         if (deleteArmed) {
             deleteArmed = false
@@ -183,6 +227,7 @@ class SkinDetailPanel(
         drawPreview(graphics, e, t, mouseX, mouseY)
         drawLabels(graphics, t)
         drawSwitch(graphics, t, e.skinType)
+        drawContextLine(graphics, e, t)
     }
 
     private fun drawPreview(graphics: GuiGraphicsExtractor, e: SkinEntry, t: IntArray, mouseX: Int, mouseY: Int) {
@@ -196,6 +241,43 @@ class SkinDetailPanel(
         val x = t[0] + PANEL_PAD
         graphics.text(client.font, Component.translatable("simpleskinswapper.screen.detail.file_name"), x, labelY(0), 0xFFB0B8C0.toInt())
         graphics.text(client.font, Component.translatable("simpleskinswapper.screen.detail.display_name"), x, labelY(1), 0xFFB0B8C0.toInt())
+        if (inCategory) {
+            graphics.text(client.font, Component.translatable("simpleskinswapper.screen.detail.category_name"), x, labelY(2), 0xFFB0B8C0.toInt())
+        }
+    }
+
+    /** Under the switch: why the model switch is off, or the delete context line. */
+    private fun drawContextLine(graphics: GuiGraphicsExtractor, e: SkinEntry, t: IntArray) {
+        val reason = parent.switchBlockedReason(e)
+        val noteY = switchRowY() + SWITCH_BODY_H + 2
+        val note = reason ?: deleteContext(e) ?: return
+        //? if >=26.1 {
+        graphics.text(client.font, note, t[0] + PANEL_PAD, noteY, 0xFFB0B8C0.toInt())
+        //?} else {
+        /*graphics.drawString(client.font, note, t[0] + PANEL_PAD, noteY, 0xFFB0B8C0.toInt())
+        *///?}
+    }
+
+    /** The dynamic delete text per [DeleteDecision]: cross-category counts or "safe". */
+    private fun deleteContext(e: SkinEntry): Component? {
+        val source = parent.deleteSource()
+        val decision = DeleteDecision.of(source, SkinCategories.categoriesOf(e.skinId).size)
+        return when (source) {
+            DeleteSource.CATEGORY ->
+                if (decision.otherCategories > 0) {
+                    Component.translatable("simpleskinswapper.screen.detail.delete_context_category_others", decision.otherCategories)
+                } else {
+                    Component.translatable("simpleskinswapper.screen.detail.delete_context_category_last")
+                }
+            DeleteSource.ALL_SKINS ->
+                if (decision.totalCategories > 0) {
+                    Component.translatable("simpleskinswapper.screen.detail.delete_context_all", decision.totalCategories)
+                } else {
+                    null
+                }
+            DeleteSource.UNCATEGORIZED ->
+                Component.translatable("simpleskinswapper.screen.detail.delete_context_uncategorized")
+        }
     }
 
     // ------------------------------------------------------------------
@@ -208,33 +290,19 @@ class SkinDetailPanel(
 
     override fun toggleSkinType() {
         val e = entry ?: return
-        e.skinType = if (e.skinType == SkinType.CLASSIC) SkinType.SLIM else SkinType.CLASSIC
-        SkinTypes.setType(e.file.name, e.skinType)
+        entry = parent.switchModel(e) ?: e
     }
 
     override fun onCloseRequested(instant: Boolean) {
-        // Closing is the ultimate blur: commit a pending file rename (ESC, click outside).
-        // Instant closes skip it — they are programmatic (delete / entry gone).
-        if (!instant) commitRename()
-    }
-
-    override fun onChildFocused(previous: GuiEventListener?, child: GuiEventListener) {
-        if (previous != null && previous !== child) commitRename()
+        if (!instant) disarmDelete()
     }
 
     override fun onBackgroundClick(mouseX: Int, mouseY: Int) {
         // Clicking anywhere but the delete button disarms the pending confirmation.
         if (!isOnDelete(mouseX, mouseY)) disarmDelete()
-        // Click away from the fields: commit before the base clears the focus.
-        if (focusedChild != null) commitRename()
-    }
-
-    override fun onEnterPressed() {
-        commitRename()
     }
 
     private companion object {
-        private const val DELETE_W = 70
-        private const val APPLY_W = 70
+        private const val BTN_W = 64
     }
 }

@@ -3,10 +3,8 @@ package fr.raconteur.simpleskinswapper.gui.library
 import com.mojang.blaze3d.platform.InputConstants
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
 import fr.raconteur.simpleskinswapper.gui.EdgeSafeButtonWidget
-import fr.raconteur.simpleskinswapper.gui.SkinNames
 import fr.raconteur.simpleskinswapper.gui.SkinEntry
 import fr.raconteur.simpleskinswapper.gui.SkinType
-import fr.raconteur.simpleskinswapper.gui.SkinTypes
 import fr.raconteur.simpleskinswapper.gui.config.YaclConfigScreen
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.client.gui.GuiGraphicsExtractor
@@ -43,7 +41,10 @@ import kotlin.math.roundToInt
 import fr.raconteur.simpleskinswapper.library.TextureHashing
 import fr.raconteur.simpleskinswapper.library.SkinRegistry
 import fr.raconteur.simpleskinswapper.library.SkinCardStore
+import fr.raconteur.simpleskinswapper.library.DeleteDecision
+import fr.raconteur.simpleskinswapper.library.DeleteSource
 import fr.raconteur.simpleskinswapper.library.LibraryCategory
+import fr.raconteur.simpleskinswapper.library.SkinRecord
 import fr.raconteur.simpleskinswapper.library.LibraryMigrator
 import fr.raconteur.simpleskinswapper.data.FabricSkinLibraryEnv
 
@@ -145,6 +146,62 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         reattachOverlays()
         watcher.stop()
         watcher.start()
+    }
+
+    /** Where the detail-panel delete would act from (drives the dynamic dialog). */
+    internal fun deleteSource(): DeleteSource = when {
+        selectedCategory != null -> DeleteSource.CATEGORY
+        uncategorizedSelected -> DeleteSource.UNCATEGORIZED
+        else -> DeleteSource.ALL_SKINS
+    }
+
+    /** Removes the card for [entry] from the current category; the skin itself stays. */
+    internal fun removeCardOf(entry: SkinEntry) {
+        selectedCategory?.let { SkinCategories.removeCard(it, entry.skinId) }
+        reloadView()
+        rebuildCards()
+    }
+
+    /** Why the detail-panel model toggle is disabled for [entry], or null when allowed.
+     *  The sibling check is registry-wide: category views block only when the sibling
+     *  already holds a card here; the views block on any existing sibling. */
+    internal fun switchBlockedReason(entry: SkinEntry): Component? {
+        val record = SkinRecords.findById(entry.skinId)
+            ?: return Component.translatable("simpleskinswapper.screen.detail.switch_exists")
+        val other = if (record.model == SkinRecord.MODEL_SLIM) SkinRecord.MODEL_CLASSIC else SkinRecord.MODEL_SLIM
+        val sibling = SkinRecords.find(record.textureHash, other) ?: return null
+        val category = selectedCategory ?: return Component.translatable("simpleskinswapper.screen.detail.switch_exists")
+        return if (category.cards.any { it.skinId == sibling.id }) {
+            Component.translatable("simpleskinswapper.screen.detail.switch_in_category")
+        } else {
+            null
+        }
+    }
+
+    /** Swaps [entry] for its sibling skin (other model, same texture), creating it on the
+     *  fly; in a category the card reference is swapped keeping the custom name, and the
+     *  original is deleted when no card references it anymore. */
+    internal fun switchModel(entry: SkinEntry): SkinEntry? {
+        if (switchBlockedReason(entry) != null) return null
+        val record = SkinRecords.findById(entry.skinId) ?: return null
+        val other = if (record.model == SkinRecord.MODEL_SLIM) SkinRecord.MODEL_CLASSIC else SkinRecord.MODEL_SLIM
+        val sibling = SkinRecords.find(record.textureHash, other)
+            ?: SkinRecords.create(record.textureHash, other, record.name, record.file)
+            ?: return null
+        selectedCategory?.let { category ->
+            val customName = category.cards.firstOrNull { it.skinId == record.id }?.name ?: ""
+            SkinCategories.removeCard(category, record.id)
+            SkinCategories.addCard(category, sibling.id)
+            if (customName.isNotBlank()) SkinCategories.setCardName(category, sibling.id, customName)
+        }
+        if (SkinCategories.categoriesOf(record.id).isEmpty()) {
+            SkinLifecycle.removeSkin(record.id)
+            SkinCategories.removeEverywhere(record.id)
+        }
+        watcher.markSelfTriggered(sibling.file)
+        reloadView()
+        rebuildCards()
+        return SkinEntry.fromRecord(SkinRecords.findById(sibling.id) ?: sibling)
     }
 
     /** One-shot legacy migration, then pruning of skins whose texture vanished externally. */
@@ -297,7 +354,11 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         } else {
             val byId = registry.associateBy { it.id }
             for (card in category.cards) {
-                byId[card.skinId]?.let { entries.add(SkinEntry.fromRecord(it)) }
+                byId[card.skinId]?.let { record ->
+                    val entry = SkinEntry.fromRecord(record)
+                    if (card.name.isNotBlank()) entry.displayNameOverride = card.name
+                    entries.add(entry)
+                }
             }
         }
     }
@@ -401,8 +462,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     /** Re-points the detail panel at the fresh entry after a reload, closing it if the skin is gone. */
     private fun rebindDetail() {
         val d = detail ?: return
-        val name = d.entryFileName ?: return
-        val fresh = entries.firstOrNull { it.file.name == name }
+        val id = d.entrySkinId ?: return
+        val fresh = entries.firstOrNull { it.skinId == id }
         if (fresh == null) d.close(instant = true) else d.rebind(fresh)
     }
 
