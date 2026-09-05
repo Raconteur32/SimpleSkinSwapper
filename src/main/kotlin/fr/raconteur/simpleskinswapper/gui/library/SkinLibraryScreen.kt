@@ -518,12 +518,13 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         /*super.render(graphics, mouseX, mouseY, delta)
         *///?}
 
-        // While the detail overlay is open, the base screen stays static underneath:
-        // no tab/selection chrome may draw over it (the panel renders itself via super).
-        if (detail == null && addPanel == null) {
-            // Selected tab sticks out over the page edge, above the cards zone.
-            drawTabStripOver(graphics, mouseX, mouseY)
+        // Selected tab: drawn even with an overlay open (it lives in the strip gap, the
+        // panel never covers it) — drawTabStripOver clips its page tuck-under in that case.
+        drawTabStripOver(graphics, mouseX, mouseY)
 
+        // While the detail overlay is open, the rest of the base chrome stays static:
+        // nothing may draw over the panel (the panel renders itself via super).
+        if (detail == null && addPanel == null) {
             // "Reorder-dragged" card floats above everything else.
             val dragged = reorderDraggingCard
             if (dragged != null) {
@@ -613,15 +614,21 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
         // Selected tab: full-color book panel, flush left, its right edge tucking slightly under
         // the grid page border. Clipped vertically to the strip so it scrolls away like the
-        // other tabs, while still overflowing to the right over the page.
+        // other tabs, while still overflowing to the right over the page. With an overlay
+        // open the tuck-under would draw over the panel — clip at the page border instead.
+        val stickoutRight = if (detail == null && addPanel == null) {
+            STRIP_X + TAB_W + TAB_SELECTED_STICKOUT
+        } else {
+            panelX - 6
+        }
         val selected = selectedTabIndex()
         if (selected >= 0) {
             val y = tabs.tabY(selected)
             // Whole tabs only, mirrored from the under pass: a selected tab scrolled
             // half out of the band's top must not dangle its overlap border inside.
             if (y >= top && y + tabH <= tabBottom) {
-                graphics.enableScissor(-PANEL_BLEED, top, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT, tabBottom)
-                drawBookPanel(graphics, -PANEL_BLEED, y, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT + PANEL_BLEED, tabH, lit = true)
+                graphics.enableScissor(-PANEL_BLEED, top, stickoutRight, tabBottom)
+                drawBookPanel(graphics, -PANEL_BLEED, y, stickoutRight + PANEL_BLEED, tabH, lit = true)
                 drawTabContent(graphics, selected, y)
                 graphics.disableScissor()
             }
