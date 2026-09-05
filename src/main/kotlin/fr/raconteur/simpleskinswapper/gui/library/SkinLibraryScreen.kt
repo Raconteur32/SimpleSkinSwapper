@@ -38,6 +38,7 @@ import java.util.IdentityHashMap
 import kotlin.math.ceil
 import kotlin.math.exp
 import kotlin.math.roundToInt
+import fr.raconteur.simpleskinswapper.library.DeleteAction
 import fr.raconteur.simpleskinswapper.library.DeleteDecision
 import fr.raconteur.simpleskinswapper.library.DeleteSource
 import fr.raconteur.simpleskinswapper.library.LibraryCategory
@@ -148,6 +149,98 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         selectedCategory != null -> DeleteSource.CATEGORY
         uncategorizedSelected -> DeleteSource.UNCATEGORIZED
         else -> DeleteSource.ALL_SKINS
+    }
+
+    // The shared destructive-action confirmation, above every panel while open.
+    internal var confirmPopup: ConfirmPopup? = null
+        private set
+
+    /** Shows the shared confirmation popup; any previous popup is replaced. */
+    internal fun openConfirmPopup(popup: ConfirmPopup) {
+        confirmPopup = popup
+        popup.show()
+    }
+
+    internal fun closeConfirmPopup() {
+        confirmPopup = null
+    }
+
+    // The per-card context menu (kebab / right-click): at most one open at a time.
+    internal var cardMenu: CardMenu? = null
+        private set
+
+    internal fun openCardMenu(card: SkinLibraryCard) {
+        cardMenu = CardMenu(this, card)
+    }
+
+    internal fun closeCardMenu() {
+        cardMenu = null
+    }
+
+    /**
+     * Builds the delete confirmation for [entry] from the current view: message lines
+     * from the DeleteDecision counts, action buttons from its branch mapping. When
+     * [panel] is set (delete from the detail overlay) the popup opens over it and a
+     * confirm closes the panel instantly without committing its pending edits.
+     */
+    internal fun openDeletePopup(entry: SkinEntry, panel: SkinDetailPanel?) {
+        val source = deleteSource()
+        val decision = DeleteDecision.of(source, SkinCategories.categoriesOf(entry.skinId).size)
+        // Same context texts the detail panel's info line used, per view.
+        val message = when (source) {
+            DeleteSource.CATEGORY ->
+                if (decision.otherCategories > 0) {
+                    Component.translatable("simpleskinswapper.screen.detail.delete_context_category_others", decision.otherCategories)
+                } else {
+                    Component.translatable("simpleskinswapper.screen.detail.delete_context_category_last")
+                }
+            DeleteSource.ALL_SKINS ->
+                if (decision.totalCategories > 0) {
+                    Component.translatable("simpleskinswapper.screen.detail.delete_context_all", decision.totalCategories)
+                } else {
+                    Component.translatable("simpleskinswapper.screen.detail.delete_context_uncategorized")
+                }
+            DeleteSource.UNCATEGORIZED ->
+                Component.translatable("simpleskinswapper.screen.detail.delete_context_uncategorized")
+        }
+        val buttons = decision.actions().map { action ->
+            ConfirmPopup.PopupButton(
+                when (action) {
+                    DeleteAction.REMOVE_CARD_HERE -> Component.translatable("simpleskinswapper.screen.detail.remove_card")
+                    DeleteAction.DELETE_EVERYWHERE -> Component.translatable("simpleskinswapper.screen.detail.delete")
+                }
+            ) {
+                panel?.close(instant = true)
+                when (action) {
+                    DeleteAction.REMOVE_CARD_HERE -> removeCardOf(entry)
+                    DeleteAction.DELETE_EVERYWHERE -> deleteEntry(entry)
+                }
+            }
+        }
+        openConfirmPopup(
+            ConfirmPopup(
+                this,
+                Component.translatable("simpleskinswapper.screen.delete_popup.title"),
+                listOf(message),
+                buttons
+            )
+        )
+    }
+
+    /** Opens the category delete confirmation on the shared popup component. */
+    internal fun openCategoryDeletePopup() {
+        openConfirmPopup(
+            ConfirmPopup(
+                this,
+                null,
+                listOf(Component.translatable("simpleskinswapper.screen.library.delete_category_question")),
+                listOf(
+                    ConfirmPopup.PopupButton(
+                        Component.translatable("simpleskinswapper.screen.library.delete_category_confirm")
+                    ) { confirmCategoryDelete() }
+                )
+            )
+        )
     }
 
     /** Removes the card for [entry] from the current category; the skin itself stays. */
@@ -275,10 +368,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // Category creation lives in the tab strip itself (add-category entry, drawn and
         // hit-tested by the strip) — no vanilla widget, no ghost styling to fight.
 
-        // Category deletion confirm overlay buttons live in the band: they are routed by
-        // handleChromeClick while confirmingDelete and rendered only by the band's
-        // confirm-overlay draw — never registered as screen widgets, or vanilla would
-        // render and leave them clickable at their stale position (the ghost-Cancel bug).
+        // Confirmation popups (category delete, skin deletes) are drawn and routed
+        // manually at the end of render / mouseClicked — never registered as screen
+        // widgets, or vanilla would render them twice and leave stale click targets.
     }
 
     /** init() also runs on window resize (rebuildWidgets clears every widget first):
@@ -566,12 +658,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
             drawEmptyStateMessage(graphics)
 
-            if (band.confirmingDelete) {
-                band.drawDeleteOverlay(graphics, mouseX, mouseY, delta)
-            }
-
             // Tooltip for hovered tab
-            if (tabs.tabDragCategoryIndex == -1 && reorderDraggingCard == null && !band.confirmingDelete) {
+            if (tabs.tabDragCategoryIndex == -1 && reorderDraggingCard == null && confirmPopup == null) {
                 tabs.tabAt(mouseY, mouseX)?.let { tab ->
                     drawTooltip(graphics, mouseX, mouseY, tabTooltipLabel(tab))
                 }
@@ -579,6 +667,11 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                 band.hoveredDyeTooltip(mouseX, mouseY)?.let { drawTooltip(graphics, mouseX, mouseY, it) }
             }
         }
+
+        // Shared confirmation popup and the card context menu float above everything,
+        // panels included (the popup dims the panel it was opened from).
+        cardMenu?.draw(graphics, mouseX, mouseY, delta)
+        confirmPopup?.draw(graphics, mouseX, mouseY, delta)
     }
 
     /** Tab tooltip: built-in view names, or the live category name. */
@@ -885,6 +978,15 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     // ------------------------------------------------------------------
 
     override fun mouseClicked(click: MouseButtonEvent, doubled: Boolean): Boolean {
+        // The confirmation popup swallows every click while open (buttons run, the rest cancels).
+        confirmPopup?.let { return it.handleClick(click, doubled) }
+
+        // The card context menu closes on any outside click and lets the click flow through.
+        cardMenu?.let { menu ->
+            if (menu.handleClick(click, doubled)) return true
+            closeCardMenu()
+        }
+
         handleOverlayClick(click, doubled)?.let { return it }
 
         val mx = click.x().toInt()
@@ -914,13 +1016,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         return null
     }
 
-    /** Non-card chrome: delete confirmation, tab strip, category band, empty-category zone. */
+    /** Non-card chrome: tab strip, category band, empty-category zone. */
     private fun handleChromeClick(mx: Int, my: Int, click: MouseButtonEvent, doubled: Boolean): Boolean {
-        if (band.confirmingDelete) {
-            handleDeleteConfirmClick(click, doubled)
-            return true
-        }
-
         // Tab strip: select on click, start a potential drag on press (-1 = none, 0 = All, >0 = category).
         val tab = tabs.tabAt(my, mx)
         if (tab != null && click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
@@ -958,16 +1055,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         return mx >= gridLeft() && mx < gridRight() && my >= gridTop && my < gridBottom
     }
 
-    /** While the delete confirmation overlay is up it swallows every click. */
-    private fun handleDeleteConfirmClick(click: MouseButtonEvent, doubled: Boolean) {
-        if (band.confirmOverlayButton.mouseClicked(click, doubled) || band.cancelOverlayButton.mouseClicked(click, doubled)) {
-            return
-        }
-    }
-
     internal fun confirmCategoryDelete() {
         val category = selectedCategory
-        band.confirmingDelete = false
         if (category != null) {
             SkinCategories.removeCategory(category)
             selectCategory(null)
@@ -1070,6 +1159,11 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     override fun keyPressed(event: KeyEvent): Boolean {
+        confirmPopup?.let { return it.onEsc() }
+        if (cardMenu != null) {
+            closeCardMenu()
+            return true
+        }
         detail?.let { return it.keyPressed(event) }
         addPanel?.let { return it.keyPressed(event) }
         return super.keyPressed(event)

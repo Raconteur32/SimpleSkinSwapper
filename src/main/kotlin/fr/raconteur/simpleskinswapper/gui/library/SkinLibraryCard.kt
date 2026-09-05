@@ -44,6 +44,7 @@ class SkinLibraryCard(
     private var dragging = false
 
     private val applyButton: EdgeSafeButtonWidget
+    private val kebabButton: EdgeSafeButtonWidget
 
     private var rotatingPreview = false
     private var pendingDetailOpen = false
@@ -62,14 +63,19 @@ class SkinLibraryCard(
     override var clipBottom = Int.MAX_VALUE
 
     init {
-        // Single bottom row: only the replay (apply) button — model type and delete live
-        // in the detail overlay, freeing preview space on the card.
+        // Bottom row: apply + the kebab (⋯) opening the card context menu — horizontal
+        // dots so it never reads as the vertical reorder handle.
         applyButton = EdgeSafeButtonWidget(
             BUTTON_MARGIN, height - BUTTON_HEIGHT - BUTTON_MARGIN,
-            width - BUTTON_MARGIN * 2, BUTTON_HEIGHT,
+            width - BUTTON_MARGIN * 2 - KEBAB_W - 2, BUTTON_HEIGHT,
             Component.translatable("simpleskinswapper.screen.carousel.apply")
         ) { applySkin() }
         addChild(applyButton)
+        kebabButton = EdgeSafeButtonWidget(
+            width - BUTTON_MARGIN - KEBAB_W, height - BUTTON_HEIGHT - BUTTON_MARGIN,
+            KEBAB_W, BUTTON_HEIGHT, Component.empty()
+        ) { parent.openCardMenu(this) }
+        addChild(kebabButton)
     }
 
     private fun addChild(button: EdgeSafeButtonWidget) {
@@ -173,6 +179,11 @@ class SkinLibraryCard(
                 if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) dragging = true
                 return true
             }
+        }
+        if (event.button() == InputConstants.MOUSE_BUTTON_RIGHT && isMouseOverCard(event.x().toInt(), event.y().toInt())) {
+            // Right-click opens the same context menu as the kebab; no drag starts.
+            parent.openCardMenu(this)
+            return true
         }
         if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && isMouseOverCard(event.x().toInt(), event.y().toInt())) {
             val mx = event.x().toInt()
@@ -333,6 +344,21 @@ class SkinLibraryCard(
             /*child.render(graphics, mouseX, mouseY, delta)
             *///?}
         }
+        drawKebabDots(graphics)
+    }
+
+    /** Three horizontal dots over the unlabeled kebab button (vertical dots = the
+     *  reorder handle; horizontal = "more actions"). */
+    private fun drawKebabDots(graphics: GuiGraphicsExtractor) {
+        val kx = x + width - BUTTON_MARGIN - KEBAB_W
+        val ky = y + height - BUTTON_HEIGHT - BUTTON_MARGIN
+        val dotsW = 3 * 2 + 2 * 2
+        val px = kx + (KEBAB_W - dotsW) / 2
+        val py = ky + (BUTTON_HEIGHT - 2) / 2
+        for (i in 0..2) {
+            val dx = px + i * 4
+            graphics.fill(dx, py, dx + 2, py + 2, 0xFFB0B8C0.toInt())
+        }
     }
 
     private fun drawCardHeader(graphics: GuiGraphicsExtractor) {
@@ -397,6 +423,9 @@ class SkinLibraryCard(
         // Reorder grab zones: the ⋮⋮ handle and a [FRAME_BAND] px band along the card edges.
         private const val FRAME_BAND = 4
         private const val HANDLE = 12
+
+        // Kebab (⋯) control width in the bottom row.
+        private const val KEBAB_W = 12
 
         // Allocation marker strip thickness in px.
         private const val MARKER_HEIGHT = 2

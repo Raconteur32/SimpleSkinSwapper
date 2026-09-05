@@ -3,14 +3,14 @@ package fr.raconteur.simpleskinswapper.gui.library
 import fr.raconteur.simpleskinswapper.gui.EdgeSafeButtonWidget
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.components.EditBox
-import net.minecraft.network.chat.CommonComponents
 import net.minecraft.network.chat.Component
 import net.minecraft.client.renderer.RenderPipelines
 
 /**
  * The category config band inside the grid page: collapsed bar (name · count · wheels),
  * expanded row with the color swatch grid, rename field, wheel stepper and delete button —
- * plus the delete-confirmation modal it opens. Owns its widgets; the screen registers them.
+ * deletion confirms through the screen's shared [ConfirmPopup]. Owns its widgets; the
+ * screen registers them.
  */
 internal class CategoryBand(private val screen: SkinLibraryScreen) {
 
@@ -35,17 +35,10 @@ internal class CategoryBand(private val screen: SkinLibraryScreen) {
     }
 
     val deleteButton: EdgeSafeButtonWidget = EdgeSafeButtonWidget(0, 0, 20, BAND_FIELD_HEIGHT, Component.literal("✕")) {
-        confirmingDelete = true
-    }
-
-    val confirmOverlayButton: EdgeSafeButtonWidget = EdgeSafeButtonWidget(0, 0, 100, 20, Component.translatable(
-        "simpleskinswapper.screen.library.delete_category_confirm")) { screen.confirmCategoryDelete() }
-    val cancelOverlayButton: EdgeSafeButtonWidget = EdgeSafeButtonWidget(0, 0, 100, 20, CommonComponents.GUI_CANCEL) {
-        confirmingDelete = false
+        screen.openCategoryDeletePopup()
     }
 
     var expanded = false
-    var confirmingDelete = false
 
     fun height(hasCategory: Boolean): Int =
         if (!hasCategory) 0 else if (expanded) BAND_EXPANDED_H else BAND_COLLAPSED_H
@@ -174,49 +167,6 @@ internal class CategoryBand(private val screen: SkinLibraryScreen) {
             graphics.centeredText(client.font, Component.literal("${category.maxWheels}"), x2 + 28, by + 44 + (BAND_FIELD_HEIGHT - client.font.lineHeight) / 2, 0xFFFFFFFF.toInt())
             graphics.text(client.font, Component.translatable("simpleskinswapper.screen.library.wheels"), x2 + 58, by + 48, 0xFFB0B8C0.toInt())
         }
-    }
-
-    /** Delete-confirmation modal over a dimmed screen. */
-    fun drawDeleteOverlay(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
-        val w = screen.width
-        val h = screen.height
-        graphics.fill(0, 0, w, h, 0x88000000.toInt())
-        val boxW = 260
-        val boxH = 80
-        val bx = w / 2 - boxW / 2
-        val by = h / 2 - boxH / 2
-        graphics.fill(bx, by, bx + boxW, by + boxH, 0xFF1A2535.toInt())
-        graphics.fill(bx, by, bx + boxW, by + 1, 0xFFFFFFFF.toInt())
-        val question = Component.translatable("simpleskinswapper.screen.library.delete_category_question")
-        // Simple word wrap (Component.string + font.width work on every target version).
-        val wrapped = ArrayList<String>()
-        var currentLine = ""
-        for (word in question.string.split(" ")) {
-            val candidate = if (currentLine.isEmpty()) word else "$currentLine $word"
-            if (client.font.width(candidate) > boxW - 16 && currentLine.isNotEmpty()) {
-                wrapped.add(currentLine)
-                currentLine = word
-            } else {
-                currentLine = candidate
-            }
-        }
-        if (currentLine.isNotEmpty()) wrapped.add(currentLine)
-        var ly = by + 8
-        for (lineText in wrapped) {
-            graphics.text(client.font, Component.nullToEmpty(lineText), bx + 8, ly, 0xFFFFFFFF.toInt())
-            ly += client.font.lineHeight
-        }
-        confirmOverlayButton.setX(bx + 8)
-        confirmOverlayButton.setY(by + boxH - 28)
-        cancelOverlayButton.setX(bx + boxW - 108)
-        cancelOverlayButton.setY(by + boxH - 28)
-        //? if >=26.1 {
-        confirmOverlayButton.extractRenderState(graphics, mouseX, mouseY, delta)
-        cancelOverlayButton.extractRenderState(graphics, mouseX, mouseY, delta)
-        //?} else {
-        /*confirmOverlayButton.render(graphics, mouseX, mouseY, delta)
-        cancelOverlayButton.render(graphics, mouseX, mouseY, delta)
-        *///?}
     }
 
     companion object {

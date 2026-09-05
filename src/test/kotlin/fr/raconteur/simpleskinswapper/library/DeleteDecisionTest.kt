@@ -39,4 +39,31 @@ class DeleteDecisionTest {
         assertEquals(0, decision.totalCategories)
         assertEquals(0, decision.otherCategories)
     }
+
+    @Test
+    fun `popup offers both actions when the skin has other categories`() {
+        val decision = DeleteDecision.of(DeleteSource.CATEGORY, totalCategories = 3)
+        assertEquals(
+            listOf(DeleteAction.REMOVE_CARD_HERE, DeleteAction.DELETE_EVERYWHERE),
+            decision.actions()
+        )
+    }
+
+    @Test
+    fun `popup collapses to one action at the skin's last location`() {
+        val decision = DeleteDecision.of(DeleteSource.CATEGORY, totalCategories = 1)
+        assertEquals(listOf(DeleteAction.DELETE_EVERYWHERE), decision.actions())
+    }
+
+    @Test
+    fun `popup offers a single delete from derived views`() {
+        assertEquals(
+            listOf(DeleteAction.DELETE_EVERYWHERE),
+            DeleteDecision.of(DeleteSource.ALL_SKINS, totalCategories = 2).actions()
+        )
+        assertEquals(
+            listOf(DeleteAction.DELETE_EVERYWHERE),
+            DeleteDecision.of(DeleteSource.UNCATEGORIZED, totalCategories = 0).actions()
+        )
+    }
 }

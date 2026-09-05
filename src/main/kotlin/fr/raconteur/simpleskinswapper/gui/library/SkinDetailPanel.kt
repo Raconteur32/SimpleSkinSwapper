@@ -5,8 +5,6 @@ import fr.raconteur.simpleskinswapper.changeskin.SkinSwapperState
 import fr.raconteur.simpleskinswapper.gui.EdgeSafeButtonWidget
 import fr.raconteur.simpleskinswapper.gui.SkinEntry
 import fr.raconteur.simpleskinswapper.gui.SkinType
-import fr.raconteur.simpleskinswapper.library.DeleteDecision
-import fr.raconteur.simpleskinswapper.library.DeleteSource
 import fr.raconteur.simpleskinswapper.overlayMessage
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.components.EditBox
@@ -18,7 +16,7 @@ import net.minecraft.network.chat.Component
  * skin preview in bulk, drag to rotate. Left column: the read-only texture file name
  * (hash — never editable), the global display name, the per-category name (category views
  * only), the wide/slim switch — which switches to the sibling skin of the same texture —
- * the dynamic delete controls (remove card here vs delete everywhere) and apply.
+ * a single delete control opening the shared confirmation popup, and apply.
  */
 class SkinDetailPanel(
     parent: SkinLibraryScreen
@@ -27,10 +25,8 @@ class SkinDetailPanel(
     private val fileNameField: EditBox
     private val displayNameField: EditBox
     private val categoryNameField: EditBox
-    private val removeCardButton: EdgeSafeButtonWidget
     private val deleteButton: EdgeSafeButtonWidget
     private val applyButton: EdgeSafeButtonWidget
-    private var deleteArmed = false
 
     private var entry: SkinEntry? = null
 
@@ -78,11 +74,6 @@ class SkinDetailPanel(
         }
         addChild(categoryNameField)
 
-        removeCardButton = EdgeSafeButtonWidget(0, 0, BTN_W, FIELD_HEIGHT + 2,
-            Component.translatable("simpleskinswapper.screen.detail.remove_card")
-        ) { removeFromCategory() }
-        addChild(removeCardButton)
-
         deleteButton = EdgeSafeButtonWidget(0, 0, BTN_W, FIELD_HEIGHT + 2, deleteLabel()) {
             onDeleteClicked()
         }
@@ -101,11 +92,9 @@ class SkinDetailPanel(
     /** Starts the scale-up animation from [card]'s current rect to the full detail rect. */
     fun open(card: SkinLibraryCard) {
         entry = card.entry
-        deleteArmed = false
         originalModel = card.entry.skinType
         pendingType = null
         switchNote = null
-        deleteButton.message = deleteLabel()
         refreshFields()
         openFrom(card.x, card.y, card.width, card.height)
     }
@@ -113,11 +102,9 @@ class SkinDetailPanel(
     /** Re-points the panel at a fresh entry after a reload (list rebuilt / model switch). */
     fun rebind(fresh: SkinEntry) {
         entry = fresh
-        deleteArmed = false
         originalModel = fresh.skinType
         pendingType = null
         switchNote = null
-        deleteButton.message = deleteLabel()
         refreshFields()
     }
 
@@ -132,7 +119,6 @@ class SkinDetailPanel(
             parent.selectedCategory?.cards?.firstOrNull { it.skinId == e.skinId }?.name ?: ""
         )
         categoryNameField.visible = inCategory
-        removeCardButton.visible = inCategory
     }
 
     // ------------------------------------------------------------------
@@ -152,20 +138,17 @@ class SkinDetailPanel(
         displayNameField.setWidth(leftW)
         displayNameField.setPosition(t[0] + PANEL_PAD, labelY(1) + LABEL_LINE)
         categoryNameField.setVisible(inCategory)
-        removeCardButton.visible = inCategory
         if (inCategory) {
             categoryNameField.setWidth(leftW)
             categoryNameField.setPosition(t[0] + PANEL_PAD, labelY(2) + LABEL_LINE)
         }
         val buttonY = switchRowY() + SWITCH_BODY_H + ROW_GAP
         if (inCategory) {
-            val w = (leftW - 16) / 3
-            removeCardButton.setWidth(w)
-            removeCardButton.setPosition(t[0] + PANEL_PAD, buttonY)
+            val w = (leftW - 8) / 2
             deleteButton.setWidth(w)
-            deleteButton.setPosition(t[0] + PANEL_PAD + w + 8, buttonY)
+            deleteButton.setPosition(t[0] + PANEL_PAD, buttonY)
             applyButton.setWidth(w)
-            applyButton.setPosition(t[0] + PANEL_PAD + (w + 8) * 2, buttonY)
+            applyButton.setPosition(t[0] + PANEL_PAD + w + 8, buttonY)
         } else {
             deleteButton.setWidth(BTN_W)
             deleteButton.setPosition(t[0] + PANEL_PAD, buttonY)
@@ -180,21 +163,9 @@ class SkinDetailPanel(
 
     private fun onDeleteClicked() {
         val e = entry ?: return
-        if (!deleteArmed) {
-            deleteArmed = true
-            deleteButton.message = Component.translatable("simpleskinswapper.screen.detail.delete_confirm")
-            return
-        }
-        deleteArmed = false
-        close(instant = true)
-        parent.deleteEntry(e)
-    }
-
-    /** Removes this card from the current category only — the skin and its other cards stay. */
-    private fun removeFromCategory() {
-        val e = entry ?: return
-        close(instant = true)
-        parent.removeCardOf(e)
+        // The shared popup opens over this panel; confirming closes it instantly without
+        // committing pending edits (see onDeleteConfirmed flow in the screen).
+        parent.openDeletePopup(e, panel = this)
     }
 
     /** Commits a pending model switch (creates the sibling skin, replaces the original).
@@ -230,13 +201,6 @@ class SkinDetailPanel(
     private fun deleteLabel(): Component =
         Component.translatable("simpleskinswapper.screen.detail.delete")
 
-    private fun disarmDelete() {
-        if (deleteArmed) {
-            deleteArmed = false
-            deleteButton.message = deleteLabel()
-        }
-    }
-
     // ------------------------------------------------------------------
     // Rendering
     // ------------------------------------------------------------------
@@ -246,7 +210,7 @@ class SkinDetailPanel(
         drawPreview(graphics, e, t, mouseX, mouseY)
         drawLabels(graphics, t)
         drawSwitch(graphics, t, e.skinType)
-        drawContextLine(graphics, e, t)
+        drawContextLine(graphics, t)
     }
 
     private fun drawPreview(graphics: GuiGraphicsExtractor, e: SkinEntry, t: IntArray, mouseX: Int, mouseY: Int) {
@@ -265,37 +229,14 @@ class SkinDetailPanel(
         }
     }
 
-    /** Under the switch: why the model switch is off, or the delete context line. */
-    private fun drawContextLine(graphics: GuiGraphicsExtractor, e: SkinEntry, t: IntArray) {
+    private fun drawContextLine(graphics: GuiGraphicsExtractor, t: IntArray) {
         val noteY = switchRowY() + SWITCH_BODY_H + 2
-        val note = switchNote ?: deleteContext(e) ?: return
+        val note = switchNote ?: return
         //? if >=26.1 {
         graphics.text(client.font, note, t[0] + PANEL_PAD, noteY, 0xFFB0B8C0.toInt())
         //?} else {
         /*graphics.drawString(client.font, note, t[0] + PANEL_PAD, noteY, 0xFFB0B8C0.toInt())
         *///?}
-    }
-
-    /** The dynamic delete text per [DeleteDecision]: cross-category counts or "safe". */
-    private fun deleteContext(e: SkinEntry): Component? {
-        val source = parent.deleteSource()
-        val decision = DeleteDecision.of(source, SkinCategories.categoriesOf(e.skinId).size)
-        return when (source) {
-            DeleteSource.CATEGORY ->
-                if (decision.otherCategories > 0) {
-                    Component.translatable("simpleskinswapper.screen.detail.delete_context_category_others", decision.otherCategories)
-                } else {
-                    Component.translatable("simpleskinswapper.screen.detail.delete_context_category_last")
-                }
-            DeleteSource.ALL_SKINS ->
-                if (decision.totalCategories > 0) {
-                    Component.translatable("simpleskinswapper.screen.detail.delete_context_all", decision.totalCategories)
-                } else {
-                    null
-                }
-            DeleteSource.UNCATEGORIZED ->
-                Component.translatable("simpleskinswapper.screen.detail.delete_context_uncategorized")
-        }
     }
 
     // ------------------------------------------------------------------
@@ -323,20 +264,17 @@ class SkinDetailPanel(
     override fun onCloseRequested(instant: Boolean) {
         if (instant) {
             // Programmatic closes (delete / remove card): the action wins, nothing commits.
-            disarmDelete()
             return
         }
         // Quitting the panel (ESC or click beside) is what applies the pending edits.
         commitPendingSwitch()
         val e = entry
         if (e != null) parent.commitEntryNames(e, displayNameField.value, categoryNameField.value)
-        disarmDelete()
     }
 
     override fun onBackgroundClick(mouseX: Int, mouseY: Int) {
         // Clicks beside the panel close it at the base (committing pending edits); clicks
-        // on the panel's own background just blur the fields and disarm the delete confirm.
-        disarmDelete()
+        // on the panel's own background just blur the fields.
     }
 
     private companion object {
