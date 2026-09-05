@@ -512,18 +512,19 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // scissors and slots are never a frame behind the cursor.
         updateCardPositions(mouseX, mouseY)
 
+        // Front pass of the strip: over the page normally; with an overlay open it renders
+        // before the widgets so the panel covers it instead of the tab drawing over it.
+        drawStripFrontPass(graphics, mouseX, mouseY, beforeWidgets = true)
+
         //? if >=26.1 {
         super.extractRenderState(graphics, mouseX, mouseY, delta)
         //?} else {
         /*super.render(graphics, mouseX, mouseY, delta)
         *///?}
 
-        // Selected tab: drawn even with an overlay open (it lives in the strip gap, the
-        // panel never covers it) — drawTabStripOver clips its page tuck-under in that case.
-        drawTabStripOver(graphics, mouseX, mouseY)
+        drawStripFrontPass(graphics, mouseX, mouseY, beforeWidgets = false)
 
-        // While the detail overlay is open, the rest of the base chrome stays static:
-        // nothing may draw over the panel (the panel renders itself via super).
+        // While the detail overlay is open, the base chrome stays static under the panel.
         if (detail == null && addPanel == null) {
             // "Reorder-dragged" card floats above everything else.
             val dragged = reorderDraggingCard
@@ -608,27 +609,34 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     /** Selected + dragged tab and the insertion line, drawn after the grid page so they overlap it. */
-    private fun drawTabStripOver(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
+    /**
+     * Front pass of the tab strip: the selected tab (over the page edge), the dragged
+     * tab and the insertion line. Renders BELOW overlay panels — call it before the
+     * widgets render when an overlay is open.
+     */
+    /** Runs the strip front pass exactly once, at the right layer: after the widgets
+     *  normally (over the page edge), before them when an overlay panel is open. */
+    private fun drawStripFrontPass(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, beforeWidgets: Boolean) {
+        val overlayOpen = detail != null || addPanel != null
+        if (beforeWidgets != overlayOpen) return
+        drawTabStripFront(graphics, mouseX, mouseY)
+    }
+
+    private fun drawTabStripFront(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
         val top = tabs.stripTop()
         val tabBottom = tabs.stripAlignedBottom()
 
         // Selected tab: full-color book panel, flush left, its right edge tucking slightly under
         // the grid page border. Clipped vertically to the strip so it scrolls away like the
-        // other tabs, while still overflowing to the right over the page. With an overlay
-        // open the tuck-under would draw over the panel — clip at the page border instead.
-        val stickoutRight = if (detail == null && addPanel == null) {
-            STRIP_X + TAB_W + TAB_SELECTED_STICKOUT
-        } else {
-            panelX - 6
-        }
+        // other tabs, while still overflowing to the right over the page.
         val selected = selectedTabIndex()
         if (selected >= 0) {
             val y = tabs.tabY(selected)
             // Whole tabs only, mirrored from the under pass: a selected tab scrolled
             // half out of the band's top must not dangle its overlap border inside.
             if (y >= top && y + tabH <= tabBottom) {
-                graphics.enableScissor(-PANEL_BLEED, top, stickoutRight, tabBottom)
-                drawBookPanel(graphics, -PANEL_BLEED, y, stickoutRight + PANEL_BLEED, tabH, lit = true)
+                graphics.enableScissor(-PANEL_BLEED, top, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT, tabBottom)
+                drawBookPanel(graphics, -PANEL_BLEED, y, STRIP_X + TAB_W + TAB_SELECTED_STICKOUT + PANEL_BLEED, tabH, lit = true)
                 drawTabContent(graphics, selected, y)
                 graphics.disableScissor()
             }
