@@ -174,6 +174,16 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         }
     }
 
+    /** Moves every card of [fromId] over to [toId], keeping per-category custom names. */
+    private fun transferCards(fromId: String, toId: String) {
+        for (holder in SkinCategories.categoriesOf(fromId)) {
+            val customName = holder.cards.firstOrNull { it.skinId == fromId }?.name ?: ""
+            SkinCategories.removeCard(holder, fromId)
+            SkinCategories.addCard(holder, toId)
+            if (customName.isNotBlank()) SkinCategories.setCardName(holder, toId, customName)
+        }
+    }
+
     /** Commits the model switch of [entry] to [targetModel] (the panel previews it first;
      *  this runs when the panel closes). The sibling skin is created on the fly and
      *  REPLACES the original: a category view swaps the current card (custom name kept),
@@ -195,12 +205,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             if (customName.isNotBlank()) SkinCategories.setCardName(category, sibling.id, customName)
         } else {
             // Derived view: the sibling takes the original's place everywhere it was filed.
-            for (holder in SkinCategories.categoriesOf(record.id)) {
-                val customName = holder.cards.firstOrNull { it.skinId == record.id }?.name ?: ""
-                SkinCategories.removeCard(holder, record.id)
-                SkinCategories.addCard(holder, sibling.id)
-                if (customName.isNotBlank()) SkinCategories.setCardName(holder, sibling.id, customName)
-            }
+            transferCards(record.id, sibling.id)
         }
         if (SkinCategories.categoriesOf(record.id).isEmpty()) {
             SkinLifecycle.removeSkin(record.id)
@@ -208,8 +213,19 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         }
         watcher.markSelfTriggered(sibling.file)
         reloadView()
+        val fresh = SkinEntry.fromRecord(SkinRecords.findById(sibling.id) ?: sibling)
+        // Re-point the open panel at the sibling BEFORE the rebuild: rebindDetail matches
+        // by skin id and would force-close the panel over the vanished original id.
+        if (detail?.entrySkinId == record.id) detail?.rebind(fresh)
         rebuildCards()
-        return SkinEntry.fromRecord(SkinRecords.findById(sibling.id) ?: sibling)
+        // Fold the closing panel into the sibling's fresh card slot, not the removed
+        // original's slot (fresh cards carry no position until the next render pass).
+        val siblingIndex = cards.indexOfFirst { it.entry.skinId == sibling.id }
+        if (siblingIndex >= 0) {
+            val slot = cardDrag.slotFor(siblingIndex, -1)
+            detail?.retargetTo(slot.first, slot.second, cellW, cellH)
+        }
+        return fresh
     }
 
     /** One-shot legacy migration, then pruning of skins whose texture vanished externally. */

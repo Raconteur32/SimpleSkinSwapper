@@ -80,6 +80,15 @@ abstract class AbstractSkinOverlayPanel(
         setHeight(parent.height)
     }
 
+    /** Re-targets the close animation at a fresh card rect — the source card may have
+     *  been rebuilt (e.g. a model switch replaced it) while the panel stays open. */
+    fun retargetTo(x: Int, y: Int, w: Int, h: Int) {
+        sourceX = x
+        sourceY = y
+        sourceW = w
+        sourceH = h
+    }
+
     fun close(instant: Boolean = false) {
         onCloseRequested(instant)
         setFocused(null)
