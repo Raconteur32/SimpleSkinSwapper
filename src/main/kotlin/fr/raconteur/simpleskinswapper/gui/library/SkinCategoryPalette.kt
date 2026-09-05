@@ -16,10 +16,10 @@ object SkinCategoryPalette {
         Entry(dye.getName(), 0xFF000000.toInt() or dye.mapColor.col)
     }
 
-    /** Default color for new categories: the white dye's wool map color. Compile-time
-     *  constant on purpose — it inlines at use sites, so Minecraft-free code (unit tests)
-     *  referencing it never loads this object's DyeColor-backed clinit. */
-    const val DEFAULT_HEX: String = "#F9FFFE"
+    /** Default color for new categories: delegated to the pure core's constant (see
+     *  SkinCardStore) — compile-time, so use sites never load this object's DyeColor-backed
+     *  clinit (unit tests stay Minecraft-free). */
+    const val DEFAULT_HEX: String = fr.raconteur.simpleskinswapper.library.SkinCardStore.DEFAULT_CATEGORY_COLOR
 
     @JvmStatic
     fun toHex(argb: Int): String = String.format(java.util.Locale.ROOT, "#%06X", argb and 0xFFFFFF)
