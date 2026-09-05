@@ -149,10 +149,12 @@ class   TabStripController(
         val top = stripTop()
         val bottom = stripBottom()
         var speed = 0.0F
+        // tabScroll grows downward (reveals lower tabs): pressing at the bottom edge must
+        // scroll down (+), the top edge up (-) — signs follow the scroll convention.
         if (mouseY > bottom - AUTO_SCROLL_BAND && mouseY <= bottom + tabH()) {
-            speed = -MAX_TABS_PER_SEC * (1.0F - (bottom - mouseY) / AUTO_SCROLL_BAND.toFloat())
+            speed = MAX_TABS_PER_SEC * (1.0F - (bottom - mouseY) / AUTO_SCROLL_BAND.toFloat())
         } else if (mouseY < top + tabH() + AUTO_SCROLL_BAND && mouseY >= top && tabScroll > 0.0F) {
-            speed = MAX_TABS_PER_SEC * (1.0F - (mouseY - top - tabH()) / AUTO_SCROLL_BAND.toFloat())
+            speed = -MAX_TABS_PER_SEC * (1.0F - (mouseY - top - tabH()) / AUTO_SCROLL_BAND.toFloat())
         }
         if (speed != 0.0F) {
             tabScroll = Mth.clamp(tabScroll + speed * slotH() * dt, 0.0F, maxTabScroll().toFloat())
