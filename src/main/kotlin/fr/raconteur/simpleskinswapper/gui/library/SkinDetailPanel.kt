@@ -59,12 +59,10 @@ class SkinDetailPanel(
             Component.translatable("simpleskinswapper.screen.detail.display_name")
         )
         displayNameField.setMaxLength(64)
-        // Live update: renames the skin in the registry; blank falls back to the file name.
+        // Preview only: the registry rename happens when the panel closes.
         displayNameField.setResponder { text ->
             val e = entry ?: return@setResponder
-            val value = text.trim()
-            e.displayNameOverride = value.ifEmpty { null }
-            SkinRecords.rename(e.skinId, value)
+            e.displayNameOverride = text.trim().ifEmpty { null }
         }
         addChild(displayNameField)
 
@@ -73,13 +71,10 @@ class SkinDetailPanel(
             Component.translatable("simpleskinswapper.screen.detail.category_name")
         )
         categoryNameField.setMaxLength(64)
-        // Live update: renames the card for this category only; blank uses the global name.
+        // Preview only: the per-category name is stored when the panel closes.
         categoryNameField.setResponder { text ->
             val e = entry ?: return@setResponder
-            val category = parent.selectedCategory ?: return@setResponder
-            val value = text.trim()
-            SkinCategories.setCardName(category, e.skinId, value)
-            e.displayNameOverride = value.ifEmpty { SkinRecords.findById(e.skinId)?.name }
+            e.displayNameOverride = text.trim().ifEmpty { SkinRecords.findById(e.skinId)?.name }
         }
         addChild(categoryNameField)
 
@@ -217,6 +212,7 @@ class SkinDetailPanel(
     private fun applySkin() {
         commitPendingSwitch()
         val e = entry ?: return
+        parent.commitEntryNames(e, displayNameField.value, categoryNameField.value)
         if (!SkinSwapperState.beginSwap()) return
         SkinChange.changeSkin(
             e.file, e.skinType, e.textureId,
@@ -240,10 +236,6 @@ class SkinDetailPanel(
             deleteButton.message = deleteLabel()
         }
     }
-
-    private fun isOnDelete(mx: Int, my: Int): Boolean =
-        mx >= deleteButton.x && mx < deleteButton.x + deleteButton.width &&
-            my >= deleteButton.y && my < deleteButton.y + deleteButton.height
 
     // ------------------------------------------------------------------
     // Rendering
@@ -330,17 +322,20 @@ class SkinDetailPanel(
 
     override fun onCloseRequested(instant: Boolean) {
         if (instant) {
-            // Programmatic closes (delete / remove card): the action wins, no switch.
+            // Programmatic closes (delete / remove card): the action wins, nothing commits.
             disarmDelete()
             return
         }
+        // Quitting the panel (ESC or click beside) is what applies the pending edits.
         commitPendingSwitch()
+        val e = entry
+        if (e != null) parent.commitEntryNames(e, displayNameField.value, categoryNameField.value)
         disarmDelete()
     }
 
     override fun onBackgroundClick(mouseX: Int, mouseY: Int) {
-        // Clicking anywhere but the delete button disarms the pending confirmation.
-        if (!isOnDelete(mouseX, mouseY)) disarmDelete()
+        // Clicking beside the panel quits it: pending edits commit via onCloseRequested.
+        close()
     }
 
     private companion object {

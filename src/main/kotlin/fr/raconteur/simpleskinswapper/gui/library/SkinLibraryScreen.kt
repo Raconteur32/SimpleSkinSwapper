@@ -413,15 +413,12 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         rebuildCards()
     }
 
-    /** Renames a skin: display name only — the texture file name never changes. */
-    fun renameEntry(entry: SkinEntry, newName: String): Boolean {
-        val name = newName.trim()
-        if (name.isEmpty()) return false
-        SkinRecords.rename(entry.skinId, name)
-        entry.displayNameOverride = name
+    /** Commits the detail panel's pending text edits (global + per-category names). */
+    internal fun commitEntryNames(entry: SkinEntry, display: String, categoryName: String) {
+        SkinRecords.rename(entry.skinId, display.trim())
+        selectedCategory?.let { SkinCategories.setCardName(it, entry.skinId, categoryName.trim()) }
         reloadView()
         rebuildCards()
-        return true
     }
 
     internal fun openDetail(card: SkinLibraryCard) {
