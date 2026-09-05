@@ -334,8 +334,9 @@ class SkinDetailPanel(
     }
 
     override fun onBackgroundClick(mouseX: Int, mouseY: Int) {
-        // Clicking beside the panel quits it: pending edits commit via onCloseRequested.
-        close()
+        // Clicks beside the panel close it at the base (committing pending edits); clicks
+        // on the panel's own background just blur the fields and disarm the delete confirm.
+        disarmDelete()
     }
 
     private companion object {
