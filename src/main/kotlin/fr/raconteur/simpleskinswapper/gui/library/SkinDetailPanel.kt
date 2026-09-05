@@ -34,6 +34,15 @@ class SkinDetailPanel(
 
     private var entry: SkinEntry? = null
 
+    /** Model the entry had when the panel opened; a pending switch back to it is a no-op. */
+    private var originalModel: SkinType = SkinType.CLASSIC
+
+    /** Previewed target model — the sibling skin is only created when the panel closes. */
+    private var pendingType: SkinType? = null
+
+    /** Why the last toggle was refused (shown under the switch until it changes). */
+    private var switchNote: Component? = null
+
     private val inCategory: Boolean get() = parent.selectedCategory != null
 
     init {
@@ -98,6 +107,9 @@ class SkinDetailPanel(
     fun open(card: SkinLibraryCard) {
         entry = card.entry
         deleteArmed = false
+        originalModel = card.entry.skinType
+        pendingType = null
+        switchNote = null
         deleteButton.message = deleteLabel()
         refreshFields()
         openFrom(card.x, card.y, card.width, card.height)
@@ -107,6 +119,9 @@ class SkinDetailPanel(
     fun rebind(fresh: SkinEntry) {
         entry = fresh
         deleteArmed = false
+        originalModel = fresh.skinType
+        pendingType = null
+        switchNote = null
         deleteButton.message = deleteLabel()
         refreshFields()
     }
@@ -187,8 +202,20 @@ class SkinDetailPanel(
         parent.removeCardOf(e)
     }
 
+    /** Commits a pending model switch (creates the sibling skin, replaces the original).
+     *  Called when the panel closes or before applying — the preview alone never mutates. */
+    private fun commitPendingSwitch() {
+        val target = pendingType ?: return
+        pendingType = null
+        switchNote = null
+        val e = entry ?: return
+        entry = parent.switchModel(e, target) ?: e
+        refreshFields()
+    }
+
     /** Applies the skin (same flow as the card's replay button), then leaves the screen. */
     private fun applySkin() {
+        commitPendingSwitch()
         val e = entry ?: return
         if (!SkinSwapperState.beginSwap()) return
         SkinChange.changeSkin(
@@ -248,9 +275,8 @@ class SkinDetailPanel(
 
     /** Under the switch: why the model switch is off, or the delete context line. */
     private fun drawContextLine(graphics: GuiGraphicsExtractor, e: SkinEntry, t: IntArray) {
-        val reason = parent.switchBlockedReason(e)
         val noteY = switchRowY() + SWITCH_BODY_H + 2
-        val note = reason ?: deleteContext(e) ?: return
+        val note = switchNote ?: deleteContext(e) ?: return
         //? if >=26.1 {
         graphics.text(client.font, note, t[0] + PANEL_PAD, noteY, 0xFFB0B8C0.toInt())
         //?} else {
@@ -290,11 +316,26 @@ class SkinDetailPanel(
 
     override fun toggleSkinType() {
         val e = entry ?: return
-        entry = parent.switchModel(e) ?: e
+        val target = if (e.skinType == SkinType.CLASSIC) SkinType.SLIM else SkinType.CLASSIC
+        val reason = parent.switchBlockedReason(e, target)
+        if (reason != null) {
+            switchNote = reason
+            return
+        }
+        switchNote = null
+        // Preview only: the sibling skin is created when the panel closes.
+        e.skinType = target
+        pendingType = if (target == originalModel) null else target
     }
 
     override fun onCloseRequested(instant: Boolean) {
-        if (!instant) disarmDelete()
+        if (instant) {
+            // Programmatic closes (delete / remove card): the action wins, no switch.
+            disarmDelete()
+            return
+        }
+        commitPendingSwitch()
+        disarmDelete()
     }
 
     override fun onBackgroundClick(mouseX: Int, mouseY: Int) {

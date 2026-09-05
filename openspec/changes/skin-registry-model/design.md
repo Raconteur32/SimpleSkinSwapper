@@ -40,6 +40,10 @@ Marker field in the new registry file. Per legacy png: hash pixels → write has
 
 Drag keeps rotate; the reorder gesture is removed (no gap animation). Dropping a card on a category tab copies the reference (source keeps it; no-op on view tabs; no duplicate ref in the target). The wheel keeps counting cards per category — a skin in two allocated categories occupies slots in both (confirmed).
 
+### D7 — Model switch is a deferred replacement
+
+The detail-panel wide/slim toggle only PREVIEWS the other model; the sibling skin (same texture) is created when the panel closes — closing without toggling back cancels the change. On commit: a category view swaps the current card to the sibling (custom name kept) and deletes the original when it has no other category; the derived views (All skins, Uncategorized) replace outright — the sibling inherits every card of the original, which is then deleted. Blocked with an inline reason: the sibling already exists (derived views) or already holds a card in this category (category view).
+
 ## Risks / Trade-offs
 
 - [Migration data loss] → originals preserved in `User Files/`, versioned marker, fixture-tested before wiring.

@@ -157,14 +157,15 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         rebuildCards()
     }
 
-    /** Why the detail-panel model toggle is disabled for [entry], or null when allowed.
-     *  The sibling check is registry-wide: category views block only when the sibling
-     *  already holds a card here; the views block on any existing sibling. */
-    internal fun switchBlockedReason(entry: SkinEntry): Component? {
+    /** Why switching [entry] to [targetModel] is disabled, or null when allowed. The
+     *  sibling check is registry-wide: category views block only when the sibling already
+     *  holds a card here; the derived views block on any existing sibling. */
+    internal fun switchBlockedReason(entry: SkinEntry, targetModel: SkinType): Component? {
         val record = SkinRecords.findById(entry.skinId)
             ?: return Component.translatable("simpleskinswapper.screen.detail.switch_exists")
-        val other = if (record.model == SkinRecord.MODEL_SLIM) SkinRecord.MODEL_CLASSIC else SkinRecord.MODEL_SLIM
-        val sibling = SkinRecords.find(record.textureHash, other) ?: return null
+        val target = targetModel.mojangVariant
+        if (record.model == target) return null
+        val sibling = SkinRecords.find(record.textureHash, target) ?: return null
         val category = selectedCategory ?: return Component.translatable("simpleskinswapper.screen.detail.switch_exists")
         return if (category.cards.any { it.skinId == sibling.id }) {
             Component.translatable("simpleskinswapper.screen.detail.switch_in_category")
@@ -173,21 +174,33 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         }
     }
 
-    /** Swaps [entry] for its sibling skin (other model, same texture), creating it on the
-     *  fly; in a category the card reference is swapped keeping the custom name, and the
-     *  original is deleted when no card references it anymore. */
-    internal fun switchModel(entry: SkinEntry): SkinEntry? {
-        if (switchBlockedReason(entry) != null) return null
+    /** Commits the model switch of [entry] to [targetModel] (the panel previews it first;
+     *  this runs when the panel closes). The sibling skin is created on the fly and
+     *  REPLACES the original: a category view swaps the current card (custom name kept),
+     *  a derived view makes the sibling inherit every card; the original is deleted when
+     *  nothing references it anymore. */
+    internal fun switchModel(entry: SkinEntry, targetModel: SkinType): SkinEntry? {
+        if (switchBlockedReason(entry, targetModel) != null) return null
         val record = SkinRecords.findById(entry.skinId) ?: return null
-        val other = if (record.model == SkinRecord.MODEL_SLIM) SkinRecord.MODEL_CLASSIC else SkinRecord.MODEL_SLIM
-        val sibling = SkinRecords.find(record.textureHash, other)
-            ?: SkinRecords.create(record.textureHash, other, record.name, record.file)
+        val target = targetModel.mojangVariant
+        if (record.model == target) return entry
+        val sibling = SkinRecords.find(record.textureHash, target)
+            ?: SkinRecords.create(record.textureHash, target, record.name, record.file)
             ?: return null
-        selectedCategory?.let { category ->
+        val category = selectedCategory
+        if (category != null) {
             val customName = category.cards.firstOrNull { it.skinId == record.id }?.name ?: ""
             SkinCategories.removeCard(category, record.id)
             SkinCategories.addCard(category, sibling.id)
             if (customName.isNotBlank()) SkinCategories.setCardName(category, sibling.id, customName)
+        } else {
+            // Derived view: the sibling takes the original's place everywhere it was filed.
+            for (holder in SkinCategories.categoriesOf(record.id)) {
+                val customName = holder.cards.firstOrNull { it.skinId == record.id }?.name ?: ""
+                SkinCategories.removeCard(holder, record.id)
+                SkinCategories.addCard(holder, sibling.id)
+                if (customName.isNotBlank()) SkinCategories.setCardName(holder, sibling.id, customName)
+            }
         }
         if (SkinCategories.categoriesOf(record.id).isEmpty()) {
             SkinLifecycle.removeSkin(record.id)
