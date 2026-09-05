@@ -73,7 +73,10 @@ internal class CategoryBand(private val screen: SkinLibraryScreen) {
             val nameWidth = Math.min(BAND_NAME_WIDTH, right - 24 - 8 - x2)
             nameField.setWidth(nameWidth)
             nameField.setX(x2); nameField.setY(by + 24)
-            if (nameField.value != category.name) nameField.value = category.name
+            // Resync only when the field is not being edited: the rename responder keeps
+            // the stored name in sync, and an empty edit is refused by design — a blind
+            // resync here would snap the field back mid-typing (the undeletable "N" bug).
+            if (!nameField.isFocused && nameField.value != category.name) nameField.value = category.name
             wheelsMinus.setX(x2); wheelsMinus.setY(by + 44)
             wheelsPlus.setX(x2 + 36); wheelsPlus.setY(by + 44)
             deleteButton.setX(right - 24); deleteButton.setY(by + 44)

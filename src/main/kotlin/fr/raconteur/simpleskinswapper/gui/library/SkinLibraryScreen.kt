@@ -976,7 +976,11 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     private fun createCategory() {
-        val category = SkinCategories.createCategory(nextDefaultCategoryName(), SkinCategoryPalette.DEFAULT_HEX)
+        // Derive from THIS version's dye list: the default must exactly match the white
+        // dye entry's argb or the tab renders the fallback square instead of its icon
+        // (the vanilla map color constant differs across the supported versions).
+        val whiteHex = SkinCategoryPalette.toHex(SkinCategoryPalette.ENTRIES.first { it.dyeName == "white" }.argb)
+        val category = SkinCategories.createCategory(nextDefaultCategoryName(), whiteHex)
         selectCategory(category)
         band.expanded = true
         band.refreshWidgets()
