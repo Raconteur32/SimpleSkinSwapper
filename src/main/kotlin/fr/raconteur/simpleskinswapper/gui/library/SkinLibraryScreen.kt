@@ -612,10 +612,17 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         val nameX = if (index == 0) STRIP_X + 6 else STRIP_X + 16
         val nameRight = STRIP_X + TAB_W - 3
         val textY = y + (tabH - font.lineHeight) / 2
-        // Clip the name to the tab; guard the scissor (zero-size scissors crash MC 26.2).
-        if (nameRight - nameX >= 8) {
+        // Truncate overlong names with an ellipsis instead of hard-clipping mid-glyph;
+        // the scissor stays as a safety net (zero-size scissors crash MC 26.2).
+        val available = nameRight - nameX
+        var text = label.string
+        if (available >= 8 && font.width(text) > available) {
+            while (text.isNotEmpty() && font.width("$text...") > available) text = text.dropLast(1)
+            text += "..."
+        }
+        if (available >= 8) {
             graphics.enableScissor(nameX, y + 2, nameRight, y + tabH - 2)
-            graphics.text(client.font, Component.nullToEmpty(label.string), nameX, textY, 0xFFFFFFFF.toInt())
+            graphics.text(client.font, Component.nullToEmpty(text), nameX, textY, 0xFFFFFFFF.toInt())
             graphics.disableScissor()
         }
         if (index > 0) {
