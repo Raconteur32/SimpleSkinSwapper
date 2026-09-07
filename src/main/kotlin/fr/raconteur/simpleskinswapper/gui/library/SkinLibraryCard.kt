@@ -123,15 +123,9 @@ class SkinLibraryCard(
         return mouseX >= r.first && mouseX < r.first + HANDLE && mouseY >= r.second && mouseY < r.second + HANDLE
     }
 
-    /** ⋮⋮ handle: right flank of the preview area, vertically centered. */
-    private fun handleRect(): Pair<Int, Int> = (x + width - HANDLE - 4) to (previewCenterY() - HANDLE / 2)
-
-    /** Vertical center of the preview area — shared by the hit test and the renderer. */
-    private fun previewCenterY(): Int {
-        val top = y + HEADER_HEIGHT + 2
-        val bottom = y + height - BUTTON_HEIGHT - BUTTON_MARGIN * 2
-        return (top + bottom) / 2
-    }
+    /** ⋮⋮ handle: right flank of the header strip, on the name's line. */
+    private fun handleRect(): Pair<Int, Int> =
+        (x + width - HANDLE - 4) to (y + (HEADER_HEIGHT - HANDLE) / 2)
 
     private fun isOnModel(mouseX: Int, mouseY: Int): Boolean {
         val top = y + HEADER_HEIGHT + 2
@@ -362,21 +356,21 @@ class SkinLibraryCard(
     }
 
     private fun drawCardHeader(graphics: GuiGraphicsExtractor) {
-        val previewCenterY = previewCenterY()
-
-        // Position number: left flank of the preview area, vertically centered; tinted with
-        // the category color while the card sits inside the wheel allocation (single-line
-        // form: stonecutter rewrites .text(client.font, Component for <26.1).
-        graphics.text(client.font, Component.nullToEmpty((parent.indexOfCard(this) + 1).toString()), x + 5, previewCenterY - 4, allocationTextColor())
-
+        // Header strip: number left, name centered, handle right — all on one line.
         val margin = client.font.lineHeight / 2
+        val textY = y + margin
+
+        // Position number: left flank of the header; tinted with the category color while
+        // the card sits inside the wheel allocation (single-line form: stonecutter rewrites
+        // .text(client.font, Component for <26.1).
+        graphics.text(client.font, Component.nullToEmpty((parent.indexOfCard(this) + 1).toString()), x + 5, textY, allocationTextColor())
+
         val nameColor = if (this.active) 0xFFFFFFFF.toInt() else 0xFF808080.toInt()
         val textWidth = client.font.width(entry.displayName)
         val textX = x + (width - textWidth) / 2
-        val textY = y + margin
-        // The whole header line belongs to the name; number and handle live on the flanks.
-        val nameLeft = x + 4
-        val nameRight = x + width - 4
+        // The scissor keeps long names from running under the number and the handle.
+        val nameLeft = x + 15
+        val nameRight = x + width - 16
         // Guard the scissor: a zero/negative-size scissor rectangle crashes MC 26.2.
         if (nameRight - nameLeft >= 8) {
             graphics.enableScissor(nameLeft, textY, nameRight, textY + client.font.lineHeight)
