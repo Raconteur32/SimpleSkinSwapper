@@ -366,19 +366,17 @@ class SkinLibraryCard(
         graphics.text(client.font, Component.nullToEmpty((parent.indexOfCard(this) + 1).toString()), x + 5, textY, allocationTextColor())
 
         val nameColor = if (this.active) 0xFFFFFFFF.toInt() else 0xFF808080.toInt()
-        val textWidth = client.font.width(entry.displayName)
-        val textX = x + (width - textWidth) / 2
-        // The scissor keeps long names from running under the number and the handle.
-        val nameLeft = x + 15
+        // Left-aligned right after the number, truncated with an ellipsis before the
+        // handle — same treatment as the category tab names (no hard clipping).
+        val nameX = x + 15
         val nameRight = x + width - 16
-        // Guard the scissor: a zero/negative-size scissor rectangle crashes MC 26.2.
-        if (nameRight - nameLeft >= 8) {
-            graphics.enableScissor(nameLeft, textY, nameRight, textY + client.font.lineHeight)
-            graphics.text(client.font, Component.nullToEmpty(entry.displayName), textX, textY, nameColor)
-            graphics.disableScissor()
-        } else {
-            graphics.text(client.font, Component.nullToEmpty(entry.displayName), textX, textY, nameColor)
+        val available = nameRight - nameX
+        var text = entry.displayName
+        if (available >= 8 && client.font.width(text) > available) {
+            while (text.isNotEmpty() && client.font.width("$text...") > available) text = text.dropLast(1)
+            text += "..."
         }
+        graphics.text(client.font, Component.nullToEmpty(text), nameX, textY, nameColor)
     }
 
     private fun allocationTextColor(): Int = parent.allocationColorFor(this) ?: 0xFF909090.toInt()
