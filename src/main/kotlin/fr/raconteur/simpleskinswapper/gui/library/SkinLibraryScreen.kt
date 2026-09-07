@@ -2,6 +2,7 @@ package fr.raconteur.simpleskinswapper.gui.library
 
 import com.mojang.blaze3d.platform.InputConstants
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
+import fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig
 import fr.raconteur.simpleskinswapper.gui.EdgeSafeButtonWidget
 import fr.raconteur.simpleskinswapper.gui.SkinEntry
 import fr.raconteur.simpleskinswapper.gui.SkinType
@@ -411,7 +412,10 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         val gridRight = gridRight()
         val gridW = gridRight - gridLeft
         val gap = GRID_GAP
-        cols = ((gridW - gap) / (MIN_CELL_W + gap)).toInt().coerceIn(3, MAX_COLS)
+        // Minimum card width is user-configurable: raised, fewer columns fit and every
+        // card widens (then keeps the 4:3 height ratio below).
+        val minCellW = SimpleSkinSwapperConfig.get().minCardWidth.toDouble()
+        cols = ((gridW - gap) / (minCellW + gap)).toInt().coerceIn(3, MAX_COLS)
         cellW = (gridW - gap * (cols - 1)) / cols
         val viewH = gridBottom - gridTop
         cellH = (cellW * 4 / 3).coerceAtMost(viewH - GRID_MARGIN * 2).coerceAtLeast(MIN_CELL_H)
@@ -1264,8 +1268,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // (the overlay_recipe nine-slice border is 4px).
         private const val PANEL_BLEED = 4
 
+        // GRID_GAP: spacing between grid cards, horizontally and vertically.
         private const val GRID_GAP = 6
-        private const val MIN_CELL_W = 64.0
         private const val MAX_COLS = 10
 
         // Thickness of the page texture's baked border (measured: 8px of bevel on every side).

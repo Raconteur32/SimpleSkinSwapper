@@ -34,6 +34,13 @@ class SimpleSkinSwapperConfig {
     @JvmField
     var rememberWheelPosition: Boolean = false
 
+    /**
+     * Minimum library card width in logical px: drives how many grid columns fit
+     * (fewer columns when raised), after which the 4:3 height ratio applies.
+     */
+    @JvmField
+    var minCardWidth: Int = 64
+
     /** Non-null accessor for callers (e.g. Java mixins): defaults to RIGHT. */
     fun titleScreenSide(): ButtonSide = titleScreenButtonSide ?: ButtonSide.RIGHT
 
@@ -84,6 +91,10 @@ class SimpleSkinSwapperConfig {
     companion object {
         private val GSON: Gson = GsonBuilder().setPrettyPrinting().create()
 
+        /** Bounds of [SimpleSkinSwapperConfig.minCardWidth], shared with the config slider. */
+        const val MIN_CARD_WIDTH = 32
+        const val MAX_CARD_WIDTH = 256
+
         @Volatile
         private var instance: SimpleSkinSwapperConfig? = null
 
@@ -123,6 +134,8 @@ class SimpleSkinSwapperConfig {
             if (loaded.pauseMenuButtonSide == null) {
                 loaded.pauseMenuButtonSide = ButtonSide.RIGHT
             }
+            // Hand-edited out-of-range values would break the grid math downstream.
+            loaded.minCardWidth = loaded.minCardWidth.coerceIn(MIN_CARD_WIDTH, MAX_CARD_WIDTH)
         }
 
         @Suppress("TooGenericExceptionCaught")

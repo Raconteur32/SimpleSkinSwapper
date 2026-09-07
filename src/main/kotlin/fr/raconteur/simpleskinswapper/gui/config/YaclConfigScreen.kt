@@ -7,6 +7,7 @@ import dev.isxander.yacl3.api.OptionDescription
 import dev.isxander.yacl3.api.OptionGroup
 import dev.isxander.yacl3.api.YetAnotherConfigLib
 import dev.isxander.yacl3.api.controller.EnumControllerBuilder
+import dev.isxander.yacl3.api.controller.IntegerSliderControllerBuilder
 import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder
 import fr.raconteur.simpleskinswapper.config.ButtonSide
 import fr.raconteur.simpleskinswapper.config.ServerCommand
@@ -88,6 +89,22 @@ object YaclConfigScreen {
                     )
                     .build()
             )
+            .group(
+                OptionGroup.createBuilder()
+                    .name(Component.translatable("simpleskinswapper.config.group.library"))
+                    .option(
+                        intSliderOption(
+                            "simpleskinswapper.config.min_card_width",
+                            { config.minCardWidth },
+                            { config.minCardWidth = it },
+                            default = 64,
+                            min = SimpleSkinSwapperConfig.MIN_CARD_WIDTH,
+                            max = SimpleSkinSwapperConfig.MAX_CARD_WIDTH,
+                            step = 8
+                        )
+                    )
+                    .build()
+            )
             .build()
 
     /** Per-server skin commands list, staged until save. */
@@ -127,6 +144,27 @@ object YaclConfigScreen {
             .description(OptionDescription.of(Component.translatable("$key.description")))
             .binding(default, getter, setter)
             .controller { option -> TickBoxControllerBuilder.create(option) }
+            .build()
+
+    /** Integer slider option; bounds come from the caller (shared with config clamping). */
+    private fun intSliderOption(
+        key: String,
+        getter: () -> Int,
+        setter: (Int) -> Unit,
+        default: Int,
+        min: Int,
+        max: Int,
+        step: Int
+    ): Option<Int> =
+        Option.createBuilder<Int>()
+            .name(Component.translatable(key))
+            .description(OptionDescription.of(Component.translatable("$key.description")))
+            .binding(default, getter, setter)
+            .controller { option ->
+                IntegerSliderControllerBuilder.create(option)
+                    .range(min, max)
+                    .step(step)
+            }
             .build()
 
     /**
