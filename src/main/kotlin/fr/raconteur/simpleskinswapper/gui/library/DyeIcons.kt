@@ -14,8 +14,9 @@ import net.minecraft.client.resources.model.Material
 
 /**
  * Blits vanilla dye item textures straight from the atlas — dye PNGs are flat
- * pre-colored sprites, so no item-model rendering is involved. The atlas hosting
- * item sprites diverges on 26.x (split items atlas, see design D2).
+ * pre-colored sprites, so no item-model rendering is involved. Item sprites live in
+ * the dedicated items atlas on every target (since 1.21.4); the sprite wrapper type
+ * diverges on 26.x (Material became SpriteId).
  */
 internal object DyeIcons {
 
@@ -27,7 +28,7 @@ internal object DyeIcons {
         //? if >=26.1 {
         val sprite = graphics.getSprite(SpriteId(TextureAtlas.LOCATION_ITEMS, id))
         //?} else {
-        /*val sprite = graphics.getSprite(Material(TextureAtlas.LOCATION_BLOCKS, id))
+        /*val sprite = graphics.getSprite(Material(TextureAtlas.LOCATION_ITEMS, id))
         *///?}
         graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x, y, size, size)
     }
