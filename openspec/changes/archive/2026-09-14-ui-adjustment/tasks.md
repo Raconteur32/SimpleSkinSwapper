@@ -17,4 +17,4 @@
 
 ## 3. Validation
 
-- [ ] 3.1 Full gate: `build` (4 trees) + `detektAll` + tests green; in-game pass: empty-library strip (5 slots + "+"), 1–2 category fills, sparse wheel (1–4 skins), full wheel unchanged, empty wheel hidden, drop on placeholder rejected
+- [x] 3.1 Full gate: `build` (4 trees) + `detektAll` + tests green; in-game pass: empty-library strip (5 slots + "+"), 1–2 category fills, sparse wheel (1–4 skins), full wheel unchanged, empty wheel hidden, drop on placeholder rejected
