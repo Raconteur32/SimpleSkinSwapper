@@ -102,8 +102,8 @@ internal class ConfirmPopup(
         val boxW = BOX_W
         val bx = w / 2 - boxW / 2
         val by = h / 2 - boxH / 2
-        graphics.fill(bx, by, bx + boxW, by + boxH, BOX_BG)
-        graphics.fill(bx, by, bx + boxW, by + 1, BOX_EDGE)
+        // Same surface as the detail overlay: the mod's card nine-slice sprite, lit.
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, SkinLibraryScreen.CARD_SPRITE_ACCESS, bx, by, boxW, boxH)
 
         val lineHeight = client.font.lineHeight
         var ly = by + PAD
@@ -137,8 +137,6 @@ internal class ConfirmPopup(
 
     companion object {
         private val BACKDROP = 0x88000000.toInt()
-        private val BOX_BG = 0xFF1A2535.toInt()
-        private val BOX_EDGE = 0xFFFFFFFF.toInt()
         private const val BOX_W = 280
         private const val PAD = 8
         private const val TITLE_GAP = 4

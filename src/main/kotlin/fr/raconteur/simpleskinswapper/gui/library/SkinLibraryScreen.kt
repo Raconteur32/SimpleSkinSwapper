@@ -337,8 +337,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
         // Footer spread across the full screen width: open folder left, config center,
         // done right. Same 110px vanilla buttons; the grid stops above the reserved
-        // footer band (see gridBottom) and the strip's free bottom edge gives them room.
-        val footerY = this.height - 24
+        // footer band (see gridBottom): the buttons center between the card zone's
+        // background edge and the bottom of the screen.
+        val footerY = gridBottom + (FOOTER_BAND - 20) / 2
         val bw = 110
         val btnLeft = PAD
         val btnCenter = (this.width - bw) / 2
