@@ -21,9 +21,9 @@ One `ConfirmPopup` widget owned by `SkinLibraryScreen`, mirroring how the detail
 
 `DeleteDecision` keeps its counts and gains a mapping to the popup's button set: CATEGORY → `[RemoveHere, DeleteEverywhere]` collapsing to `[DeleteEverywhere]` when `otherCategories == 0`; ALL_SKINS → `[DeleteEverywhere]`; UNCATEGORIZED → `[DeleteEverywhere]` (labeled final). The message lines stay derived from the same counts. The popup labels are i18n keys resolved at display time; the decision itself stays free of Minecraft types so the JUnit tests keep running headless. Bulk generalization (`of(source, List<SkinId>)`) is intentionally NOT implemented — only the shape is kept in mind so D2's mapping does not hardcode single-skin assumptions.
 
-### D3. Kebab menu is a lightweight anchored list on the card
+### D3. The whole card is the grab; no menu, no card rotation
 
-The kebab is a small icon control in the card's button row, right of the apply button (apply shrinks to fit; row stays 16px). The menu itself is drawn by the card (or the screen) as a short anchored list near the card's bottom-right, above other content. Card right-click (`mouseClicked` button 1) routes to the same open path. Rules: clicking the kebab or right-clicking while another menu is open moves the menu; any click outside closes it first and the click flows through; opening a menu closes nothing else (no panel interplay — the menu works with the panel closed or open). The kebab zone wins over the card's drag zones (left rotate / frame reorder).
+The card carries no per-card chrome beyond the apply button: the grab handle, the kebab menu and the right-click context menu are all retired (their delete entry was unreachable anyway once the popup became the single destructive path, and the detail overlay already opens with a plain click). The whole card body is the reorder grab: a press records the candidate; once the press moves beyond a small slop (6 Manhattan px) the card's drag converts to a reorder — started by the screen AFTER its `mouseDragged` children iteration ends (the same deferred pattern as the existing `removeWidget`, avoiding mid-iteration child removal); a release without real movement opens the detail overlay. Preview rotation is removed from the card and stays only in the detail overlay; the hover walk animation and its eased settle remain.
 
 ### D4. Deletion sequencing: popup over the panel
 
@@ -39,8 +39,8 @@ New keys for the menu (modifier, supprimer), the popup title/messages/buttons pe
 
 ## Risks / Trade-offs
 
-- [Kebab + apply in a 32px row is tight] → apply shrinks by the kebab width; verify at GUI scale Auto/1/2 that labels still fit or apply keeps its icon-only look; if the row cannot fit both, the kebab moves to the header's right edge instead (decision point during implementation, spec is placement-agnostic enough).
-- [Right-click conflict with existing input handling] → cards currently ignore button 1; MC screens deliver it fine. Risk is low but verify rotate-drag does not start on right-press.
+- [Click-vs-drag discrimination on the whole card] → a small movement slop (6 Manhattan px) separates the two; a tremor-release still opens the detail overlay, and any real movement becomes a reorder. Verify the slop feels right at GUI scales Auto/1/2.
+- [Retiring the instant remove-card button removes a shortcut] → the same effect stays reachable in two clicks (detail overlay → Supprimer → Retirer d'ici); accepted for safety consistency.
 - [Popup over panel z-order] → the popup must render above the panel's raise-overlays pass; verify with the existing raise pass order rather than adding a new layer.
 - [Retiring the instant remove-card button removes a shortcut] → the same effect stays reachable in two clicks (Supprimer → Retirer d'ici); accepted for safety consistency.
 
@@ -50,4 +50,4 @@ No data changes. Purely presentation-layer plus DeleteDecision extension; stores
 
 ## Open Questions
 
-- None blocking. The kebab placement (button row vs header edge) resolves during implementation at D3's fallback.
+- None blocking.

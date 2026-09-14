@@ -6,15 +6,14 @@ Destructive actions on library cards are inconsistent and partially unprotected:
 
 ## What Changes
 
-- Card button row gains a kebab (three dots) button at the bottom-right, next to the apply button; right-clicking a card opens the same menu.
-- The kebab menu offers per-card actions: "Modifier" (opens the detail overlay — same as a left-click) and "Supprimer" (opens the delete confirmation popup).
+- Cards are simplified: no grab handle, no kebab, no context menu. The whole card body is the reorder grab (press + move); a press released without real movement opens the detail overlay. Card previews no longer rotate — rotation lives only in the detail overlay. The apply button is alone on the bottom row.
 - A shared `ConfirmPopup` widget is extracted (title, message lines, one to three buttons, dimmed backdrop, centered) from the category-delete modal; the category deletion flow is rebased onto it so the future re-texture happens in one place. Visuals are unchanged for now.
 - The detail panel keeps a single "Supprimer" button: it opens the shared confirmation popup over the (dimmed) panel instead of arming in two clicks. The "remove this card" vs "delete everywhere" choice moves inside the popup, presented with the consequence text and counters computed by DeleteDecision.
 - DeleteDecision now drives the popup's button set per view: category view with the skin elsewhere offers both levels (with the other-category count), category view at the last location collapses to a single definitive delete, All skins deletes everywhere with the occurrence count, Uncategorized deletes outright.
 - Confirming the popup executes the deletion without committing pending panel edits (renames, model switch); canceling closes the popup and returns to the panel with its state intact.
-- The two-click arm pattern is retired.
+- The two-click arm pattern is retired. Deletion is reachable only from the detail overlay (per skin) and the category band; the card surface carries no destructive action.
 
-Out of scope, deferred to a later change: multi-card selection and bulk delete (DeleteDecision generalization to N skins is designed but not implemented here), card duplication, clipboard actions, popup re-texture.
+Out of scope, deferred to a later change: multi-card selection and bulk delete, card duplication, clipboard actions, popup re-texture.
 
 ## Capabilities
 
@@ -22,7 +21,7 @@ Out of scope, deferred to a later change: multi-card selection and bulk delete (
 
 ### Modified Capabilities
 
-- `skin-library`: per-card context menu (kebab + right-click) with Modifier/Supprimer; deletion always goes through the shared confirmation popup with view-dependent choices; the detail panel exposes a single delete entry and retires the two-click arm and the instant remove-card button.
+- `skin-library`: cards simplified to one gesture (whole-card reorder grab, click opens the detail overlay, no card rotation, no kebab/context menu); deletion always goes through the shared confirmation popup with view-dependent choices; the detail panel exposes a single delete entry and retires the two-click arm and the instant remove-card button.
 
 ## Impact
 

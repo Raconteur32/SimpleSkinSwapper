@@ -25,10 +25,11 @@ import net.minecraft.world.entity.player.PlayerModelType
 import net.minecraft.world.entity.player.PlayerSkin
 
 /**
- * One skin card in the library grid. Drag intent is spatially split: the model area rotates
- * the preview (existing behavior), while the card frame or the ⋮⋮ handle starts a reorder
- * drag owned by the parent screen. The card shows its 1-based position and, when its position
- * falls inside the category's wheel allocation, an allocation marker strip in the category color.
+ * One skin card in the library grid. The whole card is the reorder grab (press + move,
+ * owned by the parent screen) while a press-and-release without real movement opens the
+ * detail overlay; rotation lives only in the overlay. The card shows its 1-based position
+ * and, when its position falls inside the category's wheel allocation, an allocation
+ * marker strip in the category color.
  */
 class SkinLibraryCard(
     private val parent: SkinLibraryScreen,
@@ -44,13 +45,10 @@ class SkinLibraryCard(
     private var dragging = false
 
     private val applyButton: EdgeSafeButtonWidget
-    private val kebabButton: EdgeSafeButtonWidget
 
-    private var rotatingPreview = false
     private var pendingDetailOpen = false
-    private var previewYaw = 0.0F
-    private var previewPitch = 0.0F
-    private var lastSpringUpdateNanos = 0L
+    private var pressX = 0
+    private var pressY = 0
     private var hoverAnimFactor = 0.0F
     private var lastHoverAnimUpdateNanos = 0L
 
@@ -63,19 +61,14 @@ class SkinLibraryCard(
     override var clipBottom = Int.MAX_VALUE
 
     init {
-        // Bottom row: apply + the kebab (⋯) opening the card context menu — horizontal
-        // dots so it never reads as the vertical reorder handle.
+        // Bottom row: only the apply button. The card body is the reorder grab (press +
+        // move) and a press-and-release without movement opens the detail overlay.
         applyButton = EdgeSafeButtonWidget(
             BUTTON_MARGIN, height - BUTTON_HEIGHT - BUTTON_MARGIN,
-            width - BUTTON_MARGIN * 2 - KEBAB_W - 2, BUTTON_HEIGHT,
+            width - BUTTON_MARGIN * 2, BUTTON_HEIGHT,
             Component.translatable("simpleskinswapper.screen.carousel.apply")
         ) { applySkin() }
         addChild(applyButton)
-        kebabButton = EdgeSafeButtonWidget(
-            width - BUTTON_MARGIN - KEBAB_W, height - BUTTON_HEIGHT - BUTTON_MARGIN,
-            KEBAB_W, BUTTON_HEIGHT, Component.empty()
-        ) { parent.openCardMenu(this) }
-        addChild(kebabButton)
     }
 
     private fun addChild(button: EdgeSafeButtonWidget) {
@@ -109,29 +102,6 @@ class SkinLibraryCard(
 
     private fun isMouseOverCard(mouseX: Int, mouseY: Int): Boolean =
         mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height
-
-    /** Frame band: within [FRAME_BAND] px of a card edge — a reorder grab zone. */
-    private fun isOnFrame(mouseX: Int, mouseY: Int): Boolean {
-        val inOuter = isMouseOverCard(mouseX, mouseY)
-        val inInner = mouseX >= x + FRAME_BAND && mouseX < x + width - FRAME_BAND &&
-            mouseY >= y + FRAME_BAND && mouseY < y + height - FRAME_BAND
-        return inOuter && !inInner
-    }
-
-    private fun isOnHandle(mouseX: Int, mouseY: Int): Boolean {
-        val r = handleRect()
-        return mouseX >= r.first && mouseX < r.first + HANDLE && mouseY >= r.second && mouseY < r.second + HANDLE
-    }
-
-    /** ⋮⋮ handle: right flank of the header strip, on the name's line. */
-    private fun handleRect(): Pair<Int, Int> =
-        (x + width - HANDLE - 4) to (y + (HEADER_HEIGHT - HANDLE) / 2)
-
-    private fun isOnModel(mouseX: Int, mouseY: Int): Boolean {
-        val top = y + HEADER_HEIGHT + 2
-        val bottom = y + height - BUTTON_HEIGHT - BUTTON_MARGIN * 2
-        return mouseX >= x + 1 && mouseX < x + width - 1 && mouseY >= top && mouseY < bottom
-    }
 
     private fun applySkin() {
         if (!SkinSwapperState.beginSwap()) return
@@ -174,34 +144,29 @@ class SkinLibraryCard(
                 return true
             }
         }
-        if (event.button() == InputConstants.MOUSE_BUTTON_RIGHT && isMouseOverCard(event.x().toInt(), event.y().toInt())) {
-            // Right-click opens the same context menu as the kebab; no drag starts.
-            parent.openCardMenu(this)
-            return true
-        }
         if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && isMouseOverCard(event.x().toInt(), event.y().toInt())) {
-            val mx = event.x().toInt()
-            val my = event.y().toInt()
-            if (isOnHandle(mx, my) || isOnFrame(mx, my)) {
-                parent.beginCardReorder(this, mx, my)
-                return true
-            }
-            if (isOnModel(mx, my)) {
-                rotatingPreview = true
-                parent.dragRotatingCard = this
-                return true
-            }
-            // Plain click on the card body: open the detail overlay on release.
+            // The whole card is the reorder grab. The actual drag starts only once the
+            // press moves (converted in mouseDragged); a release without real movement
+            // opens the detail overlay.
             pendingDetailOpen = true
+            pressX = mx
+            pressY = my
             return true
         }
         return false
     }
 
     override fun mouseDragged(event: MouseButtonEvent, deltaX: Double, deltaY: Double): Boolean {
-        if (rotatingPreview && event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
-            previewYaw = Mth.wrapDegrees((previewYaw - deltaX.toFloat() * DRAG_SENSITIVITY).toDouble()).toFloat()
-            previewPitch = Mth.clamp(previewPitch - deltaY.toFloat() * DRAG_SENSITIVITY, -MAX_PITCH, MAX_PITCH)
+        if (pendingDetailOpen && event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
+            val mx = event.x().toInt()
+            val my = event.y().toInt()
+            if (Math.abs(mx - pressX) + Math.abs(my - pressY) > REORDER_START_SLOP) {
+                pendingDetailOpen = false
+                // Deferred: the screen starts the drag (and unregisters this card) once
+                // its children iteration is over — removing a child mid-iteration risks
+                // a ConcurrentModificationException.
+                parent.requestCardReorder(this, mx, my)
+            }
             return true
         }
         val focused = focusedChild
@@ -215,11 +180,6 @@ class SkinLibraryCard(
         if (pendingDetailOpen) {
             pendingDetailOpen = false
             parent.openDetail(this)
-            return true
-        }
-        if (rotatingPreview) {
-            rotatingPreview = false
-            if (parent.dragRotatingCard === this) parent.dragRotatingCard = null
             return true
         }
         if (dragging) {
@@ -239,13 +199,11 @@ class SkinLibraryCard(
     }
 
     private fun updateHoverAnimation(mouseX: Int, mouseY: Int) {
-        // Dragged cards own the animation: the reorder-dragged card animates nowhere and cards
-        // beneath it stay static; the drag-rotated card keeps animating wherever the cursor goes.
+        // Dragged cards own the animation: the reorder-dragged card animates nowhere and
+        // cards beneath it stay static.
         val target = when {
             parent.reorderDraggingCard === this -> 0.0F
             parent.reorderDraggingCard != null -> 0.0F
-            rotatingPreview -> 1.0F
-            parent.dragRotatingCard != null -> 0.0F
             isMouseOverCard(mouseX, mouseY) -> 1.0F
             else -> 0.0F
         }
@@ -254,46 +212,12 @@ class SkinLibraryCard(
         lastHoverAnimUpdateNanos = now
     }
 
-    private fun updateSpringBack() {
-        val now = System.nanoTime()
-        val dt = if (lastSpringUpdateNanos == 0L) 0.0F else (now - lastSpringUpdateNanos) / 1_000_000_000.0F
-        lastSpringUpdateNanos = now
-
-        if (rotatingPreview || (previewYaw == 0.0F && previewPitch == 0.0F)) {
-            return
-        }
-
-        val t = 1.0F - Math.exp((-SPRING_RETURN_SPEED * dt).toDouble()).toFloat()
-        previewYaw = Mth.lerp(t, previewYaw, 0.0F)
-        previewPitch = Mth.lerp(t, previewPitch, 0.0F)
-
-        if (Math.abs(previewYaw) < SPRING_SNAP_EPSILON) previewYaw = 0.0F
-        if (Math.abs(previewPitch) < SPRING_SNAP_EPSILON) previewPitch = 0.0F
-    }
-
     private fun drawBackground(graphics: GuiGraphicsExtractor, hovered: Boolean, allocated: Boolean, allocationColor: Int) {
         // Vanilla recipe-book clickable-recipe frame (highlight variant on hover) over a
         // dark interior; the allocation marker strip is drawn on top of the frame.
         SkinLibraryScreen.drawCardFrame(graphics, x, y, width, height, hovered)
         if (allocated) {
             graphics.fill(x + 1, y + 1, x + width - 1, y + 1 + MARKER_HEIGHT, allocationColor)
-        }
-    }
-
-    private fun drawHandle(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int) {
-        val hx = handleRect().first
-        val hy = handleRect().second
-        val hovered = mouseX >= hx - 1 && mouseX < hx + HANDLE + 1 && mouseY >= hy - 1 && mouseY < hy + HANDLE + 1
-        if (hovered) {
-            graphics.fill(hx - 1, hy - 1, hx + HANDLE + 1, hy + HANDLE + 1, 0x30FFFFFF)
-        }
-        val dotColor = 0xFFB0B8C0.toInt()
-        for (col in 0..1) {
-            for (row in 0..2) {
-                val px = hx + 3 + col * 5
-                val py = hy + 2 + row * 4
-                graphics.fill(px, py, px + 2, py + 2, dotColor)
-            }
         }
     }
 
@@ -315,7 +239,6 @@ class SkinLibraryCard(
             drawCardChrome(graphics, mouseX, mouseY, delta)
         }
 
-        updateSpringBack()
         updateHoverAnimation(mouseX, mouseY)
 
         if (onScreen || floating) {
@@ -329,7 +252,6 @@ class SkinLibraryCard(
     private fun drawCardChrome(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
         val allocationColor = parent.allocationColorFor(this)
         drawBackground(graphics, hovered = !parent.reorderDraggingCard.let { it != null && it !== this } && isMouseOverCard(mouseX, mouseY), allocated = allocationColor != null, allocationColor = allocationColor ?: 0)
-        drawHandle(graphics, mouseX, mouseY)
 
         for (child in cardButtons) {
             //? if >=26.1 {
@@ -337,21 +259,6 @@ class SkinLibraryCard(
             //?} else {
             /*child.render(graphics, mouseX, mouseY, delta)
             *///?}
-        }
-        drawKebabDots(graphics)
-    }
-
-    /** Three horizontal dots over the unlabeled kebab button (vertical dots = the
-     *  reorder handle; horizontal = "more actions"). */
-    private fun drawKebabDots(graphics: GuiGraphicsExtractor) {
-        val kx = x + width - BUTTON_MARGIN - KEBAB_W
-        val ky = y + height - BUTTON_HEIGHT - BUTTON_MARGIN
-        val dotsW = 3 * 2 + 2 * 2
-        val px = kx + (KEBAB_W - dotsW) / 2
-        val py = ky + (BUTTON_HEIGHT - 2) / 2
-        for (i in 0..2) {
-            val dx = px + i * 4
-            graphics.fill(dx, py, dx + 2, py + 2, 0xFFB0B8C0.toInt())
         }
     }
 
@@ -399,7 +306,7 @@ class SkinLibraryCard(
             )
             SkinRenderer.renderPlayerRotatable(
                 graphics, intArrayOf(previewLeft, previewTop, previewRight, previewBottom),
-                size, skinTextures, previewYaw, previewPitch, hoverAnimFactor
+                size, skinTextures, 0.0F, 0.0F, hoverAnimFactor
             )
         }
     }
@@ -409,21 +316,16 @@ class SkinLibraryCard(
         private const val BUTTON_HEIGHT = 16
         private const val BUTTON_MARGIN = 3
 
-        // Header strip (marker + number + name + handle) height in px.
+        // Header strip (marker + number + name) height in px.
         private const val HEADER_HEIGHT = 14
-
-        // Reorder grab zones: the ⋮⋮ handle and a [FRAME_BAND] px band along the card edges.
-        private const val FRAME_BAND = 4
-        private const val HANDLE = 12
-
-        // Kebab (⋯) control width in the bottom row.
-        private const val KEBAB_W = 12
 
         // Allocation marker strip thickness in px.
         private const val MARKER_HEIGHT = 2
 
-        private const val MAX_PITCH = 45.0F
-        private const val DRAG_SENSITIVITY = 1.0F
+        // Press movement (Manhattan px) beyond which a card press becomes a reorder drag
+        // instead of a click.
+        private const val REORDER_START_SLOP = 6
+
         private const val SPRING_RETURN_SPEED = 10.0F
         private const val SPRING_SNAP_EPSILON = 0.05F
     }

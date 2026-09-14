@@ -1,36 +1,61 @@
 # skin-library delta
 
+## REMOVED Requirements
+
+### Requirement: Card drag is split between rotate and reorder zones
+
+The rotate/reorder zone split is retired: the whole card body reorders, and rotation moves to the detail overlay (replaced by "The whole card body is the reorder grab").
+
 ## ADDED Requirements
 
-### Requirement: Cards expose a context menu
+### Requirement: The whole card body is the reorder grab
 
-Each skin card SHALL offer a kebab (three dots) control at the bottom-right of its button row, and right-clicking anywhere on the card SHALL open the same menu. The menu SHALL list the per-card actions: "Modifier", opening the detail overlay exactly as a card click does, and "Supprimer", opening the shared delete confirmation popup. The menu SHALL close on any click outside it, and at most one card menu SHALL be open at a time.
+Pressing anywhere on a card and moving SHALL start the card's reorder drag: the card follows the cursor, an insertion gap shows where it will land, and on release in a category view the category's card order updates and persists. There SHALL be no dedicated grab handle or rotation zone on the card. A press released without real movement SHALL open the detail overlay instead. In the All skins and Uncategorized views dragging SHALL NOT reorder — the order stays the default order and no insertion gap shows. During any drag, the hover walk animation SHALL not apply to the dragged card nor to the cards beneath it.
 
-#### Scenario: Kebab opens the action menu
+#### Scenario: Press and move reorders
 
-- **WHEN** the user clicks the kebab control at the bottom-right of a card
-- **THEN** a menu anchored to the card lists "Modifier" and "Supprimer"
+- **WHEN** the user presses a card and moves beyond a small threshold in a category view
+- **THEN** the card follows the cursor as a reorder drag, an insertion gap shows, and releasing between two cards moves the card there and persists the order
 
-#### Scenario: Right-click opens the same menu
+#### Scenario: Press and release opens the detail
 
-- **WHEN** the user right-clicks a card
-- **THEN** the same menu as the kebab's opens for that card
+- **WHEN** the user presses a card and releases without real movement
+- **THEN** the detail overlay opens for that card
 
-#### Scenario: Modifier opens the detail overlay
+#### Scenario: No rotation on the card
 
-- **WHEN** the user picks "Modifier" from a card's menu
-- **THEN** the detail overlay opens for that card's entry, as if the card had been clicked
+- **WHEN** the user drags on a card's preview area
+- **THEN** the card reorders instead of rotating, and only the detail overlay's preview rotates
 
-#### Scenario: Menu dismisses on outside click
+#### Scenario: Dragging in a derived view does not reorder
 
-- **WHEN** a card menu is open and the user clicks anywhere outside it
-- **THEN** the menu closes and the click performs its normal action
+- **WHEN** the user drags a card in the All skins or Uncategorized view
+- **THEN** no insertion gap shows, the other cards keep their positions, and the view order is unchanged
 
 ## MODIFIED Requirements
 
+### Requirement: Card previews animate on hover and settle back smoothly
+
+Library card previews SHALL hold a static neutral pose by default. While the mouse hovers a card, that card's preview SHALL play the limb walk animation. When the hover ends, the animated limbs SHALL return to the neutral pose through a smooth eased transition. Card previews SHALL NOT rotate on the card — rotation SHALL be available only in the detail overlay; a card being reorder-dragged SHALL not trigger hover animations on the cards beneath it.
+
+#### Scenario: Hover animates a single card
+
+- **WHEN** the mouse moves over a card
+- **THEN** that card's preview plays the limb walk animation while other cards stay static
+
+#### Scenario: Leaving settles smoothly
+
+- **WHEN** the mouse leaves a previously hovered card
+- **THEN** its limbs ease back to the neutral pose instead of snapping
+
+#### Scenario: Reorder drag suppresses hover animation
+
+- **WHEN** a card is reorder-dragged over other cards
+- **THEN** the cards beneath it do not start their hover animations
+
 ### Requirement: Skin add and delete flows are available on the screen
 
-Skins SHALL be addable through the add-skin overlay while a category is selected or the All skins view is shown; no other import affordance SHALL be shown on the library screen. Adding SHALL deduplicate by texture value and land the new skin in the selected category (additively, copying semantics) or unassigned from All skins. Every deletion SHALL go through the shared confirmation popup: from the detail overlay's single delete control, from a card's "Supprimer" menu entry, or from the category delete control, all rendering the same popup component. From a category, the popup SHALL offer removing this card or deleting the skin everywhere, with the other-category count shown, collapsing to a single definitive delete when the card is the skin's last location; from All skins, deleting everywhere with the occurrence count; from Uncategorized, deleting outright as it is referenced nowhere. Confirming the popup SHALL execute the deletion without committing any pending detail-panel edits, and canceling SHALL return to the prior state unchanged. Renaming SHALL edit display names only — the global skin name, plus a per-category name when opened from a category — never files. The detail overlay SHALL expose a single delete control; no instant remove-card button and no two-click arming SHALL remain.
+Skins SHALL be addable through the add-skin overlay while a category is selected or the All skins view is shown; no other import affordance SHALL be shown on the library screen. Adding SHALL deduplicate by texture value and land the new skin in the selected category (additively, copying semantics) or unassigned from All skins. Every deletion SHALL go through the shared confirmation popup: from the detail overlay's single delete control, or from the category delete control, all rendering the same popup component. From a category, the popup SHALL offer removing this card or deleting the skin everywhere, with the other-category count shown, collapsing to a single definitive delete when the card is the skin's last location; from All skins, deleting everywhere with the occurrence count; from Uncategorized, deleting outright as it is referenced nowhere. Confirming the popup SHALL execute the deletion without committing any pending detail-panel edits, and canceling SHALL return to the prior state unchanged. Renaming SHALL edit display names only — the global skin name, plus a per-category name when opened from a category — never files. The detail overlay SHALL expose a single delete control; no instant remove-card button, no two-click arming, and no per-card delete affordance outside the detail overlay SHALL remain.
 
 #### Scenario: Import lands in All skins
 
@@ -49,7 +74,7 @@ Skins SHALL be addable through the add-skin overlay while a category is selected
 
 #### Scenario: Delete always confirms through the shared popup
 
-- **WHEN** the user triggers a deletion from the detail overlay's delete control, from a card menu, or from a category's delete control
+- **WHEN** the user triggers a deletion from the detail overlay's delete control or from a category's delete control
 - **THEN** the same popup component opens with the context-dependent message and choices, and the deletion only happens on confirm
 
 #### Scenario: Delete through the detail overlay

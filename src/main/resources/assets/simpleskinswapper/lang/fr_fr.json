@@ -63,8 +63,6 @@
   "simpleskinswapper.screen.detail.display_name": "Nom affiché",
   "simpleskinswapper.screen.detail.delete": "Supprimer",
   "simpleskinswapper.screen.delete_popup.title": "Supprimer le skin",
-  "simpleskinswapper.screen.card.menu_modify": "Modifier",
-  "simpleskinswapper.screen.card.menu_delete": "Supprimer",
   "simpleskinswapper.screen.add.from_file": "Depuis un fichier",
   "simpleskinswapper.screen.add.from_mcname": "Rechercher",
   "simpleskinswapper.screen.add.username": "Nom du compte",

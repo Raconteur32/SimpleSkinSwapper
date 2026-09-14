@@ -9,11 +9,11 @@
 
 - [x] 2.1 Add the button-branch mapping to `DeleteDecision` (CATEGORY both levels / collapsed at last location, ALL_SKINS, UNCATEGORIZED) as pure i18n-free data; unit tests for every branch including the collapse
 
-## 3. Card context menu
+## 3. Card simplification
 
-- [x] 3.1 Add the kebab control to the card's button row (apply shrinks; verify fit at GUI scales; fallback to header-right if the row cannot fit)
-- [x] 3.2 Implement the anchored menu (Modifier / Supprimer) with outside-click dismiss and single-open rule; route card right-click to the same menu
-- [x] 3.3 Wire "Modifier" to the detail overlay open path; wire "Supprimer" to the delete popup (no panel open path)
+- [x] 3.1 Retire the grab handle, the kebab control and the right-click context menu (`CardMenu` deleted; apply button alone on the bottom row)
+- [x] 3.2 Make the whole card body the reorder grab: press + move beyond a small slop converts to a reorder drag, started deferred after the screen's `mouseDragged` children iteration (card unregisters there)
+- [x] 3.3 A press released without real movement opens the detail overlay; remove card preview rotation (rotation stays in the detail overlay; hover walk animation and eased settle remain)
 
 ## 4. Detail panel single delete
 
@@ -22,5 +22,5 @@
 
 ## 5. Polish and validation
 
-- [x] 5.1 Lang keys en/fr for menu items, popup title/messages/buttons; drop dead keys (two-click arm, remove-card)
-- [x] 5.2 Full gate: `build` (4 trees) + `detektAll` + tests green; in-game pass: kebab, right-click, popup variants per view, cancel paths, category delete unchanged, GUI scales
+- [x] 5.1 Lang keys en/fr for the popup title/messages/buttons; drop dead keys (two-click arm, remove-card, card menu entries)
+- [ ] 5.2 Full gate: `build` (4 trees) + `detektAll` + tests green; in-game pass: whole-card reorder, click-to-open, popup variants per view, cancel paths, category delete unchanged, GUI scales

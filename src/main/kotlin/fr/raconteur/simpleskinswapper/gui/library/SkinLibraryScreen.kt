@@ -81,9 +81,16 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     internal var uncategorizedSelected = false
     internal val band = CategoryBand(this)
 
-    // Card reorder drag (started by a card's frame/handle zone).
+    // Card reorder drag (the whole card body is the grab; started once the press moves).
     internal var reorderDraggingCard: SkinLibraryCard? = null
-    internal var dragRotatingCard: SkinLibraryCard? = null
+
+    // Raised by a card during mouseDragged's children iteration; consumed (drag begins,
+    // card unregisters) right after the iteration — same deferred pattern as removeWidget.
+    private var pendingReorderStart: Pair<SkinLibraryCard, Pair<Int, Int>>? = null
+
+    internal fun requestCardReorder(card: SkinLibraryCard, mouseX: Int, mouseY: Int) {
+        pendingReorderStart = card to (mouseX to mouseY)
+    }
     private val cardDrag = CardDragEngine(
         cols = { cols },
         cellW = { cellW },
@@ -164,18 +171,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     internal fun closeConfirmPopup() {
         confirmPopup = null
-    }
-
-    // The per-card context menu (kebab / right-click): at most one open at a time.
-    internal var cardMenu: CardMenu? = null
-        private set
-
-    internal fun openCardMenu(card: SkinLibraryCard) {
-        cardMenu = CardMenu(this, card)
-    }
-
-    internal fun closeCardMenu() {
-        cardMenu = null
     }
 
     /**
@@ -672,9 +667,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             }
         }
 
-        // Shared confirmation popup and the card context menu float above everything,
-        // panels included (the popup dims the panel it was opened from).
-        cardMenu?.draw(graphics, mouseX, mouseY, delta)
+        // Shared confirmation popup floats above everything, panels included (it dims
+        // the panel it was opened from).
         confirmPopup?.draw(graphics, mouseX, mouseY, delta)
     }
 
@@ -985,12 +979,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // The confirmation popup swallows every click while open (buttons run, the rest cancels).
         confirmPopup?.let { return it.handleClick(click, doubled) }
 
-        // The card context menu closes on any outside click and lets the click flow through.
-        cardMenu?.let { menu ->
-            if (menu.handleClick(click, doubled)) return true
-            closeCardMenu()
-        }
-
         handleOverlayClick(click, doubled)?.let { return it }
 
         val mx = click.x().toInt()
@@ -998,11 +986,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         if (handleChromeClick(mx, my, click, doubled)) return true
 
         // Grid wheel-scroll area click-through: let children (cards, widgets) handle the rest.
-        val result = super.mouseClicked(click, doubled)
-        // Deferred: unregister the reorder-dragged card so it only renders via the manual
-        // floating pass (and no longer swallows mouse input) once child iteration is over.
-        reorderDraggingCard?.let { removeWidget(it) }
-        return result
+        return super.mouseClicked(click, doubled)
     }
 
     /** Overlay panels own the click entirely while open; `null` means no overlay consumed it. */
@@ -1107,7 +1091,16 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             cardDrag.dragTo(mx, my)
             return true
         }
-        return super.mouseDragged(click, offsetX, offsetY)
+        val result = super.mouseDragged(click, offsetX, offsetY)
+        // Deferred: a card may have raised a reorder start during children iteration —
+        // begin the drag (and unregister the card so it only renders via the manual
+        // floating pass and no longer swallows input) once the iteration is over.
+        pendingReorderStart?.let { (card, pos) ->
+            pendingReorderStart = null
+            beginCardReorder(card, pos.first, pos.second)
+            removeWidget(card)
+        }
+        return result
     }
 
     override fun mouseReleased(click: MouseButtonEvent): Boolean {
@@ -1164,10 +1157,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     override fun keyPressed(event: KeyEvent): Boolean {
         confirmPopup?.let { return it.onEsc() }
-        if (cardMenu != null) {
-            closeCardMenu()
-            return true
-        }
         detail?.let { return it.keyPressed(event) }
         addPanel?.let { return it.keyPressed(event) }
         return super.keyPressed(event)
