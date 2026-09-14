@@ -904,16 +904,12 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     /**
      * The trailing "+" card slides like a card: it sits one slot after the last skin
-     * and shifts when a reorder insertion gap opens before it. An empty category
-     * hides it entirely — clicking anywhere in the zone opens the add overlay instead.
+     * and shifts when a reorder insertion gap opens before it. It shows in every view,
+     * empty categories included (clicking anywhere in an empty category's zone also
+     * opens the add overlay).
      */
     private fun updateAddCardPosition(dragIndex: Int, t: Float) {
         val ac = addCard ?: return
-        if (selectedCategory != null && cards.isEmpty()) {
-            ac.visible = false
-            return
-        }
-        ac.visible = true
         easeWidgetToSlot(ac, ac.x == 0 && ac.y == 0, cardDrag.slotFor(cards.size, dragIndex), t, addCardDisplay.getOrPut(ac) { FloatArray(2) })
     }
 
