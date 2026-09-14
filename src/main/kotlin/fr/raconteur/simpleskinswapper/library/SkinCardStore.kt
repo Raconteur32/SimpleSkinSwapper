@@ -60,7 +60,8 @@ class SkinCardStore(env: SkinLibraryEnv) {
 
     fun createCategory(name: String, dye: String): LibraryCategory {
         ensureLoaded()
-        val category = LibraryCategory(name, dye, 0)
+        // New categories start with one wheel slot; the stepper can still set it to 0.
+        val category = LibraryCategory(name, dye, 1)
         categories.add(category)
         save()
         return category
