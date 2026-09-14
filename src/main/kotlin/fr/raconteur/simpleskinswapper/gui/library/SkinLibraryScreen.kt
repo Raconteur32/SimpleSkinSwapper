@@ -19,7 +19,12 @@ import net.minecraft.network.chat.CommonComponents
 import net.minecraft.network.chat.Component
 import net.minecraft.resources.Identifier
 import net.minecraft.util.Mth
+//? if <26.3 {
 import net.minecraft.util.Util
+//?}
+//? if >=26.3 {
+/*import com.mojang.blaze3d.Blaze3D
+*///?}
 import org.lwjgl.system.MemoryStack
 //? if >=26.3 {
 /*import net.minecraft.client.Minecraft
@@ -342,7 +347,11 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             Button.builder(
                 Component.translatable("simpleskinswapper.screen.carousel.open_folder")
             ) {
+                //? if >=26.3 {
+                /*Blaze3D.openPath(FabricLoader.getInstance().gameDir.resolve("skins").toFile().toPath())
+                *///?} else {
                 Util.getPlatform().openFile(FabricLoader.getInstance().gameDir.resolve("skins").toFile())
+                //?}
             }.bounds(btnLeft, footerY, bw, 20).build()
         )
         addRenderableWidget(
