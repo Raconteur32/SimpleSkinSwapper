@@ -23,4 +23,4 @@
 ## 5. Polish and validation
 
 - [x] 5.1 Lang keys en/fr for the popup title/messages/buttons; drop dead keys (two-click arm, remove-card, card menu entries)
-- [ ] 5.2 Full gate: `build` (4 trees) + `detektAll` + tests green; in-game pass: whole-card reorder, click-to-open, popup variants per view, cancel paths, category delete unchanged, GUI scales
+- [x] 5.2 Full gate: `build` (4 trees) + `detektAll` + tests green; in-game pass: whole-card reorder, click-to-open, popup variants per view, cancel paths, category delete unchanged, GUI scales

@@ -63,30 +63,6 @@ The selected tab's skins SHALL be laid out as a grid inside the panel to the rig
 - **WHEN** the user scrolls the grid so cards move fully outside the visible panel
 - **THEN** those cards are not rendered and do not respond to the mouse, and the client does not crash
 
-### Requirement: Card drag is split between rotate and reorder zones
-
-Dragging the skin model on a card SHALL keep the existing drag-to-rotate behavior unchanged. In a category view, dragging a card by its handle or frame SHALL reorder it: the card follows the cursor, an insertion gap shows where it will land, and on release the category's card order updates and persists. In the All skins and Uncategorized views dragging SHALL NOT reorder — the order stays the default order and no insertion gap shows. During any drag, hovered rotation and the hover walk animation SHALL not apply to the dragged card.
-
-#### Scenario: Rotating the model is unaffected
-
-- **WHEN** the user drags a card's skin model to rotate it, including vertically
-- **THEN** the preview rotates as before and the card does not reorder
-
-#### Scenario: Reorder by the handle
-
-- **WHEN** the user drags a card by its handle and releases between two cards in a category
-- **THEN** the card moves to that position, the other cards shift in reading order, and the order persists
-
-#### Scenario: Reorder by the frame
-
-- **WHEN** the user drags a card by its frame border rather than the model or handle in a category
-- **THEN** the card reorders exactly as when dragged by the handle
-
-#### Scenario: Dragging in a derived view does not reorder
-
-- **WHEN** the user drags a card in the All skins or Uncategorized view
-- **THEN** no insertion gap shows, the other cards keep their positions, and the view order is unchanged
-
 ### Requirement: Cards can be moved between categories by dropping on tabs
 
 While a card is being dragged, category tabs SHALL act as drop targets and highlight under the cursor. Dropping a card on a category tab SHALL copy the card into that category (appended at the end of its list) while the source keeps its own reference; a category SHALL NOT hold two references to the same skin. Dropping on a view tab (All skins or Uncategorized) SHALL do nothing.
@@ -161,7 +137,7 @@ When a category tab is selected, a collapsible band SHALL appear at the top of t
 
 ### Requirement: Skin add and delete flows are available on the screen
 
-Skins SHALL be addable through the add-skin overlay while a category is selected or the All skins view is shown; no other import affordance SHALL be shown on the library screen. Adding SHALL deduplicate by texture value and land the new skin in the selected category (additively, copying semantics) or unassigned from All skins. Deleting SHALL happen through the detail overlay's dialog offering context-dependent choices: from a category, removing the card or deleting the skin everywhere with the other category count shown; from All skins, deleting everywhere with the occurrence count; from Uncategorized, deleting outright as it is referenced nowhere. Renaming SHALL edit display names only — the global skin name, plus a per-category name when opened from a category — never files.
+Skins SHALL be addable through the add-skin overlay while a category is selected or the All skins view is shown; no other import affordance SHALL be shown on the library screen. Adding SHALL deduplicate by texture value and land the new skin in the selected category (additively, copying semantics) or unassigned from All skins. Every deletion SHALL go through the shared confirmation popup: from the detail overlay's single delete control, or from the category delete control, all rendering the same popup component. From a category, the popup SHALL offer removing this card or deleting the skin everywhere, with the other-category count shown, collapsing to a single definitive delete when the card is the skin's last location; from All skins, deleting everywhere with the occurrence count; from Uncategorized, deleting outright as it is referenced nowhere. Confirming the popup SHALL execute the deletion without committing any pending detail-panel edits, and canceling SHALL return to the prior state unchanged. Renaming SHALL edit display names only — the global skin name, plus a per-category name when opened from a category — never files. The detail overlay SHALL expose a single delete control; no instant remove-card button, no two-click arming, and no per-card delete affordance outside the detail overlay SHALL remain.
 
 #### Scenario: Import lands in All skins
 
@@ -178,25 +154,50 @@ Skins SHALL be addable through the add-skin overlay while a category is selected
 - **WHEN** the user adds a skin whose texture value already exists in the library
 - **THEN** the created skin references the existing texture file and no file is copied
 
+#### Scenario: Delete always confirms through the shared popup
+
+- **WHEN** the user triggers a deletion from the detail overlay's delete control or from a category's delete control
+- **THEN** the same popup component opens with the context-dependent message and choices, and the deletion only happens on confirm
+
 #### Scenario: Delete through the detail overlay
 
-- **WHEN** the user deletes a skin through the detail overlay's confirmation
+- **WHEN** the user confirms the deletion of a skin through the detail overlay's popup
 - **THEN** the skin is removed everywhere at the chosen level, its texture file is deleted when no other skin references it, and every store entry follows
 
 #### Scenario: Delete from a category offers both levels
 
 - **WHEN** the user deletes a card from a category view where the skin has other categories
-- **THEN** the dialog offers removing this card and deleting everywhere, stating the skin also appears in the other categories
+- **THEN** the popup offers removing this card and deleting everywhere, stating the skin also appears in the other categories
+
+#### Scenario: Delete at the last location collapses to one choice
+
+- **WHEN** the user deletes a card from a category view where the skin has no other categories
+- **THEN** the popup offers a single definitive delete (plus cancel) instead of two equivalent choices
 
 #### Scenario: Delete from All skins warns about occurrences
 
 - **WHEN** the user deletes a skin from All skins that is referenced by categories
-- **THEN** the dialog states it will remove the occurrences in those categories
+- **THEN** the popup states it will remove the occurrences in those categories
 
 #### Scenario: Delete from Uncategorized is final
 
 - **WHEN** the user deletes a skin from Uncategorized
-- **THEN** the dialog states the skin is referenced nowhere and deletes it everywhere
+- **THEN** the popup states the skin is referenced nowhere and deletes it everywhere on confirm
+
+#### Scenario: Confirm discards pending panel edits
+
+- **WHEN** the user has unsaved name edits or a pending model switch in the detail overlay and confirms the delete popup
+- **THEN** the deletion executes, the panel closes without committing those edits, and no rename or switch lands
+
+#### Scenario: Cancel keeps the panel state
+
+- **WHEN** the user cancels the delete popup opened from the detail overlay
+- **THEN** the popup closes and the panel remains open with its pending edits intact
+
+#### Scenario: Category deletion uses the same component
+
+- **WHEN** the user deletes a category through its config band
+- **THEN** the confirmation is rendered by the same popup component as skin deletions, with its own message and buttons
 
 #### Scenario: Renaming never touches files
 
@@ -283,7 +284,7 @@ Every skin list SHALL end with an add card: the idle card frame with a bare "+" 
 
 ### Requirement: Card previews animate on hover and settle back smoothly
 
-Library card previews SHALL hold a static neutral pose by default. While the mouse hovers a card, that card's preview SHALL play the limb walk animation. When the hover ends, the animated limbs SHALL return to the neutral pose through a smooth eased transition. Drag-to-rotate SHALL remain available and independent of the hover animation; a card being reorder-dragged SHALL not trigger hover animations on the cards beneath it.
+Library card previews SHALL hold a static neutral pose by default. While the mouse hovers a card, that card's preview SHALL play the limb walk animation. When the hover ends, the animated limbs SHALL return to the neutral pose through a smooth eased transition. Card previews SHALL NOT rotate on the card — rotation SHALL be available only in the detail overlay; a card being reorder-dragged SHALL not trigger hover animations on the cards beneath it.
 
 #### Scenario: Hover animates a single card
 
@@ -393,3 +394,27 @@ The library core (registry, hashing and naming, texture lifecycle, migration, de
 #### Scenario: The core test suite runs without the game
 - **WHEN** the unit test task is executed
 - **THEN** the core behaviors (dedup, lifecycle, naming, migration, delete decision) are exercised and pass
+
+### Requirement: The whole card body is the reorder grab
+
+Pressing anywhere on a card and moving SHALL start the card's reorder drag: the card follows the cursor, an insertion gap shows where it will land, and on release in a category view the category's card order updates and persists. There SHALL be no dedicated grab handle or rotation zone on the card. A press released without real movement SHALL open the detail overlay instead. In the All skins and Uncategorized views dragging SHALL NOT reorder — the order stays the default order and no insertion gap shows. During any drag, the hover walk animation SHALL not apply to the dragged card nor to the cards beneath it.
+
+#### Scenario: Press and move reorders
+
+- **WHEN** the user presses a card and moves beyond a small threshold in a category view
+- **THEN** the card follows the cursor as a reorder drag, an insertion gap shows, and releasing between two cards moves the card there and persists the order
+
+#### Scenario: Press and release opens the detail
+
+- **WHEN** the user presses a card and releases without real movement
+- **THEN** the detail overlay opens for that card
+
+#### Scenario: No rotation on the card
+
+- **WHEN** the user drags on a card's preview area
+- **THEN** the card reorders instead of rotating, and only the detail overlay's preview rotates
+
+#### Scenario: Dragging in a derived view does not reorder
+
+- **WHEN** the user drags a card in the All skins or Uncategorized view
+- **THEN** no insertion gap shows, the other cards keep their positions, and the view order is unchanged
