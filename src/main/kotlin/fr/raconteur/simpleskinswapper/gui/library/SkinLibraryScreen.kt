@@ -668,8 +668,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             // button labels at y + (height-8)/2 — same formula here for optical alignment).
             graphics.text(client.font, Component.translatable("simpleskinswapper.title"), STRIP_X, TITLE_Y, 0xFFFFFFFF.toInt())
 
-            drawEmptyStateMessage(graphics)
-
             // Tooltip for hovered tab
             if (tabs.tabDragCategoryIndex == -1 && reorderDraggingCard == null && confirmPopup == null) {
                 tabs.tabAt(mouseY, mouseX)?.let { tab ->
@@ -690,28 +688,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         tab == 0 -> Component.translatable("simpleskinswapper.screen.library.all_skins")
         tab == 1 -> Component.translatable("simpleskinswapper.screen.library.uncategorized")
         else -> Component.nullToEmpty(SkinCategories.all().getOrNull(tab - 2)?.name ?: "")
-    }
-
-    /** Centered hint when the current view has no skins (never added, or empty category). */
-    private fun drawEmptyStateMessage(graphics: GuiGraphicsExtractor) {
-        if (cards.isNotEmpty()) return
-        val messageKey = when {
-            selectedCategory != null -> "simpleskinswapper.screen.library.empty_category"
-            uncategorizedSelected -> "simpleskinswapper.screen.library.empty_uncategorized"
-            else -> "simpleskinswapper.screen.carousel.no_skins"
-        }
-        // A "\n" in the translation splits the message into centered lines (the
-        // empty-category hint reads better balanced on two lines).
-        val lines = Component.translatable(messageKey).string.split("\n")
-        val lineHeight = font.lineHeight + 1
-        var lineY = (gridTop + gridBottom) / 2 - (lines.size * lineHeight) / 2
-        for (line in lines) {
-            graphics.centeredText(
-                font, Component.literal(line),
-                (panelX + this.width - PAD) / 2, lineY, 0xFFAAAAAA.toInt()
-            )
-            lineY += lineHeight
-        }
     }
 
     /** Tab strip background + unselected tabs, drawn before the grid page so they pass under it. */
