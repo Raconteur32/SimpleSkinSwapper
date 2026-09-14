@@ -63,9 +63,11 @@ class SkinLibraryCard(
     init {
         // Bottom row: only the apply button. The card body is the reorder grab (press +
         // move) and a press-and-release without movement opens the detail overlay.
+        // The button breathes 1px more than the raw margin on every side so it never
+        // touches the card frame's baked border.
         applyButton = EdgeSafeButtonWidget(
-            BUTTON_MARGIN, height - BUTTON_HEIGHT - BUTTON_MARGIN,
-            width - BUTTON_MARGIN * 2, BUTTON_HEIGHT,
+            BUTTON_MARGIN + 1, height - BUTTON_HEIGHT - BUTTON_MARGIN - 1,
+            width - (BUTTON_MARGIN + 1) * 2, BUTTON_HEIGHT,
             Component.translatable("simpleskinswapper.screen.carousel.apply")
         ) { applySkin() }
         addChild(applyButton)
@@ -212,13 +214,10 @@ class SkinLibraryCard(
         lastHoverAnimUpdateNanos = now
     }
 
-    private fun drawBackground(graphics: GuiGraphicsExtractor, hovered: Boolean, allocated: Boolean, allocationColor: Int) {
+    private fun drawBackground(graphics: GuiGraphicsExtractor, hovered: Boolean) {
         // Vanilla recipe-book clickable-recipe frame (highlight variant on hover) over a
-        // dark interior; the allocation marker strip is drawn on top of the frame.
+        // dark interior. The old wheel-allocation color strip is retired.
         SkinLibraryScreen.drawCardFrame(graphics, x, y, width, height, hovered)
-        if (allocated) {
-            graphics.fill(x + 1, y + 1, x + width - 1, y + 1 + MARKER_HEIGHT, allocationColor)
-        }
     }
 
     //? if >=26.1 {
@@ -250,8 +249,7 @@ class SkinLibraryCard(
     }
 
     private fun drawCardChrome(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
-        val allocationColor = parent.allocationColorFor(this)
-        drawBackground(graphics, hovered = !parent.reorderDraggingCard.let { it != null && it !== this } && isMouseOverCard(mouseX, mouseY), allocated = allocationColor != null, allocationColor = allocationColor ?: 0)
+        drawBackground(graphics, hovered = !parent.reorderDraggingCard.let { it != null && it !== this } && isMouseOverCard(mouseX, mouseY))
 
         for (child in cardButtons) {
             //? if >=26.1 {
@@ -319,9 +317,6 @@ class SkinLibraryCard(
 
         // Header strip (marker + number + name) height in px.
         private const val HEADER_HEIGHT = 14
-
-        // Allocation marker strip thickness in px.
-        private const val MARKER_HEIGHT = 2
 
         // Press movement (Manhattan px) beyond which a card press becomes a reorder drag
         // instead of a click.
