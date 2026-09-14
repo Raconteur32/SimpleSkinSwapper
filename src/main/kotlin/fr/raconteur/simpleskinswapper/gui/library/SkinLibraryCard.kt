@@ -273,10 +273,11 @@ class SkinLibraryCard(
         graphics.text(client.font, Component.nullToEmpty((parent.indexOfCard(this) + 1).toString()), x + 5, textY, allocationTextColor())
 
         val nameColor = if (this.active) 0xFFFFFFFF.toInt() else 0xFF808080.toInt()
-        // Left-aligned right after the number, truncated with an ellipsis before the
-        // handle — same treatment as the category tab names (no hard clipping).
+        // Left-aligned right after the number, truncated with an ellipsis before the card
+        // edge — same treatment as the category tab names (no hard clipping). The wide
+        // right margin the old grab handle needed is gone, so names run to a small margin.
         val nameX = x + 15
-        val nameRight = x + width - 16
+        val nameRight = x + width - 5
         val available = nameRight - nameX
         var text = entry.displayName
         if (available >= 8 && client.font.width(text) > available) {
