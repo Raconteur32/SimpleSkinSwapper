@@ -87,9 +87,13 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
         val base = Math.round(wheelPos)
         val atRest = Math.abs(wheelPos - base) < REST_EPSILON
         val activeWheel = Math.floorMod(base, wheelCount)
+        val slotCount = maxOf(wheels[activeWheel].size, MIN_WHEEL_SLOTS)
 
         selectedIndex = if (atRest) {
-            getSelectedIndex(mouseX, mouseY, cx, cy, wheels[activeWheel].size)
+            // Angle hit-test against the padded sector count; filler slots resolve to no
+            // selection — only real skins are selectable.
+            val hit = getSelectedIndex(mouseX, mouseY, cx, cy, slotCount)
+            if (hit in 0..<wheels[activeWheel].size) hit else -1
         } else {
             -1
         }
@@ -200,22 +204,24 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
         val wx = cx + offset * (this.width / 2.0F)
         val radius = OUTER_RADIUS * scale
         val wheel = wheels[wheelIndex]
-        val n = wheel.size
-        val hovered = interactive && selectedIndex in 0..<n
+        // Every wheel renders at least MIN_WHEEL_SLOTS sectors: slots beyond the real
+        // skins are dimmed, inert filler (no preview, no hover, no selection).
+        val n = maxOf(wheel.size, MIN_WHEEL_SLOTS)
+        val hovered = interactive && selectedIndex in 0..<wheel.size
 
         // Draw pie sector backgrounds
         for (i in 0..<n) {
-            drawSector(context, wx, cy, i, n, radius, hovered && i == selectedIndex)
+            drawSector(context, wx, cy, i, n, radius, hovered && i == selectedIndex, empty = i >= wheel.size)
         }
 
         // Center fill circle (on top of sectors)
         fillCircle(context, wx, cy, 28f * scale, COLOR_CENTER_BG)
 
-        // Skin previews — painter's order: top (smallest py) first
+        // Skin previews — painter's order: top (smallest py) first. Real slots only.
         val sectorSize = 2 * Math.PI / n
         val angleOffset = -Math.PI / 2 - sectorSize / 2.0
         val previewDist = radius * 0.60F
-        val order = Array(n) { it }
+        val order = Array(wheel.size) { it }
         order.sortBy { i ->
             cy + previewDist * Math.sin(angleOffset + sectorSize * i + sectorSize / 2.0)
         }
@@ -244,23 +250,22 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
     }
 
     private fun drawSector(
-        context: GuiGraphicsExtractor, cx: Float, cy: Float, index: Int, n: Int, radius: Float, hovered: Boolean
+        context: GuiGraphicsExtractor, cx: Float, cy: Float, index: Int, n: Int, radius: Float,
+        hovered: Boolean, empty: Boolean
     ) {
         val sectorSize = 2 * Math.PI / n
         val angleOffset = -Math.PI / 2 - sectorSize / 2.0
         val baseAngle = angleOffset + sectorSize * index
-        val color = if (hovered) COLOR_SECTOR_HOVER else COLOR_SECTOR
-
-        // Single sector: a full disc, no gap to inset.
-        if (n == 1) {
-            submitSectorFill(context, cx, cy, radius, baseAngle.toFloat(), (baseAngle + 2 * Math.PI).toFloat(), color, 0.0F)
-            return
+        val color = when {
+            empty -> COLOR_SECTOR_EMPTY
+            hovered -> COLOR_SECTOR_HOVER
+            else -> COLOR_SECTOR
         }
 
         // Constant-width gap: each straight edge is the nominal radius line offset inward by
         // half the gap width (arc endpoints rotated by asin(halfGap/radius), apex pushed out to
         // halfGap/sin(halfSpan)), so the separator stays a hairline from center to rim instead
-        // of a wedge that widens outward.
+        // of a wedge that widens outward. n is always >= MIN_WHEEL_SLOTS — no single-disc case.
         val halfGap = GAP_WIDTH / 2f
         val edgeInset = Math.asin((halfGap / radius).toDouble())
         val startAngle = baseAngle + edgeInset
@@ -475,6 +480,9 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
         private const val WHEEL_SIZE = 10
         private const val OUTER_RADIUS = 90.0f
 
+        // Every wheel renders at least this many sectors (dimmed filler beyond real skins).
+        private const val MIN_WHEEL_SLOTS = 5
+
         // Constant width, in pixels, of the separator line between adjacent sectors.
         private const val GAP_WIDTH = 3.0f
 
@@ -503,6 +511,9 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
         private val COLOR_SECTOR = 0xCC1A2535.toInt()
         private val COLOR_SECTOR_HOVER = 0xEE2B5F9E.toInt()
         private val COLOR_CENTER_BG = 0xBB0D1627.toInt()
+
+        /** Dimmed filler sectors padding a sparse wheel up to [MIN_WHEEL_SLOTS]. */
+        private val COLOR_SECTOR_EMPTY = 0x66101A2B.toInt()
         private val COLOR_TEXT = 0xFFFFFFFF.toInt()
         private val COLOR_PAGINATION_DIM = 0x60FFFFFF.toInt()
     }

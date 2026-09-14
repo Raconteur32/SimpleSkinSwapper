@@ -28,6 +28,11 @@ class   TabStripController(
     internal var tabScroll = 0.0F
         private set
 
+    /** Category slots the strip lays out: the real categories, padded up to
+     *  [MIN_CATEGORY_SLOTS] with ghost placeholders (inert, drawn by the screen). */
+    internal val visibleCategorySlots: Int
+        get() = Math.max(SkinCategories.all().size, MIN_CATEGORY_SLOTS)
+
     /** Tab under the cursor during a press, or -1. Starts every press. */
     fun press(tabIndex: Int, clickY: Double, cursorY: Int) {
         tabDragCategoryIndex = tabIndex
@@ -89,7 +94,7 @@ class   TabStripController(
     internal fun maxTabScroll(): Int {
         // Whole-slot scroll steps: the range is a multiple of slotH, so no tab is ever
         // caught half-hidden at the scroll limit (the strip shows whole tabs only).
-        val slots = SkinCategories.all().size + 3
+        val slots = visibleCategorySlots + 3
         val contentH = (slots - 1) * slotH() + tabH()
         val alignedH = stripAlignedBottom() - stripTop()
         if (contentH <= alignedH) return 0
@@ -106,8 +111,9 @@ class   TabStripController(
         return stripTop() + (fullTabs - 1) * slotH() + tabH()
     }
 
-    /** Y of the add-category entry: the strip slot after the last category tab. */
-    internal fun addEntryY(): Int = tabY(SkinCategories.all().size + 2)
+    /** Y of the add-category entry: the strip slot after the last category slot —
+     *  sixth position while ghost placeholders pad the minimum. */
+    internal fun addEntryY(): Int = tabY(visibleCategorySlots + 2)
 
     /** True when the cursor sits on the add-category entry slot at the end of the strip. */
     internal fun addEntryAt(cursorY: Int, cursorX: Int): Boolean {
@@ -192,5 +198,8 @@ class   TabStripController(
         const val TAB_DRAG_THRESHOLD = 5.0
         const val AUTO_SCROLL_BAND = 16
         const val MAX_TABS_PER_SEC = 2.0F
+
+        /** Minimum category slots the strip lays out (ghost placeholders pad the rest). */
+        const val MIN_CATEGORY_SLOTS = 3
     }
 }

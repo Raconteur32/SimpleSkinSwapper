@@ -403,7 +403,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // list is shorter — and centers the rounding remainder instead of showing it.
         val zoneTop = gridTop
         val zoneHeight = gridBottom - zoneTop
-        val slots = SkinCategories.all().size + 3
+        // Ghost placeholders pad the strip to a minimum of five slots (All + Uncategorized
+        // + three category slots), so the strip never collapses with no categories.
+        val slots = tabs.visibleCategorySlots + 3
         val densitySlots = 1.coerceAtLeast((zoneHeight / 28f).roundToInt())
         val fillSlots = slots.coerceAtMost(densitySlots)
         tabH = (zoneHeight + TAB_OVERLAP * (fillSlots - 1)) / fillSlots
@@ -727,6 +729,13 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             if (y + tabH !in top..tabBottom) continue
             if (isSelectedTab(i)) continue
             drawTab(graphics, i, y)
+        }
+        // Ghost placeholders pad the category slots up to three: inert, dimmed, no label.
+        for (i in SkinCategories.all().size + 2..tabs.visibleCategorySlots + 1) {
+            val y = tabs.tabY(i)
+            if (y + tabH !in top..tabBottom) continue
+            drawBookPanel(graphics, -PANEL_BLEED, y, STRIP_X + TAB_W + 2 + PANEL_BLEED, tabH, lit = false)
+            graphics.fill(-PANEL_BLEED, y, STRIP_X + TAB_W + 2 + PANEL_BLEED, y + tabH, 0x66000000.toInt())
         }
         drawAddCategoryEntry(graphics, mouseX, mouseY)
         graphics.disableScissor()
