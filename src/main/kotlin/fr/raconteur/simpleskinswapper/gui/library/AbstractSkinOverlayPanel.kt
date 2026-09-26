@@ -2,7 +2,7 @@ package fr.raconteur.simpleskinswapper.gui.library
 
 import com.mojang.blaze3d.platform.InputConstants
 import fr.raconteur.simpleskinswapper.gui.SkinRenderer
-import fr.raconteur.simpleskinswapper.gui.SkinType
+import fr.raconteur.simpleskinswapper.SkinType
 import fr.raconteur.simpleskinswapper.gui.SkinUtils
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.ComponentPath

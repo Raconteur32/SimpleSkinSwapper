@@ -3,7 +3,7 @@ package fr.raconteur.simpleskinswapper.changeskin
 import com.mojang.authlib.properties.Property
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
 import fr.raconteur.simpleskinswapper.data.JsonFileStore
-import fr.raconteur.simpleskinswapper.gui.SkinType
+import fr.raconteur.simpleskinswapper.SkinType
 import kotlinx.serialization.Serializable
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.resources.Identifier

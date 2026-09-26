@@ -22,6 +22,7 @@ import net.minecraft.util.Mth
 import net.minecraft.world.entity.player.PlayerModelType
 import net.minecraft.world.entity.player.PlayerSkin
 import org.joml.Matrix3x2f
+import fr.raconteur.simpleskinswapper.SkinType
 
 class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
 

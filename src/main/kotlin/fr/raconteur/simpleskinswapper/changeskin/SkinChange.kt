@@ -1,7 +1,7 @@
 package fr.raconteur.simpleskinswapper.changeskin
 
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
-import fr.raconteur.simpleskinswapper.gui.SkinType
+import fr.raconteur.simpleskinswapper.SkinType
 import fr.raconteur.simpleskinswapper.networking.MineSkinUploader
 import fr.raconteur.simpleskinswapper.networking.SkinShuffleCompat
 import net.minecraft.client.Minecraft

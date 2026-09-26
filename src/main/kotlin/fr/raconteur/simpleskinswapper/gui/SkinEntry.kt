@@ -5,6 +5,7 @@ import fr.raconteur.simpleskinswapper.library.SkinRecord
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.resources.Identifier
 import java.io.File
+import fr.raconteur.simpleskinswapper.SkinType
 
 /**
  * Represents a skin file entry in the carousel.

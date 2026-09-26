@@ -4,7 +4,7 @@ import fr.raconteur.simpleskinswapper.changeskin.SkinChange
 import fr.raconteur.simpleskinswapper.changeskin.SkinSwapperState
 import fr.raconteur.simpleskinswapper.gui.EdgeSafeButtonWidget
 import fr.raconteur.simpleskinswapper.gui.SkinEntry
-import fr.raconteur.simpleskinswapper.gui.SkinType
+import fr.raconteur.simpleskinswapper.SkinType
 import fr.raconteur.simpleskinswapper.overlayMessage
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.components.EditBox

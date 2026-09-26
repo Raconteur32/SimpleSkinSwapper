@@ -8,6 +8,7 @@ import net.minecraft.core.ClientAsset
 import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.player.PlayerModelType
 import net.minecraft.world.entity.player.PlayerSkin
+import fr.raconteur.simpleskinswapper.SkinType
 
 class SkinPreviewButton(
     x: Int, y: Int, width: Int, height: Int,

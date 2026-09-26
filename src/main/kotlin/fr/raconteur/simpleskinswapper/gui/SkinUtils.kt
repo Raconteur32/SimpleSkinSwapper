@@ -10,6 +10,7 @@ import java.io.IOException
 import java.nio.file.Files
 import java.util.function.Consumer
 import javax.imageio.ImageIO
+import fr.raconteur.simpleskinswapper.SkinType
 
 object SkinUtils {
 

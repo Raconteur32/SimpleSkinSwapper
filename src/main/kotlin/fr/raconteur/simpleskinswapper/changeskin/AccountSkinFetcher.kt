@@ -3,7 +3,7 @@ package fr.raconteur.simpleskinswapper.changeskin
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
-import fr.raconteur.simpleskinswapper.gui.SkinType
+import fr.raconteur.simpleskinswapper.SkinType
 import net.minecraft.client.Minecraft
 import java.io.File
 import java.io.IOException

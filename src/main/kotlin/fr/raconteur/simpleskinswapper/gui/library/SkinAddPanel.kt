@@ -2,7 +2,7 @@ package fr.raconteur.simpleskinswapper.gui.library
 
 import fr.raconteur.simpleskinswapper.changeskin.AccountSkinFetcher
 import fr.raconteur.simpleskinswapper.gui.EdgeSafeButtonWidget
-import fr.raconteur.simpleskinswapper.gui.SkinType
+import fr.raconteur.simpleskinswapper.SkinType
 import fr.raconteur.simpleskinswapper.gui.SkinUtils
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.components.EditBox

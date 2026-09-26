@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import com.mojang.authlib.properties.Property
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
-import fr.raconteur.simpleskinswapper.gui.SkinType
+import fr.raconteur.simpleskinswapper.SkinType
 import fr.raconteur.simpleskinswapper.gui.SkinUtils
 import fr.raconteur.simpleskinswapper.gui.library.SkinLifecycle
 import fr.raconteur.simpleskinswapper.gui.library.SkinRecords

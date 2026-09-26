@@ -5,7 +5,7 @@ import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
 import fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig
 import fr.raconteur.simpleskinswapper.gui.EdgeSafeButtonWidget
 import fr.raconteur.simpleskinswapper.gui.SkinEntry
-import fr.raconteur.simpleskinswapper.gui.SkinType
+import fr.raconteur.simpleskinswapper.SkinType
 import fr.raconteur.simpleskinswapper.gui.config.YaclConfigScreen
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.client.gui.GuiGraphicsExtractor
