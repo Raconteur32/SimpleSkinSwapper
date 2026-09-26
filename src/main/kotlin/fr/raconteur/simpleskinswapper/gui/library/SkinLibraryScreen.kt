@@ -20,21 +20,21 @@ import net.minecraft.network.chat.Component
 import net.minecraft.resources.Identifier
 import net.minecraft.util.Mth
 //? if <26.3 {
-import net.minecraft.util.Util
-//?}
-//? if >=26.3 {
-/*import com.mojang.blaze3d.Blaze3D
+/*import net.minecraft.util.Util
 *///?}
+//? if >=26.3 {
+import com.mojang.blaze3d.Blaze3D
+//?}
 import org.lwjgl.system.MemoryStack
 //? if >=26.3 {
-/*import net.minecraft.client.Minecraft
+import net.minecraft.client.Minecraft
 import org.lwjgl.sdl.SDLDialog
 import org.lwjgl.sdl.SDL_DialogFileCallback
 import org.lwjgl.sdl.SDL_DialogFileFilter
 import org.lwjgl.system.MemoryUtil
-*///?} else {
-import org.lwjgl.util.tinyfd.TinyFileDialogs
-//?}
+//?} else {
+/*import org.lwjgl.util.tinyfd.TinyFileDialogs
+*///?}
 import java.io.File
 import java.io.IOException
 import java.nio.file.FileSystems
@@ -350,10 +350,10 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                 Component.translatable("simpleskinswapper.screen.carousel.open_folder")
             ) {
                 //? if >=26.3 {
-                /*Blaze3D.openPath(FabricLoader.getInstance().gameDir.resolve("skins").toFile().toPath())
-                *///?} else {
-                Util.getPlatform().openFile(FabricLoader.getInstance().gameDir.resolve("skins").toFile())
-                //?}
+                Blaze3D.openPath(FabricLoader.getInstance().gameDir.resolve("skins").toFile().toPath())
+                //?} else {
+                /*Util.getPlatform().openFile(FabricLoader.getInstance().gameDir.resolve("skins").toFile())
+                *///?}
             }.bounds(btnLeft, footerY, bw, 20).build()
         )
         addRenderableWidget(
@@ -1181,15 +1181,15 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     /** Opens the native PNG picker and hands the result to [onPicked] on the main thread. */
     internal fun pickSkinFile(onPicked: (File) -> Unit) {
         //? if >=26.3 {
-        /*openSkinFileDialog(onPicked)
-        *///?} else {
-        val selected = openSkinFileDialog() ?: return
+        openSkinFileDialog(onPicked)
+        //?} else {
+        /*val selected = openSkinFileDialog() ?: return
         onPicked(selected)
-        //?}
+        *///?}
     }
 
     //? if >=26.3 {
-    /*// SDL file dialogs are asynchronous (tinyfd was synchronous): the callback fires from the
+    // SDL file dialogs are asynchronous (tinyfd was synchronous): the callback fires from the
     // event pump, possibly after this screen closed — the result is marshalled to the main
     // thread and only applied if this screen is still open.
     private var dialogCallback: SDL_DialogFileCallback? = null
@@ -1214,8 +1214,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             SDLDialog.SDL_ShowOpenFileDialog(callback, 0L, 0L, filters, "", false)
         }
     }
-    *///?} else {
-    private fun openSkinFileDialog(): File? {
+    //?} else {
+    /*private fun openSkinFileDialog(): File? {
         MemoryStack.stackPush().use { stack ->
             val filters = stack.mallocPointer(1)
             filters.put(stack.UTF8("*.png"))
@@ -1227,7 +1227,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             return path?.let { File(it) }
         }
     }
-    //?}
+    *///?}
 
     companion object {
         private const val PAD = 4

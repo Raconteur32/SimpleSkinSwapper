@@ -129,7 +129,7 @@ object SkinRenderer {
         s.walkAnimationSpeed = limbSwingIntensity * swingAmplitude
 
         //? if <26.3
-        s.attackTime = 0.0F
+        //s.attackTime = 0.0F
         s.swimAmount = 0.0F
         s.speedValue = 1.0F
 

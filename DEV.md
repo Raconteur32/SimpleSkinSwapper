@@ -8,8 +8,8 @@ All supported Minecraft versions are built from a single source tree using [Ston
 |-------------|-----------|------|-------|
 | `1.21.11`   | 1.21.11   | 21   | Mojang mappings applied by loom |
 | `26.1.2`    | 26.1.2    | 25   | unobfuscated |
-| `26.2`      | 26.2      | 25   | active/VCS version |
-| `26.3`      | 26.3      | 25 | ModMenu 21.0.0-beta.1 (declares 26.3-rc-1) runs in the dev runtime. The run config forces `SDL_VIDEODRIVER=x11` on Linux: the new SDL windowing fails EGL init on native Wayland (override by setting the var yourself) |
+| `26.2`      | 26.2      | 25   | |
+| `26.3`      | 26.3      | 25 | active/VCS version. ModMenu 21.0.0-beta.1 (declares 26.3-rc-1) runs in the dev runtime. The run config forces `SDL_VIDEODRIVER=x11` on Linux: the new SDL windowing fails EGL init on native Wayland (override by setting the var yourself) |
 
 ## Common tasks
 

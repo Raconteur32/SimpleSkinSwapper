@@ -3,7 +3,7 @@ plugins {
 	kotlin("jvm") version "2.4.10" apply false
 }
 
-stonecutter active "26.2"
+stonecutter active "26.3"
 
 // Pure symbol renames between the 1.21.11 and 26.x APIs, applied textually when
 // generating the per-version sources. Written as replace(<1.21.11 form>, <26.x form>);

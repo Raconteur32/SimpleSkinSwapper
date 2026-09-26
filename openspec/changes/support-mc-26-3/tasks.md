@@ -28,4 +28,4 @@
 ## 5. Follow-up at 26.3 release (not part of this change's completion)
 
 - [x] 5.0 Pre-release refresh: `deps.minecraft` → `26.3-rc-3`, fabric_loader → `0.19.5`, fabric_api → `0.160.4+26.3`, ModMenu → `21.0.0-beta.1` (declares 26.3-rc-1; now `modLocalRuntime` on every tree — the `< 26.3` guard is gone), YACL unchanged (3.9.6+26.3 still latest upstream — the inert-slider bug has no fix to pull). API drift snapshot-9 → rc-3: `Util.OS.openFile` moved to `Blaze3D.openPath(Path)` (chisel `>=26.3`).
-- [ ] 5.1 When 26.3 releases: set `deps.minecraft = "26.3"`, switch active/VCS version to `26.3` in a separate commit (`Set active project to 26.3` + `vcsVersion`), update DEV.md table note.
+- [x] 5.1 When 26.3 releases: set `deps.minecraft = "26.3"`, switch active/VCS version to `26.3` in a separate commit (`Set active project to 26.3` + `vcsVersion`), update DEV.md table note.

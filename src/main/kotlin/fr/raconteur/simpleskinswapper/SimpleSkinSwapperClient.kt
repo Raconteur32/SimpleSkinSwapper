@@ -20,10 +20,10 @@ class SimpleSkinSwapperClient : ClientModInitializer {
         StartupSkinSync.run()
         val category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("simpleskinswapper", "title"))
         //? if >=26.3 {
-        /*val unboundKeyType = InputConstants.Type.KEYBOARD
-        *///?} else {
-        val unboundKeyType = InputConstants.Type.KEYSYM
-        //?}
+        val unboundKeyType = InputConstants.Type.KEYBOARD
+        //?} else {
+        /*val unboundKeyType = InputConstants.Type.KEYSYM
+        *///?}
         openCarouselKey = KeyMappingHelper.registerKeyMapping(
             KeyMapping(
                 "key.simpleskinswapper.open_carousel",
