@@ -215,12 +215,14 @@ dependencies {
 }
 
 tasks.processResources {
-	inputs.property("version", project.version)
+	inputs.property("version", modVersion)
 	inputs.property("mc_dep", mcDep)
 	inputs.property("loader_dep", loaderDep)
 
 	filesMatching("fabric.mod.json") {
-		expand("version" to project.version, "mc_dep" to mcDep, "loader_dep" to loaderDep)
+		// modVersion (script-level val, configuration time) instead of project.version:
+		// Task.project inside this execution-time closure is a Gradle 10 error.
+		expand("version" to modVersion, "mc_dep" to mcDep, "loader_dep" to loaderDep)
 	}
 }
 
