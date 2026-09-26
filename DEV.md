@@ -18,6 +18,16 @@ All supported Minecraft versions are built from a single source tree using [Ston
 - `./gradlew :<version>:runClient` — run a client for one version (run dir: `versions/<version>/run/`)
 - `Set active project to <version>` (Gradle task) — switch the IDE/committed source to another version; commit such switches separately from real changes
 - `Reset active project` — restore the source to the VCS version state before committing
+- `scripts/hotspots.sh` — hotspot table (git churn × size × jscpd clones); run from the repo root
+
+## Atlas
+
+`docs/atlas.md` is the regenerable map of the codebase: package dependencies, data flows,
+screen/overlay lifecycles, version-guard matrix, hotspots and open questions. It carries an
+"as of" commit header — **regenerate it** (agent pass over the source + hotspots run) after
+any structural change (new package, screen, store, or refactor of the ones it documents) or
+whenever a question needs answering, then commit the refreshed snapshot. The diagrams answer
+"what/where"; the archived OpenSpec changes answer "why".
 
 ## Where things live
 
