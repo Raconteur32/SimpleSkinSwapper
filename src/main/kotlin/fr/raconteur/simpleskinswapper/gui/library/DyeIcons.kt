@@ -23,6 +23,11 @@ internal object DyeIcons {
     fun spriteId(dyeName: String): Identifier =
         Identifier.fromNamespaceAndPath("minecraft", "item/${dyeName}_dye")
 
+    // @Suppress per warnings-as-errors design D2: no replacement exists on any target —
+    // the 26.x AtlasIds constants are atlas KEYS (minecraft:items), not atlas locations
+    // (textures/atlas/items.png), and vanilla itself still consumes LOCATION_ITEMS
+    // (Sheets, AtlasManager, CuboidItemModelWrapper). Revisit on a version that ships one.
+    @Suppress("DEPRECATION")
     fun draw(graphics: GuiGraphicsExtractor, dyeName: String, x: Int, y: Int, size: Int) {
         val id = spriteId(dyeName)
         //? if >=26.1 {

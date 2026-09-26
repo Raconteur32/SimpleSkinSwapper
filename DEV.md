@@ -19,6 +19,7 @@ All supported Minecraft versions are built from a single source tree using [Ston
 - `Set active project to <version>` (Gradle task) — switch the IDE/committed source to another version; commit such switches separately from real changes
 - `Reset active project` — restore the source to the VCS version state before committing
 - `scripts/hotspots.sh` — hotspot table (git churn × size × jscpd clones); run from the repo root
+- Kotlin **warnings are errors** on every tree: after a MC version bump, a deprecation wave fails CI by design (drift alarm). Triage per warning — fix it, or `@Suppress` at the site with a justifying comment (never blanket).
 
 ## Atlas
 

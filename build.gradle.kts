@@ -221,6 +221,12 @@ java {
 kotlin {
 	compilerOptions {
 		jvmTarget.set(kotlinTarget)
+		// Warnings are errors on every tree (change: warnings-as-errors). With a
+		// zero-warning baseline, a new MC version deprecating an API we use fails CI
+		// loudly instead of hiding in a `w:` line — a deprecation wave after a version
+		// bump is the intended drift alarm. Triage per warning: fix it, or
+		// @Suppress at the site with a justifying comment (never blanket).
+		allWarningsAsErrors.set(true)
 	}
 }
 
