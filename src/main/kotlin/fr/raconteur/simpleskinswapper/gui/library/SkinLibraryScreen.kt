@@ -90,54 +90,24 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     internal var uncategorizedSelected = false
     internal val band = CategoryBand(this)
 
-    // Card reorder drag (the whole card body is the grab; started once the press moves).
-    internal var reorderDraggingCard: SkinLibraryCard? = null
-
-    // Raised by a card during mouseDragged's children iteration; consumed (drag begins,
-    // card unregisters) right after the iteration — same deferred pattern as removeWidget.
-    private var pendingReorderStart: Pair<SkinLibraryCard, Pair<Int, Int>>? = null
-
-    internal fun requestCardReorder(card: SkinLibraryCard, mouseX: Int, mouseY: Int) {
-        pendingReorderStart = card to (mouseX to mouseY)
-    }
-    private val cardDrag = CardDragEngine(
-        cols = { cols },
-        cellW = { cellW },
-        cellH = { cellH },
-        gridOffsetX = { gridOffsetX },
-        gridGap = { GRID_GAP },
-        contentStartY = { contentStartY() },
-        scrollY = { scrollY },
-        gridTop = { gridTop },
-        gridBottom = { gridBottom },
-    )
 
     // Overlay lifecycle (detail/add panels, shared confirmation popup).
     private val overlays = OverlayManager(this)
 
     // Trailing "+" pseudo-card shown after the last card of every list.
     private var addCard: SkinAddCard? = null
-    private val addCardDisplay = IdentityHashMap<SkinAddCard, FloatArray>()
-    private val cardDisplay = IdentityHashMap<SkinLibraryCard, FloatArray>()
 
     // Tab strip scroll/drag/insertion state machine.
     private val tabs = TabStripController({ stripZoneTop }, { stripZoneBottom }, { tabH })
 
-    // Grid scroll + layout (recomputed in recomputeLayout()).
-    internal var scrollY = 0
-    private var cols = 3
-    private var cellW = 0
-    private var cellH = 0
-    private var gridOffsetX = 0
-    internal var gridTop = 0
-    private var gridBottom = 0
+    // Grid geometry, scroll and placement (engine owns the mechanics).
+    private val grid = GridEngine(this, { cards }, { addCard }, { tabs.visibleCategorySlots })
     /** Dynamic tab height: whole tabs tiling the strip (~28px density, stretched when
      *  the category list is shorter than the strip). */
     internal var tabH = 28
     /** Tab strip display band: whole-slot band centered in the card page's vertical span. */
-    private var stripZoneTop = 0
-    private var stripZoneBottom = 0
-    private var maxScroll = 0
+    internal var stripZoneTop = 0
+    internal var stripZoneBottom = 0
 
     // Widgets
     private val watcher = LibraryFileWatcher { this.init() }
@@ -152,7 +122,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         reloadView()
         initBandAndFooter()
         rebuildCards()
-        recomputeLayout()
+        grid.recomputeLayout()
         overlays.reattachOverlays()
         watcher.stop()
         watcher.start()
@@ -303,8 +273,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // original's slot (fresh cards carry no position until the next render pass).
         val siblingIndex = cards.indexOfFirst { it.entry.skinId == sibling.id }
         if (siblingIndex >= 0) {
-            val slot = cardDrag.slotFor(siblingIndex, -1)
-            overlays.retargetDetailTo(slot.first, slot.second, cellW, cellH)
+            val slot = grid.cardDrag.slotFor(siblingIndex, -1)
+            overlays.retargetDetailTo(slot.first, slot.second, grid.cellW, grid.cellH)
         }
         return fresh
     }
@@ -367,68 +337,22 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // widgets, or vanilla would render them twice and leave stale click targets.
     }
 
-    internal fun recomputeLayout() {
-        // Constant viewport, whatever sits inside it (import row above, config band inside
-        // the page) — switching category or expanding the band never moves the layout.
-        gridTop = contentTop() + BAND_GRID_MARGIN
-        gridBottom = this.height - FOOTER_BAND
-        // Tab strip zone = the strip's own recessed footprint ([gridTop, gridBottom] —
-        // 8px inside the card page so the strip reads as behind the page). The band tiles
-        // that zone with whole slots — density ~28px, or the actual slot count when the
-        // list is shorter — and centers the rounding remainder instead of showing it.
-        val zoneTop = gridTop
-        val zoneHeight = gridBottom - zoneTop
-        // Ghost placeholders pad the strip to a minimum of five slots (All + Uncategorized
-        // + three category slots), so the strip never collapses with no categories.
-        val slots = tabs.visibleCategorySlots + 3
-        val densitySlots = 1.coerceAtLeast((zoneHeight / 28f).roundToInt())
-        val fillSlots = slots.coerceAtMost(densitySlots)
-        tabH = (zoneHeight + TAB_OVERLAP * (fillSlots - 1)) / fillSlots
-        val bandH = (fillSlots - 1) * (tabH - TAB_OVERLAP) + tabH
-        stripZoneTop = zoneTop + (zoneHeight - bandH) / 2
-        stripZoneBottom = stripZoneTop + bandH
-        // The grid lives inside the page's baked border (8px, measured on the texture)
-        // plus a small breathing margin on every side — cards never touch the border.
-        val gridLeft = gridLeft()
-        val gridRight = gridRight()
-        val gridW = gridRight - gridLeft
-        val gap = GRID_GAP
-        // Minimum card width is user-configurable: raised, fewer columns fit and every
-        // card widens (then keeps the 4:3 height ratio below).
-        val minCellW = SimpleSkinSwapperConfig.get().minCardWidth.toDouble()
-        cols = ((gridW - gap) / (minCellW + gap)).toInt().coerceIn(3, MAX_COLS)
-        cellW = (gridW - gap * (cols - 1)) / cols
-        val viewH = gridBottom - gridTop
-        cellH = (cellW * 4 / 3).coerceAtMost(viewH - GRID_MARGIN * 2).coerceAtLeast(MIN_CELL_H)
-        val totalW = cols * cellW + gap * (cols - 1)
-        gridOffsetX = gridLeft + (gridW - totalW) / 2
-        updateMaxScroll()
-    }
+    internal fun recomputeLayout() = grid.recomputeLayout()
 
-    private fun updateMaxScroll() {
-        // The config band scrolls away with the content, so it counts toward it.
-        // The trailing "+" card occupies one extra cell after the last skin.
-        val bandH = if (selectedCategory != null) band.height(true) + GRID_GAP else 0
-        val rows = ceil((cards.size + 1) / cols.toDouble()).toInt()
-        val contentH = bandH + rows * (cellH + GRID_GAP) - GRID_GAP
-        maxScroll = 0.coerceAtLeast(contentH - (gridBottom - gridTop - GRID_MARGIN * 2))
-    }
-
-    /** Card-area inner edges: the page's baked border plus the grid margin. The config band uses them too. */
-    internal fun gridLeft(): Int = panelX - 6 + PAGE_BORDER + GRID_MARGIN
-
-    internal fun gridRight(): Int = this.width - PAD - PAGE_BORDER - GRID_MARGIN
-
-    /** Top of the config band inside the viewport; scrolls away with the card content. */
-
-    /** Unscrolled Y where the first grid row sits (right under the band when it is shown). */
-    private fun contentStartY(): Int =
-        gridTop + GRID_MARGIN + (if (selectedCategory != null) band.height(selectedCategory != null) + GRID_GAP else 0)
+    // Read-only delegates for collaborators (CategoryBand) — the engine owns the state.
+    internal val scrollY: Int get() = grid.scrollY
+    internal val gridTop: Int get() = grid.gridTop
+    internal val gridBottom: Int get() = grid.gridBottom
+    internal val cellW: Int get() = grid.cellW
+    internal val cellH: Int get() = grid.cellH
+    internal fun gridLeft(): Int = grid.gridLeft()
+    internal fun gridRight(): Int = grid.gridRight()
+    internal val reorderDraggingCard: SkinLibraryCard? get() = grid.reorderDraggingCard
 
     /** Title zone bottom: the title draws alone at the top-left, the page starts below it. */
-    private fun contentTop(): Int = TITLE_ZONE_BOTTOM
+    internal fun contentTop(): Int = TITLE_ZONE_BOTTOM
 
-    private val panelX: Int get() = STRIP_X + TAB_W + 8
+    internal val panelX: Int get() = STRIP_X + TAB_W + 8
 
     // ------------------------------------------------------------------
     // View data
@@ -461,21 +385,20 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     private fun rebuildCards() {
         for (card in cards) removeWidget(card)
         cards.clear()
-        cardDisplay.clear()
         addCard?.let { removeWidget(it) }
-        addCardDisplay.clear()
+        grid.clearPlacementState()
         recomputeLayout()
         for (entry in entries) {
-            val card = SkinLibraryCard(this, entry, cellW, cellH)
+            val card = SkinLibraryCard(this, entry, grid.cellW, grid.cellH)
             cards.add(card)
             addRenderableWidget(card)
         }
         // Trailing "+" card at the end of every list.
-        val newAddCard = SkinAddCard(this, cellW, cellH)
+        val newAddCard = SkinAddCard(this, grid.cellW, grid.cellH)
         addCard = newAddCard
         addRenderableWidget(newAddCard)
-        updateMaxScroll()
-        scrollY = Mth.clamp(scrollY, 0, maxScroll)
+        grid.updateMaxScroll()
+        grid.clampScroll()
         band.refreshWidgets()
         overlays.rebindDetail(entries)
         // Cards were re-added after the overlays: raise the open ones back to the top
@@ -519,6 +442,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     /** The trailing "+" card, the source rect when the add overlay opens. */
     internal fun trailingAddCard(): SkinAddCard? = addCard
+
+    internal fun requestCardReorder(card: SkinLibraryCard, mouseX: Int, mouseY: Int) =
+        grid.requestCardReorder(card, mouseX, mouseY)
 
     internal fun openDetail(card: SkinLibraryCard) = overlays.openDetail(card)
 
@@ -571,19 +497,20 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
         // Book-style page panel behind the card grid (the "main page" surface), on top of the
         // strip background, vanilla recipe-book style.
-        drawPagePanel(graphics, panelX - 6, gridTop - PAGE_BORDER, this.width - PAD - panelX + 6, gridBottom - gridTop + PAGE_BORDER * 2)
+        drawPagePanel(graphics, panelX - 6, grid.gridTop - PAGE_BORDER, this.width - PAD - panelX + 6, grid.gridBottom - grid.gridTop + PAGE_BORDER * 2)
 
         // Config band, inside the viewport: scrolls away with the content like a card row,
         // clipped by the same page-inner rect as the cards.
         if (selectedCategory != null) {
-            graphics.enableScissor(panelX - 6 + PAGE_BORDER, gridTop, this.width - PAD - PAGE_BORDER, gridBottom)
+            graphics.enableScissor(panelX - 6 + PAGE_BORDER, grid.gridTop, this.width - PAD - PAGE_BORDER, grid.gridBottom)
             band.draw(graphics, entries.size, mouseX, mouseY)
             graphics.disableScissor()
         }
 
         // Position + viewport-clip every card BEFORE rendering them (inside super), so the
         // scissors and slots are never a frame behind the cursor.
-        updateCardPositions(mouseX, mouseY)
+        band.refreshWidgets()
+        grid.updateCardPositions(mouseX, mouseY)
 
         // Front pass of the strip: over the page normally; with an overlay open it renders
         // before the widgets so the panel covers it instead of the tab drawing over it.
@@ -600,7 +527,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // While the detail overlay is open, the base chrome stays static under the panel.
         if (!overlays.anyOpen) {
             // "Reorder-dragged" card floats above everything else.
-            val dragged = reorderDraggingCard
+            val dragged = grid.reorderDraggingCard
             if (dragged != null) {
                 //? if >=26.1 {
                 dragged.extractRenderState(graphics, mouseX, mouseY, delta)
@@ -614,7 +541,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             graphics.text(client.font, Component.translatable("simpleskinswapper.title"), STRIP_X, TITLE_Y, 0xFFFFFFFF.toInt())
 
             // Tooltip for hovered tab
-            if (tabs.tabDragCategoryIndex == -1 && reorderDraggingCard == null && overlays.confirmPopup == null) {
+            if (tabs.tabDragCategoryIndex == -1 && grid.reorderDraggingCard == null && overlays.confirmPopup == null) {
                 tabs.tabAt(mouseY, mouseX)?.let { tab ->
                     drawTooltip(graphics, mouseX, mouseY, tabTooltipLabel(tab))
                 }
@@ -806,70 +733,13 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     // Card grid positioning
     // ------------------------------------------------------------------
 
-    private fun updateCardPositions(mouseX: Int, mouseY: Int) {
-        // Band widgets track the scrolled band position every frame.
-        band.refreshWidgets()
-
-        val dragged = reorderDraggingCard
-        // Insertion gap only where a reorder exists: category views. The derived views
-        // (All skins, Uncategorized) keep a fixed default order, so nothing shifts there.
-        val dragIndex = if (selectedCategory != null) dragged?.let { cards.indexOf(it) } ?: -1 else -1
-        if (dragIndex >= 0) cardDrag.updateInsertionIndex(cards.size, mouseX, mouseY)
-
-        val now = System.nanoTime()
-        val dt = if (lastCardEaseNanos == 0L) 1.0F else ((now - lastCardEaseNanos) / 1_000_000_000.0F).coerceAtMost(0.1F)
-        val t = 1.0F - exp((-CARD_SLIDE_SPEED * dt).toDouble()).toFloat()
-
-        for (i in cards.indices) {
-            val card = cards[i]
-            val slot = cardDrag.slotFor(i, dragIndex)
-            if (card === dragged) {
-                card.overridePosition(cardDrag.cursorX - cardDrag.grabX, cardDrag.cursorY - cardDrag.grabY)
-                continue
-            }
-            easeWidgetToSlot(card, card.x == 0 && card.y == 0, slot, t, cardDisplay.getOrPut(card) { FloatArray(2) })
-        }
-
-        updateAddCardPosition(dragIndex, t)
-        lastCardEaseNanos = now
-    }
-
-    /**
-     * Every grid widget renders through the same fixed viewport scissor: widgets sliding in
-     * and out are smoothly half-clipped by the page border instead of popping.
-     */
-    private fun easeWidgetToSlot(widget: GridSlottedWidget, unpositioned: Boolean, slot: Pair<Int, Int>, t: Float, display: FloatArray) {
-        widget.clipLeft = panelX - 6 + PAGE_BORDER
-        widget.clipTop = gridTop
-        widget.clipRight = this.width - PAD - PAGE_BORDER
-        widget.clipBottom = gridBottom
-        val (ex, ey) = cardDrag.easeToward(display, slot, t, unpositioned)
-        widget.overridePosition(ex, ey)
-    }
-
-    /**
-     * The trailing "+" card slides like a card: it sits one slot after the last skin
-     * and shifts when a reorder insertion gap opens before it. It shows in every view,
-     * empty categories included (clicking anywhere in an empty category's zone also
-     * opens the add overlay).
-     */
-    private fun updateAddCardPosition(dragIndex: Int, t: Float) {
-        val ac = addCard ?: return
-        easeWidgetToSlot(ac, ac.x == 0 && ac.y == 0, cardDrag.slotFor(cards.size, dragIndex), t, addCardDisplay.getOrPut(ac) { FloatArray(2) })
-    }
-
     // ------------------------------------------------------------------
-    // Reorder drag (cards)
+    // Reorder drag (cards) — drop semantics (business); mechanics in GridEngine
     // ------------------------------------------------------------------
-
-    internal fun beginCardReorder(card: SkinLibraryCard, mouseX: Int, mouseY: Int) {
-        cardDrag.begin(card, mouseX, mouseY)
-        reorderDraggingCard = card
-    }
 
     private fun finishCardReorder(mouseX: Int, mouseY: Int) {
-        val card = reorderDraggingCard ?: return
-        reorderDraggingCard = null
+        val card = grid.reorderDraggingCard ?: return
+        grid.clearReorderDrag()
         if (cards.indexOf(card) < 0) return
 
         // Drop on a category tab = COPY the card there; the source keeps its own and the
@@ -880,7 +750,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             if (target != null && target !== selectedCategory) {
                 SkinCategories.addCard(target, card.entry.skinId)
             }
-            cardDrag.stop()
+            grid.cardDrag.stop()
             reloadView()
             rebuildCards()
             return
@@ -889,17 +759,17 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // Grid drop in a category = reorder within it (the CardEntry moves whole, keeping
         // its custom name). Derived views keep the default order: the card snaps back.
         val category = selectedCategory
-        if (category != null && cardDrag.insertionIndex in 0..category.cards.size) {
+        if (category != null && grid.cardDrag.insertionIndex in 0..category.cards.size) {
             val from = category.cards.indexOfFirst { it.skinId == card.entry.skinId }
             if (from >= 0) {
-                var to = cardDrag.insertionIndex
+                var to = grid.cardDrag.insertionIndex
                 if (to > from) to--
                 val moved = category.cards.removeAt(from)
                 category.cards.add(to.coerceIn(0, category.cards.size), moved)
                 SkinCategories.save()
             }
         }
-        cardDrag.stop()
+        grid.cardDrag.stop()
         reloadView()
         rebuildCards()
     }
@@ -962,7 +832,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         if (click.button() != InputConstants.MOUSE_BUTTON_LEFT) return false
         val bandBottom = band.y() + band.height(selectedCategory != null)
         if (band.expanded && my < bandBottom) return false
-        return mx >= gridLeft() && mx < gridRight() && my >= gridTop && my < gridBottom
+        return mx >= grid.gridLeft() && mx < grid.gridRight() && my >= grid.gridTop && my < grid.gridBottom
     }
 
     internal fun confirmCategoryDelete() {
@@ -995,7 +865,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         uncategorizedSelected = false
         selectedCategory = category
         band.expanded = false
-        scrollY = 0
+        grid.resetScroll()
         reloadView()
         rebuildCards()
         recomputeLayout()
@@ -1008,19 +878,15 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         if (tabs.drag(tabs.tabDragCategoryIndex, click.button() == InputConstants.MOUSE_BUTTON_LEFT, my)) {
             return true
         }
-        if (reorderDraggingCard != null && click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
-            cardDrag.dragTo(mx, my)
+        if (grid.reorderDraggingCard != null && click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
+            grid.dragReorderTo(mx, my)
             return true
         }
         val result = super.mouseDragged(click, offsetX, offsetY)
         // Deferred: a card may have raised a reorder start during children iteration —
         // begin the drag (and unregister the card so it only renders via the manual
         // floating pass and no longer swallows input) once the iteration is over.
-        pendingReorderStart?.let { (card, pos) ->
-            pendingReorderStart = null
-            beginCardReorder(card, pos.first, pos.second)
-            removeWidget(card)
-        }
+        grid.beginPendingReorder()?.let { removeWidget(it) }
         return result
     }
 
@@ -1041,7 +907,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                             selectedCategory = null
                             uncategorizedSelected = true
                             band.expanded = false
-                            scrollY = 0
+                            grid.resetScroll()
                             reloadView()
                             rebuildCards()
                             recomputeLayout()
@@ -1053,7 +919,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             }
             return true
         }
-        if (reorderDraggingCard != null && click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
+        if (grid.reorderDraggingCard != null && click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
             finishCardReorder(mx, my)
             return true
         }
@@ -1070,7 +936,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             tabs.scrollBy(vertAmount.toFloat() * tabs.slotH())
             return true
         }
-        scrollY = Mth.clamp(scrollY - (vertAmount * (cellH + GRID_GAP)).toInt(), 0, maxScroll)
+        grid.scrollBy(vertAmount)
         return true
     }
 
@@ -1154,9 +1020,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     *///?}
 
     companion object {
-        private const val PAD = 4
+        internal const val PAD = 4
         /** Rows reserved under the grid for the footer buttons (20px + margins). */
-        private const val FOOTER_BAND = 32
+        internal const val FOOTER_BAND = 32
         private const val TITLE_Y = 8
         private const val TITLE_ZONE_BOTTOM = 20
 
@@ -1173,22 +1039,10 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // (the overlay_recipe nine-slice border is 4px).
         private const val PANEL_BLEED = 4
 
-        // GRID_GAP: spacing between grid cards, horizontally and vertically.
-        private const val GRID_GAP = 6
-        private const val MAX_COLS = 10
-
         // Thickness of the page texture's baked border (measured: 8px of bevel on every side).
         // The card viewport is the page rect inset by this; the grid adds a small margin inside.
-        private const val PAGE_BORDER = 8
-        private const val GRID_MARGIN = 4
-        private const val MIN_CELL_H = 56
-
-        private const val BAND_GRID_MARGIN = 6
-
-        // Card slot easing + tab strip auto-scroll
-        private const val CARD_SLIDE_SPEED = 14.0F
-
-        private var lastCardEaseNanos = 0L
+        // (The grid constants themselves live on GridEngine.)
+        internal const val PAGE_BORDER = 8
 
         // ------------------------------------------------------------------
         // Vanilla recipe-book textures (same blit signature on 1.21.11 and 26.x)
