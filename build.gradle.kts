@@ -134,24 +134,41 @@ loom {
 
 repositories {
 	mavenCentral()
+	// Content filters keep each origin on the critical path only for the groups it
+	// actually serves — a flaky origin (Modrinth 522'd once, failing CI on an unrelated
+	// resolve) can no longer break the build. The Modrinth maven is gone entirely:
+	// nothing in the dependency set resolves exclusively from it (verified by
+	// `--refresh-dependencies` after removal); ModMenu's official home is TerraformersMC.
 	maven {
 		name = "Fabric"
 		url = uri("https://maven.fabricmc.net/")
-	}
-	maven {
-		url = uri("https://api.modrinth.com/maven")
+		content {
+			includeGroupByRegex("net\\.fabricmc(\\..+)?")
+			// transitive deps of Fabric API hosted on the Fabric maven
+			includeGroup("org.quiltmc.parsers")
+		}
 	}
 	maven {
 		name = "DevAuth"
 		url = uri("https://pkgs.dev.azure.com/djtheredstoner/DevAuth/_packaging/public/maven/v1")
+		content { includeGroup("me.djtheredstoner") }
 	}
 	maven {
 		name = "TerraformersMC"
 		url = uri("https://maven.terraformersmc.com/releases/")
+		content { includeGroup("com.terraformersmc") }
+	}
+	maven {
+		name = "QuiltMC"
+		url = uri("https://maven.quiltmc.org/repository/release/")
+		// org.quiltmc.parsers: transitive deps of Fabric API — previously resolved through
+		// an implicit repo, made explicit (and filtered) here.
+		content { includeGroupByRegex("org\\.quiltmc.*") }
 	}
 	maven {
 		name = "Xander Maven"
 		url = uri("https://maven.isxander.dev/releases")
+		content { includeGroup("dev.isxander") }
 	}
 }
 
