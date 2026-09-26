@@ -1,6 +1,7 @@
 package fr.raconteur.simpleskinswapper.gui
 
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
+import fr.raconteur.simpleskinswapper.SkinTextureLoader
 import fr.raconteur.simpleskinswapper.library.SkinRecord
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.resources.Identifier
@@ -61,7 +62,7 @@ class SkinEntry(@JvmField var file: File) {
         val pathHash = "%08x".format(file.absolutePath.hashCode() and 0x7FFFFFFF)
         val key = "skin/entry_${sanitized}_$pathHash"
 
-        SkinUtils.loadSkinTextureAsync(file, key) { id ->
+        SkinTextureLoader.loadSkinTextureAsync(file, key) { id ->
             this.textureId = id
             SimpleSkinSwapper.LOGGER.debug("Loaded skin entry texture: {}", file.name)
         }

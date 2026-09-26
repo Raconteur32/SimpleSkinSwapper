@@ -5,8 +5,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import com.mojang.authlib.properties.Property
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
+import fr.raconteur.simpleskinswapper.SkinTextureLoader
 import fr.raconteur.simpleskinswapper.SkinType
-import fr.raconteur.simpleskinswapper.gui.SkinUtils
 import fr.raconteur.simpleskinswapper.library.SkinLifecycle
 import fr.raconteur.simpleskinswapper.library.SkinRecords
 import fr.raconteur.simpleskinswapper.library.SkinRecord
@@ -174,7 +174,7 @@ object StartupSkinSync {
     /** Loads the menu preview from a local library file (never persisted across launches). */
     private fun loadPreview(fileName: String, type: SkinType) {
         val file = FabricLoader.getInstance().gameDir.resolve("skins").resolve(fileName).toFile()
-        SkinUtils.loadSkinTextureAsync(file, "selected_preview") { id ->
+        SkinTextureLoader.loadSkinTextureAsync(file, "selected_preview") { id ->
             SelectedSkinStore.setPreview(id, type)
         }
     }

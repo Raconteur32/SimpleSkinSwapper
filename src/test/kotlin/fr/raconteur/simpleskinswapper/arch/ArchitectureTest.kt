@@ -59,9 +59,6 @@ class ArchitectureTest {
                 "data.",
                 "library.",
                 "networking.",
-                // GPU texture upload (Minecraft/DynamicTexture) — the one deliberate gui
-                // dependency; splitting its domain/rendering halves is a separate change
-                "gui.SkinUtils",
             ),
         )
         scope.files.assertTrue { file ->

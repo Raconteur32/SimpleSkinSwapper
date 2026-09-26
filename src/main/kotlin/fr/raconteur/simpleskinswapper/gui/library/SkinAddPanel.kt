@@ -11,6 +11,7 @@ import net.minecraft.network.chat.Component
 import net.minecraft.resources.Identifier
 import net.fabricmc.loader.api.FabricLoader
 import java.io.File
+import fr.raconteur.simpleskinswapper.SkinTextureLoader
 
 /**
  * Add-skin overlay, opened from the trailing "+" card. Same shell as the detail overlay:
@@ -127,7 +128,7 @@ class SkinAddPanel(
         stagedType = modelHint ?: SkinUtils.detectSkinType(file)
         displayNameField.setValue(suggestedName)
         stagedTextureId = null
-        SkinUtils.loadSkinTextureAsync(file, "skin/add_staging") { id -> stagedTextureId = id }
+        SkinTextureLoader.loadSkinTextureAsync(file, "skin/add_staging") { id -> stagedTextureId = id }
     }
 
     private fun fetchFromAccount() {

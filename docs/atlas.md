@@ -1,6 +1,6 @@
 # Code Atlas
 
-> **As of** 2026-09-26, after `extract-library-engines`, version key `26.3` active.
+> **As of** 2026-09-26, after `skinutils-split`, version key `26.3` active.
 > Regenerate: agent session over the source (imports, `grep -c "//? if"`, `scripts/hotspots.sh`).
 > Workflow notes in `DEV.md` — Atlas. Diagrams are Mermaid: rendered on GitHub, readable as text.
 
@@ -35,7 +35,6 @@ flowchart LR
     guilib -->|"13"| library
     library -->|"9"| data
     guilib -->|"5"| changeskin
-    changeskin -.->|"1: gui.SkinUtils (GPU)"| gui
     changeskin -->|"3"| networking
     changeskin -->|"4"| library
     config -.->|"1 back-edge"| guicfg
@@ -44,14 +43,13 @@ flowchart LR
 Read of the layering:
 
 - `gui/library → library → data` is the clean spine: screen over registry model over JSON stores.
-- **Remaining back-edge** (the only one, by design after `layering-cleanup`):
-  - `changeskin → gui` ×1: `StartupSkinSync` uses `gui.SkinUtils` — GPU texture upload
-    (`Minecraft`, `DynamicTexture`, `NativeImage`). Splitting its domain half from the
-    rendering half is a recorded future candidate (§5 #5).
+- **Zero back-edges.** The core no longer imports `gui`: the GPU texture service moved to the
+  root package (`SkinTextureLoader`, by `skinutils-split` 2026-09-26) and the Konsist layering
+  rules enforce the map with no allowances.
 - Resolved by `layering-cleanup` (2026-09-26): `SkinType` moved to the root package
   (was the cause of four back-edges), `LibraryFacades` (`LibraryServices`, `SkinRecords`,
   `SkinLifecycle`) and `SkinCategoryPalette` moved to `library` (were core wiring consumed
-  by `changeskin` from under the GUI package). The Konsist layering rules enforce the map.
+  by `changeskin` from under the GUI package).
 - Entry points: keybinds in `SimpleSkinSwapperClient` (library screen, wheel), mixins add menu
   buttons (`MixinTitleScreen`, `MixinGameMenuScreen`), ModMenu/YACL for config. Mixins:
   `MixinPlayer`, `AbstractClientPlayerAccessor`, `MixinClientPlayNetworkHandler`.
@@ -189,10 +187,9 @@ Open questions (evidence, no solution baked in — feed future changes):
 4. ~~**Production wiring under the GUI package**~~ — **resolved** by `layering-cleanup`
    (2026-09-26): `LibraryServices`/`SkinRecords`/`SkinLifecycle` and `SkinCategoryPalette`
    now live in `library`.
-5. **`SkinUtils` split (new, from the cleanup)** — `changeskin → gui.SkinUtils` is the last
-   `gui` import from the core: the object mixes domain reads (PNG parsing) with GPU upload
-   (`Minecraft`, `DynamicTexture`). Splitting domain from rendering would remove the last
-   back-edge; its own change if wanted.
+5. ~~**`SkinUtils` split**~~ — **resolved** by `skinutils-split` (2026-09-26): the GPU half
+   moved to the root `SkinTextureLoader` (rendering infrastructure, consumed by both the core
+   and the screens); `SkinUtils` keeps the GUI-scoped helpers. Zero `gui` imports from the core.
 6. **Deleted history as context** — `SkinCarouselScreen` (kotlin 1 476 + java 1 394 churn,
    now gone) and the pre-registry stores (`SkinCategoriesStore` 508 churn, gone) were fully
    replaced by the registry model (`skin-registry-model`, 2026-09-05) and the categorized
