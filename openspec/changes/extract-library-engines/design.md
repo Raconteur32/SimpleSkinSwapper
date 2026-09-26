@@ -26,6 +26,8 @@ It holds and manipulates `detail`/`addPanel`/`confirmPopup` and exposes the life
 
 The engine holds the grid geometry state and the placement/easing/reorder bookkeeping, with the screen (or cards) reading geometry through it. Cards are still screen children; `rebuildCards`/`reloadView` stay on the screen and delegate placement. Alternative (engine owns the cards list) rejected: the card list doubles as render order and widget registration, both screen concerns (`init()` rebuilds, overlay raise order).
 
+*Amended during step-2 scoping (2026-09-26):* `finishCardReorder` stays on the screen — its drop handling is category **business logic** (tab drop = card copy, in-category reorder + save, then `reloadView`/`rebuildCards` orchestration), not placement. The engine takes the reorder *bookkeeping* (`reorderDraggingCard`, `pendingReorderStart`, `requestCardReorder`, `beginCardReorder`) and the screen keeps the drop semantics. `recomputeLayout` splits along the same line: strip-zone math (tab height, band centering) stays on the screen, grid math moves.
+
 ### D3 — Two extraction steps, two commits, gate green at each
 
 Step 1 `OverlayManager` (self-contained, lower risk, proves the pattern on the risky lifecycle); step 2 `GridEngine` (wider surface). A third commit refreshes the atlas and records the jscpd post-check. Any red gate stops the step where it is.

@@ -2,8 +2,8 @@
 
 ## 1. OverlayManager
 
-- [ ] 1.1 Extract the overlay lifecycle into `gui/library/OverlayManager` (design D1): `detail`/`addPanel`/`confirmPopup` state, `openDetail`/`openAddPanel`, `reattachOverlays`, `raiseOverlays`, `pruned`, `rebindDetail`, `handleOverlayClick` (same tri-state contract), `openConfirmPopup`/`closeConfirmPopup`. Panels keep `parent: SkinLibraryScreen`. Verify: `./gradlew build detektAll test` ×4 green; zero diff beyond the move (call-sites updated, logic untouched).
-- [ ] 2. Commit step 1. Verify: gate green, duplication baseline not raised (jscpd spot-check).
+- [x] 1.1 Extract the overlay lifecycle into `gui/library/OverlayManager` (design D1): `detail`/`addPanel`/`confirmPopup` state, `openDetail`/`openAddPanel`, `reattachOverlays`, `raiseOverlays`, `pruned`, `rebindDetail`, `handleOverlayClick` (same tri-state contract), `openConfirmPopup`/`closeConfirmPopup`. Panels keep `parent: SkinLibraryScreen`. Verify: `./gradlew build detektAll test` ×4 green; zero diff beyond the move (call-sites updated, logic untouched).
+- [x] 2. Commit step 1. Verify: gate green, duplication baseline not raised (jscpd spot-check: 8 clones / 65 lines, unchanged).
 
 ## 2. GridEngine
 
