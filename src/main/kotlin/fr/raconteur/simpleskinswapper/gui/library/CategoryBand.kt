@@ -5,6 +5,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.components.EditBox
 import net.minecraft.network.chat.Component
 import net.minecraft.client.renderer.RenderPipelines
+import fr.raconteur.simpleskinswapper.library.SkinCategoryPalette
 
 /**
  * The category config band inside the grid page: collapsed bar (name · count · wheels),

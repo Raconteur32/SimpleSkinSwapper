@@ -49,6 +49,10 @@ import fr.raconteur.simpleskinswapper.library.DeleteDecision
 import fr.raconteur.simpleskinswapper.library.DeleteSource
 import fr.raconteur.simpleskinswapper.library.LibraryCategory
 import fr.raconteur.simpleskinswapper.library.SkinRecord
+import fr.raconteur.simpleskinswapper.library.SkinCategoryPalette
+import fr.raconteur.simpleskinswapper.library.SkinRecords
+import fr.raconteur.simpleskinswapper.library.SkinLifecycle
+import fr.raconteur.simpleskinswapper.library.LibraryServices
 
 /**
  * Category-based skin library: a vertical category tab strip on the left (pinned "All skins"

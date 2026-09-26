@@ -1,4 +1,4 @@
-package fr.raconteur.simpleskinswapper.gui.library
+package fr.raconteur.simpleskinswapper.library
 
 import fr.raconteur.simpleskinswapper.data.FabricSkinLibraryEnv
 import fr.raconteur.simpleskinswapper.library.LibraryMigrator

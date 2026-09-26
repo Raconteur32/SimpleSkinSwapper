@@ -5,8 +5,8 @@ import fr.raconteur.simpleskinswapper.SimpleSkinSwapperClient
 import fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig
 import fr.raconteur.simpleskinswapper.gui.library.SkinCategories
 import fr.raconteur.simpleskinswapper.library.LibraryCategory
-import fr.raconteur.simpleskinswapper.gui.library.SkinRecords
-import fr.raconteur.simpleskinswapper.gui.library.SkinCategoryPalette
+import fr.raconteur.simpleskinswapper.library.SkinRecords
+import fr.raconteur.simpleskinswapper.library.SkinCategoryPalette
 import fr.raconteur.simpleskinswapper.overlayMessage
 import fr.raconteur.simpleskinswapper.changeskin.SkinChange
 import fr.raconteur.simpleskinswapper.changeskin.SkinSwapperState

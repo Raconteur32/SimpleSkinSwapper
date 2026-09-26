@@ -1,6 +1,7 @@
 package fr.raconteur.simpleskinswapper.gui.library
 
 import fr.raconteur.simpleskinswapper.library.LibraryCategory
+import fr.raconteur.simpleskinswapper.library.LibraryServices
 
 /** GUI-facing singleton over the card store: categories hold card references. */
 object SkinCategories {

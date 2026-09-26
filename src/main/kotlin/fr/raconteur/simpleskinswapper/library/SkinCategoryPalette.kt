@@ -1,4 +1,4 @@
-package fr.raconteur.simpleskinswapper.gui.library
+package fr.raconteur.simpleskinswapper.library
 
 import net.minecraft.world.item.DyeColor
 

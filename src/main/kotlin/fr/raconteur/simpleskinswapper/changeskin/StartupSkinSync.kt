@@ -7,8 +7,8 @@ import com.mojang.authlib.properties.Property
 import fr.raconteur.simpleskinswapper.SimpleSkinSwapper
 import fr.raconteur.simpleskinswapper.SkinType
 import fr.raconteur.simpleskinswapper.gui.SkinUtils
-import fr.raconteur.simpleskinswapper.gui.library.SkinLifecycle
-import fr.raconteur.simpleskinswapper.gui.library.SkinRecords
+import fr.raconteur.simpleskinswapper.library.SkinLifecycle
+import fr.raconteur.simpleskinswapper.library.SkinRecords
 import fr.raconteur.simpleskinswapper.library.SkinRecord
 import fr.raconteur.simpleskinswapper.library.TextureHashing
 import fr.raconteur.simpleskinswapper.networking.MineSkinCache

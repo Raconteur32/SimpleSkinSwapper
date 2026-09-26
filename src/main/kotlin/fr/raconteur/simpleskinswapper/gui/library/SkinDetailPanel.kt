@@ -9,6 +9,7 @@ import fr.raconteur.simpleskinswapper.overlayMessage
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.components.EditBox
 import net.minecraft.network.chat.Component
+import fr.raconteur.simpleskinswapper.library.SkinRecords
 
 /**
  * Full-screen detail overlay for one skin. Opens as an animated scale-up of the clicked
