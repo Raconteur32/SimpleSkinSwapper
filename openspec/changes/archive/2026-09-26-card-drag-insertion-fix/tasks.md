@@ -7,4 +7,4 @@
 
 ## 2. In-game validation (maintainer — blocking archive)
 
-- [ ] 2.1 On 26.3: two cards — drag A after B (must reorder without reaching the "+" card); drag B before A (unchanged); the "+" card must not move during either drag. Three-plus cards across two rows — forward and backward moves, drop over the "+" = move to last, drop on a category tab = copy. Verify: maintainer confirmation recorded here.
+- [x] 2.1 On 26.3: two cards — drag A after B (must reorder without reaching the "+" card); drag B before A (unchanged); the "+" card must not move during either drag. Three-plus cards across two rows — forward and backward moves, drop over the "+" = move to last, drop on a category tab = copy. Verify: maintainer confirmation recorded here. CONFIRMED OK by maintainer in game (2026-09-26).

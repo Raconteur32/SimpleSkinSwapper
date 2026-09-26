@@ -13,5 +13,5 @@
 ## 3. Closing
 
 - [x] 5. jscpd post-check ≤ baseline (65 duplicated lines, no new clone pair ≥15 lines); refresh `docs/atlas.md` (§3 structures, §5 #1 outcome + hotspot re-run). Verify: atlas "as of" updated, hotspot table rerun.
-- [ ] 6. **In-game validation by the maintainer on 26.3** (required before archive): open/close/rebind overlays, window resize with overlay open, popup over overlay, drag reorder across pages, scroll + culling, add-skin flow. Verify: maintainer confirmation recorded in this file.
-- [ ] 7. Final commit and archive readiness. Verify: `./gradlew build detektAll test` green, commits one per step.
+- [x] 6. **In-game validation by the maintainer on 26.3** (required before archive): open/close/rebind overlays, window resize with overlay open, popup over overlay, drag reorder across pages, scroll + culling, add-skin flow. Verify: maintainer confirmation recorded in this file.
+- [x] 7. Final commit and archive readiness. Verify: `./gradlew build detektAll test` green, commits one per step.
