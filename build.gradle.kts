@@ -80,19 +80,40 @@ if (sc.current.isActive) {
 		description = "Runs detekt over every stonecutter-generated version tree (rule ledger: gradle/detekt/detekt.yml)."
 		dependsOn(detektTreeTasks)
 	}
+}
 
-	// Unit tests for the Minecraft-free library core (JUnit 5) run on the active tree
-	// only — the core is version-agnostic, so running it once is enough.
+// Architecture tests (Konsist + JUnit 5) run on EVERY version tree: the generated sources
+// resolve the `//?` branch comments per version, so each tree's test run sees that
+// version's live code — same rationale as detektAll above. The shared suite in
+// src/test/kotlin receives this project's generated tree through a system property.
+// (Stonecutter version projects have Gradle paths like :26.3 but live in versions/<v>.)
+val isVersionProject = project.path != ":"
+if (isVersionProject) {
 	dependencies {
 		testImplementation(platform("org.junit:junit-bom:5.11.4"))
 		testImplementation("org.junit.jupiter:junit-jupiter")
 		testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+		testImplementation("com.lemonappdev:konsist:0.17.3")
+	}
+	sourceSets.test {
+		kotlin.setSrcDirs(listOf(rootDir.resolve("src/test/kotlin")))
 	}
 	tasks.withType<Test>().configureEach {
 		useJUnitPlatform()
+		dependsOn("stonecutterGenerate")
+		// Konsist resolves scope paths against the JVM working directory: pin it to the
+		// repo root and hand it the tree path relative to that root.
+		workingDir = rootDir
+		systemProperty(
+			"konsist.tree",
+			rootDir.toPath()
+				.relativize(layout.buildDirectory.dir("generated/stonecutter/main/kotlin").get().asFile.toPath())
+				.toString(),
+		)
 	}
 } else {
-	// Unit tests are active-tree-only (version-agnostic core): the other trees skip them.
+	// Only the stonecutter version projects (:versions:<v>) have a generated tree to test;
+	// this project carries no sources, so its test tasks stay disabled.
 	tasks.named("compileTestKotlin") { enabled = false }
 	tasks.named("test") { enabled = false }
 }
