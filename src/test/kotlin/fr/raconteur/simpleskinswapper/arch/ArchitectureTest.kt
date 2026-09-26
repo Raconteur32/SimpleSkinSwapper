@@ -59,23 +59,27 @@ class ArchitectureTest {
                 "data.",
                 "library.",
                 "networking.",
-                "gui.SkinType",
+                // GPU texture upload (Minecraft/DynamicTexture) — the one deliberate gui
+                // dependency; splitting its domain/rendering halves is a separate change
                 "gui.SkinUtils",
-                "gui.library.SkinLifecycle",
-                "gui.library.SkinRecords",
             ),
         )
         scope.files.assertTrue { file ->
+            val pkg = file.packagee?.name
             val allowed = allowedInternalImports.entries
-                .firstOrNull { file.packagee?.name == it.key }?.value
+                .firstOrNull { pkg == it.key }?.value
                 ?: return@assertTrue true
             file.imports.all { import ->
                 val relative = import.name
                     .takeIf { it.startsWith("fr.raconteur.simpleskinswapper.") }
                     ?.removePrefix("fr.raconteur.simpleskinswapper.")
                     ?: return@all true
-                // a root-level symbol import ("...systemMessage") carries no sub-package
-                !relative.contains('.') || allowed.any { relative.startsWith(it) }
+                if (!relative.contains('.')) return@all true // root-level symbol
+                // an explicit same-package import carries no layering information
+                if (pkg == "fr.raconteur.simpleskinswapper." + relative.substringBeforeLast('.')) {
+                    return@all true
+                }
+                allowed.any { relative.startsWith(it) }
             }
         }
     }

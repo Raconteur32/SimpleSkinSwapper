@@ -1,6 +1,6 @@
 # Code Atlas
 
-> **As of** commit `b31628e` (2026-09-26), version key `26.3` active.
+> **As of** 2026-09-26, after `layering-cleanup`, version key `26.3` active.
 > Regenerate: agent session over the source (imports, `grep -c "//? if"`, `scripts/hotspots.sh`).
 > Workflow notes in `DEV.md` — Atlas. Diagrams are Mermaid: rendered on GitHub, readable as text.
 
@@ -28,27 +28,30 @@ flowchart LR
         config["config<br/>YACL config, server command"]
         data["data<br/>JsonFileStore, env paths"]
     end
-    guilib -->|"19"| gui
-    gui -->|"3"| guilib
+    gui <--> guilib
+    guilib -->|"14"| gui
+    gui -->|"1"| guilib
     guicfg -->|"6"| config
     guilib -->|"13"| library
-    library -->|"8"| data
+    library -->|"9"| data
     guilib -->|"5"| changeskin
-    changeskin -.->|"5 back-edges"| gui
+    changeskin -.->|"1: gui.SkinUtils (GPU)"| gui
     changeskin -->|"3"| networking
-    changeskin -->|"2"| library
+    changeskin -->|"4"| library
     config -.->|"1 back-edge"| guicfg
 ```
 
 Read of the layering:
 
 - `gui/library → library → data` is the clean spine: screen over registry model over JSON stores.
-- **Back-edges** (the interesting part, see §5 open questions):
-  - `changeskin → gui` ×5: four are just `SkinType` (a domain value type that lives in `gui`),
-    one is `StartupSkinSync` reaching `gui.SkinUtils` + `gui.library` facades.
-  - `config ↔ gui/config` mutual (config holds the YACL glue, gui/config the controller widgets).
-  - `changeskin ↔ gui.library`: StartupSkinSync consumes `LibraryFacades` (`SkinRecords`,
-    `SkinLifecycle`) — production wiring lives under the GUI package.
+- **Remaining back-edge** (the only one, by design after `layering-cleanup`):
+  - `changeskin → gui` ×1: `StartupSkinSync` uses `gui.SkinUtils` — GPU texture upload
+    (`Minecraft`, `DynamicTexture`, `NativeImage`). Splitting its domain half from the
+    rendering half is a recorded future candidate (§5 #5).
+- Resolved by `layering-cleanup` (2026-09-26): `SkinType` moved to the root package
+  (was the cause of four back-edges), `LibraryFacades` (`LibraryServices`, `SkinRecords`,
+  `SkinLifecycle`) and `SkinCategoryPalette` moved to `library` (were core wiring consumed
+  by `changeskin` from under the GUI package). The Konsist layering rules enforce the map.
 - Entry points: keybinds in `SimpleSkinSwapperClient` (library screen, wheel), mixins add menu
   buttons (`MixinTitleScreen`, `MixinGameMenuScreen`), ModMenu/YACL for config. Mixins:
   `MixinPlayer`, `AbstractClientPlayerAccessor`, `MixinClientPlayNetworkHandler`.
@@ -60,7 +63,7 @@ Read of the layering:
 Persistence is uniform: every store is a `JsonFileStore<T>` (kotlinx.serialization, pretty
 print, **fresh object on missing/corrupt** — hand-editable files must never crash the client)
 with a load-mutate-save rhythm. Production instances are wired once in `LibraryServices`
-(`gui/library/LibraryFacades.kt`) — two registries would diverge and overwrite each other.
+(`library/LibraryFacades.kt`) — two registries would diverge and overwrite each other.
 
 ```mermaid
 flowchart TB
@@ -177,12 +180,16 @@ Open questions (evidence, no solution baked in — feed future changes):
    (`SkinLibraryCard` 34, `CategoryBand` 20, `AbstractSkinOverlayPanel` 16, `SkinDetailPanel`
    11, `SkinAddCard` 7); three clones pair widgets that share the "child buttons + focus
    plumbing" boilerplate.
-3. **`SkinType` placement** — a domain value type used by `changeskin`, `library` consumers
-   lives in `gui`; four of the five `changeskin → gui` back-edges are exactly this import.
-4. **Production wiring under the GUI package** — `LibraryServices`/`SkinRecords`/
-   `SkinLifecycle` (`gui/library/LibraryFacades.kt`) are core wiring consumed by
-   `changeskin` (startup sync), not by rendering.
-5. **Deleted history as context** — `SkinCarouselScreen` (kotlin 1 476 + java 1 394 churn,
+3. ~~**`SkinType` placement**~~ — **resolved** by `layering-cleanup` (2026-09-26): moved to
+   the root package; the four back-edges it caused are gone.
+4. ~~**Production wiring under the GUI package**~~ — **resolved** by `layering-cleanup`
+   (2026-09-26): `LibraryServices`/`SkinRecords`/`SkinLifecycle` and `SkinCategoryPalette`
+   now live in `library`.
+5. **`SkinUtils` split (new, from the cleanup)** — `changeskin → gui.SkinUtils` is the last
+   `gui` import from the core: the object mixes domain reads (PNG parsing) with GPU upload
+   (`Minecraft`, `DynamicTexture`). Splitting domain from rendering would remove the last
+   back-edge; its own change if wanted.
+6. **Deleted history as context** — `SkinCarouselScreen` (kotlin 1 476 + java 1 394 churn,
    now gone) and the pre-registry stores (`SkinCategoriesStore` 508 churn, gone) were fully
    replaced by the registry model (`skin-registry-model`, 2026-09-05) and the categorized
    library (`categorized-skin-library`).
