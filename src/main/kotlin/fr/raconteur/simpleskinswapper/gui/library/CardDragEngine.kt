@@ -90,7 +90,9 @@ internal class CardDragEngine(
         var idx = relRow * cols() + relCol
         if (idx > count) idx = count
         val cellLeft = gridOffsetX() + relCol * (cellW() + gridGap())
-        if (mouseX > cellLeft + cellW() / 2) idx++
+        // Half-right refines "this cell" into "after this card", never past the end of the
+        // remaining cards: the index space is the list without the dragged card.
+        if (mouseX > cellLeft + cellW() / 2 && idx < count) idx++
         return idx
     }
 }

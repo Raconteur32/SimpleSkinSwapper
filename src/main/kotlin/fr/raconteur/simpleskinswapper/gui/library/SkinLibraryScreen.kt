@@ -762,8 +762,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         if (category != null && grid.cardDrag.insertionIndex in 0..category.cards.size) {
             val from = category.cards.indexOfFirst { it.skinId == card.entry.skinId }
             if (from >= 0) {
-                var to = grid.cardDrag.insertionIndex
-                if (to > from) to--
+                // insertionIndex already refers to the list without the dragged card
+                val to = grid.cardDrag.insertionIndex
                 val moved = category.cards.removeAt(from)
                 category.cards.add(to.coerceIn(0, category.cards.size), moved)
                 SkinCategories.save()

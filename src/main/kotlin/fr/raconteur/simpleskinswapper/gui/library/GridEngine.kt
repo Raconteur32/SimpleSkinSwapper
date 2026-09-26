@@ -158,7 +158,7 @@ internal class GridEngine(
             easeWidgetToSlot(card, card.x == 0 && card.y == 0, slot, t, cardDisplay.getOrPut(card) { FloatArray(2) })
         }
 
-        updateAddCardPosition(dragIndex, t)
+        updateAddCardPosition(t)
         lastCardEaseNanos = now
     }
 
@@ -176,14 +176,13 @@ internal class GridEngine(
     }
 
     /**
-     * The trailing "+" card slides like a card: it sits one slot after the last skin
-     * and shifts when a reorder insertion gap opens before it. It shows in every view,
-     * empty categories included (clicking anywhere in an empty category's zone also
-     * opens the add overlay).
+     * The trailing "+" card slides like a card but never participates in the reorder:
+     * a neutral drag index (-1) keeps it pinned to the slot right after the last skin,
+     * with no dragged shift and no insertion-gap shift.
      */
-    private fun updateAddCardPosition(dragIndex: Int, t: Float) {
+    private fun updateAddCardPosition(t: Float) {
         val ac = addCard() ?: return
-        easeWidgetToSlot(ac, ac.x == 0 && ac.y == 0, cardDrag.slotFor(cards().size, dragIndex), t, addCardDisplay.getOrPut(ac) { FloatArray(2) })
+        easeWidgetToSlot(ac, ac.x == 0 && ac.y == 0, cardDrag.slotFor(cards().size, -1), t, addCardDisplay.getOrPut(ac) { FloatArray(2) })
     }
 
     internal fun requestCardReorder(card: SkinLibraryCard, mouseX: Int, mouseY: Int) {
