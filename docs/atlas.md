@@ -81,8 +81,8 @@ flowchart TB
     startup["StartupSkinSync<br/>session profile at boot"] --> selected
     uploader["MineSkinUploader<br/>FROZEN wire contract:<br/>{type:file,model} + binary frame"] --> api["MineSkin API"]
     cache["MineSkinCache"] --> uploader
-    shuffle["SkinShuffleCompat<br/>skinshuffle:skin_refresh<br/>StreamCodec (FROZEN)"] <->|"payloads"| server["game server"]
-    handshake["HandshakePayload<br/>plugin presence"] <-> server
+    shuffle["SkinShuffleCompat<br/>skinshuffle:skin_refresh<br/>StreamCodec (FROZEN)"] <-->|"payloads"| server["game server"]
+    handshake["HandshakePayload<br/>plugin presence"] <--> server
 ```
 
 Frozen contracts (never refactor/re-encode, see review checklist): `MineSkinUploader`'s
