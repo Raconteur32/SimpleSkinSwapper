@@ -112,11 +112,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         gridBottom = { gridBottom },
     )
 
-    // Open skin detail overlay (null = closed). Registered as a widget while open.
-    internal var detail: SkinDetailPanel? = null
-
-    // Open add-skin overlay (null = closed), opened from the trailing "+" card.
-    internal var addPanel: SkinAddPanel? = null
+    // Overlay lifecycle (detail/add panels, shared confirmation popup).
+    private val overlays = OverlayManager(this)
 
     // Trailing "+" pseudo-card shown after the last card of every list.
     private var addCard: SkinAddCard? = null
@@ -156,7 +153,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         initBandAndFooter()
         rebuildCards()
         recomputeLayout()
-        reattachOverlays()
+        overlays.reattachOverlays()
         watcher.stop()
         watcher.start()
     }
@@ -166,20 +163,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         selectedCategory != null -> DeleteSource.CATEGORY
         uncategorizedSelected -> DeleteSource.UNCATEGORIZED
         else -> DeleteSource.ALL_SKINS
-    }
-
-    // The shared destructive-action confirmation, above every panel while open.
-    internal var confirmPopup: ConfirmPopup? = null
-        private set
-
-    /** Shows the shared confirmation popup; any previous popup is replaced. */
-    internal fun openConfirmPopup(popup: ConfirmPopup) {
-        confirmPopup = popup
-        popup.show()
-    }
-
-    internal fun closeConfirmPopup() {
-        confirmPopup = null
     }
 
     /**
@@ -222,7 +205,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
                 }
             }
         }
-        openConfirmPopup(
+        overlays.openConfirmPopup(
             ConfirmPopup(
                 this,
                 Component.translatable("simpleskinswapper.screen.delete_popup.title"),
@@ -234,7 +217,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     /** Opens the category delete confirmation on the shared popup component. */
     internal fun openCategoryDeletePopup() {
-        openConfirmPopup(
+        overlays.openConfirmPopup(
             ConfirmPopup(
                 this,
                 null,
@@ -314,14 +297,14 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         val fresh = SkinEntry.fromRecord(SkinRecords.findById(sibling.id) ?: sibling)
         // Re-point the open panel at the sibling BEFORE the rebuild: rebindDetail matches
         // by skin id and would force-close the panel over the vanished original id.
-        if (detail?.entrySkinId == record.id) detail?.rebind(fresh)
+        overlays.rebindDetailIfSkin(record.id, fresh)
         rebuildCards()
         // Fold the closing panel into the sibling's fresh card slot, not the removed
         // original's slot (fresh cards carry no position until the next render pass).
         val siblingIndex = cards.indexOfFirst { it.entry.skinId == sibling.id }
         if (siblingIndex >= 0) {
             val slot = cardDrag.slotFor(siblingIndex, -1)
-            detail?.retargetTo(slot.first, slot.second, cellW, cellH)
+            overlays.retargetDetailTo(slot.first, slot.second, cellW, cellH)
         }
         return fresh
     }
@@ -382,20 +365,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // Confirmation popups (category delete, skin deletes) are drawn and routed
         // manually at the end of render / mouseClicked — never registered as screen
         // widgets, or vanilla would render them twice and leave stale click targets.
-    }
-
-    /** init() also runs on window resize (rebuildWidgets clears every widget first):
-     *  re-attach the overlays so they survive the resize instead of turning into
-     *  ghosts that swallow all input without rendering. */
-    private fun reattachOverlays() {
-        detail?.let {
-            it.onScreenResized(this.width, this.height)
-            addRenderableWidget(it)
-        }
-        addPanel?.let {
-            it.onScreenResized(this.width, this.height)
-            addRenderableWidget(it)
-        }
     }
 
     internal fun recomputeLayout() {
@@ -508,16 +477,10 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         updateMaxScroll()
         scrollY = Mth.clamp(scrollY, 0, maxScroll)
         band.refreshWidgets()
-        rebindDetail()
+        overlays.rebindDetail(entries)
         // Cards were re-added after the overlays: raise the open ones back to the top
         // of the widget order, or they would render (and hit) behind the fresh cards.
-        raiseOverlays()
-    }
-
-    /** Re-appends the open overlays so they stay last in the widget order (on top). */
-    private fun raiseOverlays() {
-        detail?.let { removeWidget(it); addRenderableWidget(it) }
-        addPanel?.let { removeWidget(it); addRenderableWidget(it) }
+        overlays.raiseOverlays()
     }
 
     fun indexOfCard(card: SkinLibraryCard): Int = cards.indexOf(card)
@@ -545,34 +508,23 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         rebuildCards()
     }
 
-    internal fun openDetail(card: SkinLibraryCard) {
-        if (detail != null || addPanel != null) return
-        val panel = SkinDetailPanel(this)
-        panel.open(card)
-        detail = panel
-        addRenderableWidget(panel)
+    /** Hooks for [OverlayManager]: add/removeRenderableWidget are protected on Screen. */
+    internal fun registerOverlayWidget(widget: net.minecraft.client.gui.components.AbstractWidget) {
+        addRenderableWidget(widget)
     }
 
-    /** Opens the add-skin overlay from the trailing "+" card. */
-    internal fun openAddPanel() {
-        if (detail != null || addPanel != null) return
-        val card = addCard ?: return
-        val panel = SkinAddPanel(this)
-        panel.open(card)
-        addPanel = panel
-        addRenderableWidget(panel)
+    internal fun removeOverlayWidget(widget: net.minecraft.client.gui.components.events.GuiEventListener) {
+        removeWidget(widget)
     }
 
-    /** Drops an overlay that was cleared by a widget rebuild or fully closed itself. */
-    private fun <T> pruned(panel: T?): T? where T : net.minecraft.client.gui.components.AbstractWidget, T : SkinOverlayPanel {
-        if (panel == null) return null
-        if (!children().contains(panel)) return null
-        if (panel.isRemovePending) {
-            removeWidget(panel)
-            return null
-        }
-        return panel
-    }
+    /** The trailing "+" card, the source rect when the add overlay opens. */
+    internal fun trailingAddCard(): SkinAddCard? = addCard
+
+    internal fun openDetail(card: SkinLibraryCard) = overlays.openDetail(card)
+
+    internal fun openAddPanel() = overlays.openAddPanel()
+
+    internal fun closeConfirmPopup() = overlays.closeConfirmPopup()
 
     /** Ingests the staged skin through the registry (dedup by texture value); adding from
      *  a selected category adds a card there — copy semantics, other categories untouched. */
@@ -589,14 +541,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         reloadView()
         rebuildCards()
         return true
-    }
-
-    /** Re-points the detail panel at the fresh entry after a reload, closing it if the skin is gone. */
-    private fun rebindDetail() {
-        val d = detail ?: return
-        val id = d.entrySkinId ?: return
-        val fresh = entries.firstOrNull { it.skinId == id }
-        if (fresh == null) d.close(instant = true) else d.rebind(fresh)
     }
 
     // ------------------------------------------------------------------
@@ -618,11 +562,8 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     *///?}
         graphics.fill(0, 0, this.width, this.height, 0x66000000)
 
-        // Fully-closed overlays are unregistered outside of their own render pass. An
-        // overlay that is no longer a screen child (cleared by a widget rebuild without
-        // init) would swallow all input invisibly — drop it too.
-        detail = pruned(detail)
-        addPanel = pruned(addPanel)
+        // Fully-closed overlays are unregistered outside of their own render pass.
+        overlays.pruneClosed()
 
         tabs.updateTabAutoScroll(mouseY)
         // Tab strip background + unselected tabs first: they pass under the grid page.
@@ -657,7 +598,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         drawStripFrontPass(graphics, mouseX, mouseY, beforeWidgets = false)
 
         // While the detail overlay is open, the base chrome stays static under the panel.
-        if (detail == null && addPanel == null) {
+        if (!overlays.anyOpen) {
             // "Reorder-dragged" card floats above everything else.
             val dragged = reorderDraggingCard
             if (dragged != null) {
@@ -673,7 +614,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             graphics.text(client.font, Component.translatable("simpleskinswapper.title"), STRIP_X, TITLE_Y, 0xFFFFFFFF.toInt())
 
             // Tooltip for hovered tab
-            if (tabs.tabDragCategoryIndex == -1 && reorderDraggingCard == null && confirmPopup == null) {
+            if (tabs.tabDragCategoryIndex == -1 && reorderDraggingCard == null && overlays.confirmPopup == null) {
                 tabs.tabAt(mouseY, mouseX)?.let { tab ->
                     drawTooltip(graphics, mouseX, mouseY, tabTooltipLabel(tab))
                 }
@@ -684,7 +625,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
         // Shared confirmation popup floats above everything, panels included (it dims
         // the panel it was opened from).
-        confirmPopup?.draw(graphics, mouseX, mouseY, delta)
+        overlays.confirmPopup?.draw(graphics, mouseX, mouseY, delta)
     }
 
     /** Tab tooltip: built-in view names, or the live category name. */
@@ -732,7 +673,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     /** Runs the strip front pass exactly once, at the right layer: after the widgets
      *  normally (over the page edge), before them when an overlay panel is open. */
     private fun drawStripFrontPass(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, beforeWidgets: Boolean) {
-        val overlayOpen = detail != null || addPanel != null
+        val overlayOpen = overlays.anyOpen
         if (beforeWidgets != overlayOpen) return
         drawTabStripFront(graphics, mouseX, mouseY)
     }
@@ -973,9 +914,9 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     override fun mouseClicked(click: MouseButtonEvent, doubled: Boolean): Boolean {
         // The confirmation popup swallows every click while open (buttons run, the rest cancels).
-        confirmPopup?.let { return it.handleClick(click, doubled) }
+        overlays.confirmPopup?.let { return it.handleClick(click, doubled) }
 
-        handleOverlayClick(click, doubled)?.let { return it }
+        overlays.handleOverlayClick(click, doubled)?.let { return it }
 
         val mx = click.x().toInt()
         val my = click.y().toInt()
@@ -983,21 +924,6 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
         // Grid wheel-scroll area click-through: let children (cards, widgets) handle the rest.
         return super.mouseClicked(click, doubled)
-    }
-
-    /** Overlay panels own the click entirely while open; `null` means no overlay consumed it. */
-    private fun handleOverlayClick(click: MouseButtonEvent, doubled: Boolean): Boolean? {
-        detail?.let { d ->
-            val handled = d.mouseClicked(click, doubled)
-            if (handled) setFocused(d)
-            return handled
-        }
-        addPanel?.let { d ->
-            val handled = d.mouseClicked(click, doubled)
-            if (handled) setFocused(d)
-            return handled
-        }
-        return null
     }
 
     /** Non-card chrome: tab strip, category band, empty-category zone. */
@@ -1022,7 +948,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
         // Empty category: a click anywhere in the card zone opens the add-skin overlay.
         if (isEmptyCategoryAddClick(mx, my, click)) {
-            openAddPanel()
+            overlays.openAddPanel()
             return true
         }
         return false
@@ -1076,8 +1002,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     override fun mouseDragged(click: MouseButtonEvent, offsetX: Double, offsetY: Double): Boolean {
-        detail?.let { return it.mouseDragged(click, offsetX, offsetY) }
-        addPanel?.let { return it.mouseDragged(click, offsetX, offsetY) }
+        overlays.handleMouseDragged(click, offsetX, offsetY)?.let { return it }
         val mx = click.x().toInt()
         val my = click.y().toInt()
         if (tabs.drag(tabs.tabDragCategoryIndex, click.button() == InputConstants.MOUSE_BUTTON_LEFT, my)) {
@@ -1100,8 +1025,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     override fun mouseReleased(click: MouseButtonEvent): Boolean {
-        detail?.let { return it.mouseReleased(click) }
-        addPanel?.let { return it.mouseReleased(click) }
+        overlays.handleMouseReleased(click)?.let { return it }
         val mx = click.x().toInt()
         val my = click.y().toInt()
         if (tabs.tabDragCategoryIndex >= 0) {
@@ -1137,8 +1061,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     override fun mouseScrolled(mouseX: Double, mouseY: Double, hozAmount: Double, vertAmount: Double): Boolean {
-        detail?.let { return it.mouseScrolled(mouseX, mouseY, hozAmount, vertAmount) }
-        addPanel?.let { return it.mouseScrolled(mouseX, mouseY, hozAmount, vertAmount) }
+        overlays.handleMouseScrolled(mouseX, mouseY, hozAmount, vertAmount)?.let { return it }
         val mx = mouseX.toInt()
         val my = mouseY.toInt()
         if (mx < STRIP_X + TAB_W + TAB_SELECTED_STICKOUT && my >= tabs.stripTop() && my <= tabs.stripBottom()) {
@@ -1152,15 +1075,12 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
     }
 
     override fun keyPressed(event: KeyEvent): Boolean {
-        confirmPopup?.let { return it.onEsc() }
-        detail?.let { return it.keyPressed(event) }
-        addPanel?.let { return it.keyPressed(event) }
+        overlays.handleKeyPressed(event)?.let { return it }
         return super.keyPressed(event)
     }
 
     override fun charTyped(event: CharacterEvent): Boolean {
-        detail?.let { return it.charTyped(event) }
-        addPanel?.let { return it.charTyped(event) }
+        overlays.handleCharTyped(event)?.let { return it }
         return super.charTyped(event)
     }
 
