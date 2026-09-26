@@ -7,11 +7,11 @@
 
 ## 2. GridEngine
 
-- [ ] 3. Extract grid geometry/placement into `gui/library/GridEngine` (design D2): layout state (`cols`/`cellW`/`cellH`/`gridOffsetX`/`gridTop`/`gridBottom`/`scrollY`/`maxScroll`), `recomputeLayout`, `updateMaxScroll`, `gridLeft`/`gridRight`/`contentStartY`/`contentTop`, `updateCardPositions`/`easeWidgetToSlot`/`updateAddCardPosition`, reorder bookkeeping. Screen keeps `rebuildCards`/`reloadView` and delegates placement. Verify: `./gradlew build detektAll test` ×4 green.
-- [ ] 4. Commit step 2. Verify: gate green.
+- [x] 3. Extract grid geometry/placement into `gui/library/GridEngine` (design D2): layout state (`cols`/`cellW`/`cellH`/`gridOffsetX`/`gridTop`/`gridBottom`/`scrollY`/`maxScroll`), `recomputeLayout`, `updateMaxScroll`, `gridLeft`/`gridRight`/`contentStartY`/`contentTop`, `updateCardPositions`/`easeWidgetToSlot`/`updateAddCardPosition`, reorder bookkeeping. Screen keeps `rebuildCards`/`reloadView` and delegates placement. Verify: `./gradlew build detektAll test` ×4 green.
+- [x] 4. Commit step 2. Verify: gate green.
 
 ## 3. Closing
 
-- [ ] 5. jscpd post-check ≤ baseline (65 duplicated lines, no new clone pair ≥15 lines); refresh `docs/atlas.md` (§3 structures, §5 #1 outcome + hotspot re-run). Verify: atlas "as of" updated, hotspot table rerun.
+- [x] 5. jscpd post-check ≤ baseline (65 duplicated lines, no new clone pair ≥15 lines); refresh `docs/atlas.md` (§3 structures, §5 #1 outcome + hotspot re-run). Verify: atlas "as of" updated, hotspot table rerun.
 - [ ] 6. **In-game validation by the maintainer on 26.3** (required before archive): open/close/rebind overlays, window resize with overlay open, popup over overlay, drag reorder across pages, scroll + culling, add-skin flow. Verify: maintainer confirmation recorded in this file.
 - [ ] 7. Final commit and archive readiness. Verify: `./gradlew build detektAll test` green, commits one per step.

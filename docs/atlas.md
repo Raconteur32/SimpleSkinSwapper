@@ -1,6 +1,6 @@
 # Code Atlas
 
-> **As of** 2026-09-26, after `layering-cleanup`, version key `26.3` active.
+> **As of** 2026-09-26, after `extract-library-engines`, version key `26.3` active.
 > Regenerate: agent session over the source (imports, `grep -c "//? if"`, `scripts/hotspots.sh`).
 > Workflow notes in `DEV.md` — Atlas. Diagrams are Mermaid: rendered on GitHub, readable as text.
 
@@ -99,8 +99,12 @@ typed DTOs.
 
 Tabs + category band + card grid + full-screen overlays, one screen. Delegated engines:
 `TabStripController` (tab press/drag/scroll/reorder + insertion line), `CategoryBand`,
-`CardDragEngine` (card drag reorder, eased slots, insertion index), grid of `SkinLibraryCard`
-(apply button + click → detail). External changes arrive via `LibraryFileWatcher`.
+`CardDragEngine` (card drag reorder, eased slots, insertion index), `OverlayManager`
+(overlay lifecycle: open/re-attach/raise/prune + overlay input contracts) and `GridEngine`
+(grid geometry, scroll, per-frame card placement/easing, reorder bookkeeping). The screen
+keeps orchestration, render dispatch, category business flows and drop semantics. Grid of
+`SkinLibraryCard` (apply button + click → detail). External changes arrive via
+`LibraryFileWatcher`.
 
 Overlay lifecycle (contract `SkinOverlayPanel`: `isRemovePending`, `onScreenResized`;
 skeleton `AbstractSkinOverlayPanel`; concretes `SkinDetailPanel`, `SkinAddPanel`):
@@ -172,10 +176,10 @@ only (design D5).
 
 Open questions (evidence, no solution baked in — feed future changes):
 
-1. **`SkinLibraryScreen` concentration** — 4 008 churn (14,7 % of the 27 330 lines ever
-   touched), still the largest file and 11 of 38 guards, despite the `split-gui-dispatchers` /
-   `extract-shared-structure` refactors. The tab strip, band, grid wiring AND overlay
-   orchestration still meet there.
+1. **`SkinLibraryScreen` concentration** — 4 416 churn (16,2 % of all lines ever touched),
+   1 084 lines and 11 of 38 guards. *Structure addressed* by `extract-library-engines`
+   (2026-09-26): `OverlayManager` + `GridEngine` extracted — churn is history; the next
+   UI-heavy change's diff surface will confirm the split paid off.
 2. **Card-family duplication** — the 65 duplicated lines are all in the card family
    (`SkinLibraryCard` 34, `CategoryBand` 20, `AbstractSkinOverlayPanel` 16, `SkinDetailPanel`
    11, `SkinAddCard` 7); three clones pair widgets that share the "child buttons + focus
