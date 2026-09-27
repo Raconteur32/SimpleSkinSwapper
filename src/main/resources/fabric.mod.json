@@ -3,7 +3,7 @@
 	"id": "simpleskinswapper",
 	"version": "${version}",
 	"name": "Simple Skin Swapper",
-	"description": "Swap your skin on the fly with a radial wheel or carousel. Supports per-server commands for real-time updates without reconnecting.",
+	"description": "Swap your skin on the fly with a dynamic skin wheel and a skin library screen. Supports per-server commands for real-time updates without reconnecting.",
 	"authors": [
 		"Raconteur"
 	],
@@ -14,7 +14,7 @@
 	},
 	"license": "LGPL-3.0-or-later",
 	"icon": "assets/simpleskinswapper/icon.png",
-	"environment": "client",
+	"environment": "*",
 	"entrypoints": {
 		"main": [
 			"fr.raconteur.simpleskinswapper.SimpleSkinSwapper"
