@@ -108,13 +108,22 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
 
         updateHoverAnimations(base, atRest)
 
-        // Hovered skin name above the wheel, only while at rest
-        if (atRest && selectedIndex >= 0) {
+        // Category name above the wheel — the direct "which wheel am I looking at" cue —
+        // with the hovered skin as a slightly dimmer subtitle. Both only while at rest.
+        if (atRest) {
+            val categoryY = (cy - OUTER_RADIUS).toInt() - 2 * font.lineHeight - 6
             context.centeredText(
                 font,
-                Component.nullToEmpty(wheels[activeWheel][selectedIndex].displayName),
-                cx.toInt(), (cy - OUTER_RADIUS).toInt() - font.lineHeight - 6, COLOR_TEXT
+                Component.nullToEmpty(wheelCategories[activeWheel].name),
+                cx.toInt(), categoryY, COLOR_TEXT
             )
+            if (selectedIndex >= 0) {
+                context.centeredText(
+                    font,
+                    Component.nullToEmpty(wheels[activeWheel][selectedIndex].displayName),
+                    cx.toInt(), categoryY + font.lineHeight, COLOR_SUBTITLE
+                )
+            }
         }
 
         drawPagination(context, cx, cy, mouseX, mouseY, atRest, activeWheel)
@@ -517,5 +526,9 @@ class SkinWheelScreen(private val parent: Screen?) : Screen(Component.empty()) {
         private val COLOR_SECTOR_EMPTY = 0x66101A2B.toInt()
         private val COLOR_TEXT = 0xFFFFFFFF.toInt()
         private val COLOR_PAGINATION_DIM = 0x60FFFFFF.toInt()
+
+        /** Hovered-skin subtitle under the category title — same muted tone as the
+         *  library panels' labels. */
+        private val COLOR_SUBTITLE = 0xFFB0B8C0.toInt()
     }
 }

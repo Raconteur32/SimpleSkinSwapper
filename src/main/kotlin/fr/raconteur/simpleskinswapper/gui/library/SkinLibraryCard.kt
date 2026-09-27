@@ -268,13 +268,14 @@ class SkinLibraryCard(
         // Position number: left flank of the header; tinted with the category color while
         // the card sits inside the wheel allocation (single-line form: stonecutter rewrites
         // .text(client.font, Component for <26.1).
-        graphics.text(client.font, Component.nullToEmpty((parent.indexOfCard(this) + 1).toString()), x + 5, textY, allocationTextColor())
+        val index = (parent.indexOfCard(this) + 1).toString()
+        graphics.text(client.font, Component.nullToEmpty(index), x + 5, textY, allocationTextColor())
 
         val nameColor = if (this.active) 0xFFFFFFFF.toInt() else 0xFF808080.toInt()
-        // Left-aligned right after the number, truncated with an ellipsis before the card
-        // edge — same treatment as the category tab names (no hard clipping). The wide
-        // right margin the old grab handle needed is gone, so names run to a small margin.
-        val nameX = x + 15
+        // The name starts right after the number's actual width (3-digit indexes shift it
+        // instead of overlapping), truncated with an ellipsis before the card edge — same
+        // treatment as the category tab names (no hard clipping).
+        val nameX = x + 5 + client.font.width(index) + 4
         val nameRight = x + width - 5
         val available = nameRight - nameX
         var text = entry.displayName
