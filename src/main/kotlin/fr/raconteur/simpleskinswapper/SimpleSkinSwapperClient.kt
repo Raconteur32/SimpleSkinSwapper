@@ -37,7 +37,7 @@ class SimpleSkinSwapperClient : ClientModInitializer {
             KeyMapping(
                 "key.simpleskinswapper.open_wheel",
                 unboundKeyType,
-                InputConstants.UNKNOWN.value,
+                InputConstants.KEY_G,
                 category
             )
         )
