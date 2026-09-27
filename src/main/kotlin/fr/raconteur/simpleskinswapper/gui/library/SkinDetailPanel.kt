@@ -9,7 +9,6 @@ import fr.raconteur.simpleskinswapper.overlayMessage
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.components.EditBox
 import net.minecraft.network.chat.Component
-import fr.raconteur.simpleskinswapper.library.SkinRecords
 
 /**
  * Full-screen detail overlay for one skin. Opens as an animated scale-up of the clicked
@@ -59,7 +58,7 @@ class SkinDetailPanel(
         // Preview only: the registry rename happens when the panel closes.
         displayNameField.setResponder { text ->
             val e = entry ?: return@setResponder
-            e.displayNameOverride = text.trim().ifEmpty { null }
+            e.globalName = text.trim().ifEmpty { null }
         }
         addChild(displayNameField)
 
@@ -68,10 +67,11 @@ class SkinDetailPanel(
             Component.translatable("simpleskinswapper.screen.detail.category_name")
         )
         categoryNameField.setMaxLength(64)
-        // Preview only: the per-category name is stored when the panel closes.
+        // Preview only: the per-category name is stored when the panel closes. Writes only
+        // its own slot — the two fields never leak into each other's name.
         categoryNameField.setResponder { text ->
             val e = entry ?: return@setResponder
-            e.displayNameOverride = text.trim().ifEmpty { SkinRecords.findById(e.skinId)?.name }
+            e.categoryName = text.trim().ifEmpty { null }
         }
         addChild(categoryNameField)
 
@@ -115,10 +115,8 @@ class SkinDetailPanel(
     private fun refreshFields() {
         val e = entry ?: return
         fileNameField.setValue(e.baseName)
-        displayNameField.setValue(e.displayNameOverride ?: "")
-        categoryNameField.setValue(
-            parent.selectedCategory?.cards?.firstOrNull { it.skinId == e.skinId }?.name ?: ""
-        )
+        displayNameField.setValue(e.globalName ?: "")
+        categoryNameField.setValue(e.categoryName ?: "")
         categoryNameField.visible = inCategory
     }
 

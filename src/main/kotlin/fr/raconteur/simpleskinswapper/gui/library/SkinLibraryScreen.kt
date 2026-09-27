@@ -375,7 +375,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
             for (card in category.cards) {
                 byId[card.skinId]?.let { record ->
                     val entry = SkinEntry.fromRecord(record)
-                    if (card.name.isNotBlank()) entry.displayNameOverride = card.name
+                    if (card.name.isNotBlank()) entry.categoryName = card.name
                     entries.add(entry)
                 }
             }

@@ -9,27 +9,33 @@ import java.io.File
 import fr.raconteur.simpleskinswapper.SkinType
 
 /**
- * Represents a skin file entry in the carousel.
+ * Represents a skin file entry in the library.
  * Lazily loads the GPU texture on first render.
  */
 class SkinEntry(@JvmField var file: File) {
 
-    /** File name without extension, used when no display name override is set. */
+    /** File name without extension, the last name fallback. */
     @JvmField
     val baseName: String
 
-    /** Optional user-set display name (null = show the file name). */
+    /** Global display name from the registry (null = show the file name). */
     @JvmField
-    var displayNameOverride: String? = null
+    var globalName: String? = null
 
-    /** Name shown in the UI: the override when set, the file name otherwise. */
+    /** Per-category card name, set only while this entry backs a card of the current
+     *  category view (null = the global name applies). */
+    @JvmField
+    var categoryName: String? = null
+
+    /** Name shown in the UI: the category name when set (category views only), then
+     *  the global display name, then the file name. */
     val displayName: String
-        get() = displayNameOverride ?: baseName
+        get() = categoryName ?: globalName ?: baseName
 
     @JvmField
     var skinType: SkinType
 
-    /** Registry id of the skin this entry renders (empty for legacy scan entries). */
+    /** Registry id of the skin this entry renders (empty for entries built outside the registry). */
     @JvmField
     var skinId: String = ""
 
@@ -75,7 +81,7 @@ class SkinEntry(@JvmField var file: File) {
             val file = FabricLoader.getInstance().gameDir.resolve("skins").resolve(record.file).toFile()
             val entry = SkinEntry(file)
             entry.skinId = record.id
-            if (record.name.isNotBlank()) entry.displayNameOverride = record.name
+            if (record.name.isNotBlank()) entry.globalName = record.name
             entry.skinType = if (record.model == SkinRecord.MODEL_SLIM) SkinType.SLIM else SkinType.CLASSIC
             return entry
         }
