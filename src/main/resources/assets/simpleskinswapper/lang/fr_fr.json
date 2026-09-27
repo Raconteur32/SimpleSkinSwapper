@@ -7,8 +7,6 @@
   "simpleskinswapper.screen.carousel.config": "Paramètres",
   "simpleskinswapper.screen.carousel.no_skins": "Aucun skin trouvé. Ajoutez des fichiers PNG dans .minecraft/skins/",
   "simpleskinswapper.screen.carousel.search": "Rechercher...",
-  "simpleskinswapper.screen.carousel.skin_type.classic": "Large",
-  "simpleskinswapper.screen.carousel.skin_type.slim": "Mince",
   "simpleskinswapper.screen.carousel.delete": "Suppr.",
   "simpleskinswapper.screen.carousel.delete_confirm": "Confirmer",
   "simpleskinswapper.screen.carousel.add_from_file.dialog_title": "Sélectionner un skin PNG",
@@ -57,7 +55,7 @@
   "simpleskinswapper.screen.library.category_name": "Nom de la catégorie",
   "simpleskinswapper.screen.library.delete_category_confirm": "Supprimer",
   "simpleskinswapper.screen.library.delete_category_question": "Supprimer cette catégorie ? Ses skins restent dans la bibliothèque.",
-  "simpleskinswapper.screen.wheel.empty": "Aucune catégorie n'alimente la roue — attribue des roues dans la bibliothèque",
+  "simpleskinswapper.screen.wheel.empty": "Aucune catégorie n'alimente la roue. Attribue des roues dans la bibliothèque.",
   "simpleskinswapper.screen.detail.file_name": "Nom du fichier",
   "simpleskinswapper.screen.detail.display_name": "Nom affiché",
   "simpleskinswapper.screen.detail.delete": "Supprimer",
@@ -67,6 +65,12 @@
   "simpleskinswapper.screen.add.username": "Nom du compte",
   "simpleskinswapper.screen.add.none": "Aucun skin sélectionné",
   "simpleskinswapper.screen.add.confirm": "Ajouter",
+  "simpleskinswapper.screen.add.model.classic": "Large",
+  "simpleskinswapper.screen.add.model.slim": "Mince",
+  "simpleskinswapper.screen.add.error_exists": "Ce skin existe déjà avec cette texture et le modèle %s",
+  "simpleskinswapper.screen.add.error_unreadable": "Impossible de lire le skin sélectionné",
+  "simpleskinswapper.screen.add.exists_title": "Skin déjà présent",
+  "simpleskinswapper.screen.add.exists_category": "L'ajouter à la catégorie « %s » ?",
   "simpleskinswapper.screen.library.add_category": "Nouvelle catégorie",
   "simpleskinswapper.screen.library.uncategorized": "Non catégorisés",
   "simpleskinswapper.screen.detail.category_name": "Nom dans cette catégorie",
@@ -76,5 +80,5 @@
   "simpleskinswapper.screen.detail.delete_context_category_others": "Aussi présent dans %s autres catégories",
   "simpleskinswapper.screen.detail.delete_context_category_last": "Présent dans aucune autre catégorie",
   "simpleskinswapper.screen.detail.delete_context_all": "Supprimera les occurrences dans %s catégories",
-  "simpleskinswapper.screen.detail.delete_context_uncategorized": "Référencé nulle part — la suppression n'affecte rien d'autre"
+  "simpleskinswapper.screen.detail.delete_context_uncategorized": "Référencé nulle part, la suppression n'affecte rien d'autre"
 }

@@ -48,6 +48,10 @@ object SkinLifecycle {
     @JvmStatic fun createSkin(png: ByteArray, model: String, name: String): SkinRecord? =
         instance.createSkin(png, model, name)
 
+    /** The skin for these bytes and model when it already exists, null otherwise. */
+    @JvmStatic fun findExisting(png: ByteArray, model: String): SkinRecord? =
+        instance.findExisting(png, model)
+
     /** Deletes a skin and its texture when no other skin shares it. */
     @JvmStatic fun removeSkin(id: String): Boolean = instance.removeSkin(id)
 

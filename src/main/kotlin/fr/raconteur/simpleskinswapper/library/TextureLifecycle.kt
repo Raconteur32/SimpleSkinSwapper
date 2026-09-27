@@ -33,6 +33,13 @@ class TextureLifecycle(
         return record
     }
 
+    /** The skin for these bytes and model when it already exists, null otherwise
+     *  (including undecodable bytes — the caller's createSkin reports that itself). */
+    fun findExisting(png: ByteArray, model: String): SkinRecord? {
+        val value = TextureHashing.canonicalPixels(png) ?: return null
+        return registry.find(namer.fullHashHex(value), model)
+    }
+
     /** Removes a skin; its texture file is deleted when no other skin references it.
      *  Returns whether the skin existed. */
     fun removeSkin(id: String): Boolean {

@@ -10,6 +10,7 @@ import net.minecraft.network.chat.CommonComponents
 import net.minecraft.network.chat.Component
 import net.minecraft.resources.Identifier
 import net.fabricmc.loader.api.FabricLoader
+import fr.raconteur.simpleskinswapper.library.SkinRecord
 import java.io.File
 import fr.raconteur.simpleskinswapper.SkinTextureLoader
 
@@ -34,6 +35,9 @@ class SkinAddPanel(
     private var stagedType: SkinType = SkinType.CLASSIC
     private var stagedTextureId: Identifier? = null
     private var fetching = false
+
+    /** Why the last Add was refused, drawn under the buttons until the staged state changes. */
+    private var addError: Component? = null
 
     // Invalid-account flash on the username field (same pattern as the header import row).
     private var invalidRevertAtMs = 0L
@@ -97,6 +101,7 @@ class SkinAddPanel(
         usernameField.setTextColor(0xFFE0E0E0.toInt())
         fromMcNameButton.active = false
         confirmButton.active = false
+        addError = null
 
         openFrom(card.x, card.y, card.width, card.height)
     }
@@ -128,6 +133,7 @@ class SkinAddPanel(
         stagedType = modelHint ?: SkinUtils.detectSkinType(file)
         displayNameField.setValue(suggestedName)
         stagedTextureId = null
+        addError = null
         SkinTextureLoader.loadSkinTextureAsync(file, "skin/add_staging") { id -> stagedTextureId = id }
     }
 
@@ -171,12 +177,33 @@ class SkinAddPanel(
 
     private fun confirmAdd() {
         val file = stagedFile ?: return
-        if (parent.confirmAddSkin(file, displayNameField.value.trim(), stagedType)) {
-            // Ownership of the staging file transferred to the skins folder.
-            stagedFile = null
-            close(instant = true)
+        when (val result = parent.confirmAddSkin(file, displayNameField.value.trim(), stagedType)) {
+            AddSkinResult.Added -> {
+                stagedFile = null
+                close(instant = true)
+            }
+            is AddSkinResult.Exists -> {
+                val category = parent.selectedCategory
+                val cardedHere = category != null && category.cards.any { it.skinId == result.existing.id }
+                if (category != null && !cardedHere) {
+                    // Exists globally but not in this category: offer adding a card for it.
+                    addError = null
+                    parent.openAddExistingPopup(result.existing) { close(instant = true) }
+                } else {
+                    addError = Component.translatable(
+                        "simpleskinswapper.screen.add.error_exists", modelLabel(stagedType)
+                    )
+                }
+            }
+            AddSkinResult.Unreadable ->
+                addError = Component.translatable("simpleskinswapper.screen.add.error_unreadable")
         }
     }
+
+    private fun modelLabel(type: SkinType): Component = Component.translatable(
+        if (type == SkinType.SLIM) "simpleskinswapper.screen.add.model.slim"
+        else "simpleskinswapper.screen.add.model.classic"
+    )
 
     // ------------------------------------------------------------------
     // Layout
@@ -233,6 +260,41 @@ class SkinAddPanel(
         drawPreview(graphics, t, mouseX, mouseY)
         drawLabels(graphics, t)
         drawSwitch(graphics, t, stagedType)
+        drawError(graphics, t)
+    }
+
+    /** Why the last Add was refused, word-wrapped to the controls column under the
+     *  confirm/cancel row — never spilling over the preview separator. */
+    private fun drawError(graphics: GuiGraphicsExtractor, t: IntArray) {
+        val error = addError ?: return
+        val x = t[0] + PANEL_PAD
+        val startY = switchRowY() + SWITCH_BODY_H + ROW_GAP + FIELD_HEIGHT + 2 + 4
+        val available = leftWidth(t) - PANEL_PAD
+        for ((i, line) in wrapWords(error.string, available).withIndex()) {
+            val y = startY + i * client.font.lineHeight
+            //? if >=26.1 {
+            graphics.text(client.font, Component.nullToEmpty(line), x, y, COLOR_ERROR)
+            //?} else {
+            /*graphics.drawString(client.font, line, x, y, COLOR_ERROR)
+            *///?}
+        }
+    }
+
+    /** Greedy word wrap to [available] px — same rule as the shared ConfirmPopup's messages. */
+    private fun wrapWords(text: String, available: Int): List<String> {
+        val lines = ArrayList<String>()
+        var current = ""
+        for (word in text.split(" ")) {
+            val candidate = if (current.isEmpty()) word else "$current $word"
+            if (current.isNotEmpty() && client.font.width(candidate) > available) {
+                lines.add(current)
+                current = word
+            } else {
+                current = candidate
+            }
+        }
+        if (current.isNotEmpty()) lines.add(current)
+        return lines
     }
 
     private fun drawPreview(graphics: GuiGraphicsExtractor, t: IntArray, mouseX: Int, mouseY: Int) {
@@ -261,6 +323,8 @@ class SkinAddPanel(
 
     override fun toggleSkinType() {
         stagedType = if (stagedType == SkinType.CLASSIC) SkinType.SLIM else SkinType.CLASSIC
+        // The dedup pair just changed: a refused add may now succeed.
+        addError = null
     }
 
     override fun onEnterPressed() {
@@ -269,5 +333,10 @@ class SkinAddPanel(
         } else if (focusedChild === usernameField) {
             fetchFromAccount()
         }
+    }
+
+    private companion object {
+        /** Same red as the username field's invalid-account flash. */
+        private val COLOR_ERROR = 0xFFFF5555.toInt()
     }
 }

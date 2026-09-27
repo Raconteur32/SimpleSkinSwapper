@@ -72,6 +72,14 @@ internal interface GridSlottedWidget {
     fun overridePosition(newX: Int, newY: Int)
 }
 
+/** Outcome of an add attempt from the add overlay: the skin landed, it already
+ *  exists (the caller may offer adding a card), or the staged bytes were unusable. */
+internal sealed interface AddSkinResult {
+    data object Added : AddSkinResult
+    data class Exists(val existing: SkinRecord) : AddSkinResult
+    data object Unreadable : AddSkinResult
+}
+
 class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translatable("simpleskinswapper.title")) {
 
     private val client get() = minecraft
@@ -454,19 +462,42 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
 
     /** Ingests the staged skin through the registry (dedup by texture value); adding from
      *  a selected category adds a card there — copy semantics, other categories untouched. */
-    fun confirmAddSkin(source: File, display: String, type: SkinType): Boolean {
+    internal fun confirmAddSkin(source: File, display: String, type: SkinType): AddSkinResult {
         val bytes = try {
             Files.readAllBytes(source.toPath())
         } catch (e: IOException) {
             SimpleSkinSwapper.LOGGER.warn("Could not read staged skin: {}", e.message)
-            return false
+            return AddSkinResult.Unreadable
         }
-        val record = SkinLifecycle.createSkin(bytes, type.mojangVariant, display) ?: return false
+        val existing = SkinLifecycle.findExisting(bytes, type.mojangVariant)
+        if (existing != null) return AddSkinResult.Exists(existing)
+        val record = SkinLifecycle.createSkin(bytes, type.mojangVariant, display) ?: return AddSkinResult.Unreadable
         watcher.markSelfTriggered(record.file)
         selectedCategory?.let { SkinCategories.addCard(it, record.id) }
         reloadView()
         rebuildCards()
-        return true
+        return AddSkinResult.Added
+    }
+
+    /** The shared confirmation asking whether an already-existing skin should still be
+     *  added to the current category as a card. [onConfirmed] runs after the card lands. */
+    internal fun openAddExistingPopup(existing: SkinRecord, onConfirmed: () -> Unit) {
+        val category = selectedCategory ?: return
+        overlays.openConfirmPopup(
+            ConfirmPopup(
+                this,
+                Component.translatable("simpleskinswapper.screen.add.exists_title"),
+                listOf(Component.translatable("simpleskinswapper.screen.add.exists_category", category.name)),
+                listOf(
+                    ConfirmPopup.PopupButton(CommonComponents.GUI_YES) {
+                        SkinCategories.addCard(category, existing.id)
+                        reloadView()
+                        rebuildCards()
+                        onConfirmed()
+                    }
+                )
+            )
+        )
     }
 
     // ------------------------------------------------------------------
