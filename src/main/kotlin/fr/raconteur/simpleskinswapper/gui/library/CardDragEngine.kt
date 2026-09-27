@@ -80,19 +80,14 @@ internal class CardDragEngine(
         return Math.round(display[0]) to Math.round(display[1])
     }
 
-    /** Insertion index from the cursor in reading order, refined by which half of the cell is hovered. */
+    /** Insertion index from the cursor: the grid cell under the cursor in reading order,
+     *  clamped to the end of the list — the gap always opens where the cursor is. */
     private fun insertionIndexAt(cardCount: Int, mouseX: Int, mouseY: Int): Int {
         if (mouseX < gridOffsetX() || mouseY < gridTop() || mouseY > gridBottom()) return -1
         val relCol = (mouseX - gridOffsetX()) / (cellW() + gridGap())
         val relRow = (mouseY - contentStartY() + scrollY()) / (cellH() + gridGap())
         if (relCol < 0 || relCol >= cols() || relRow < 0) return -1
         val count = cardCount - if (draggingCard != null) 1 else 0
-        var idx = relRow * cols() + relCol
-        if (idx > count) idx = count
-        val cellLeft = gridOffsetX() + relCol * (cellW() + gridGap())
-        // Half-right refines "this cell" into "after this card", never past the end of the
-        // remaining cards: the index space is the list without the dragged card.
-        if (mouseX > cellLeft + cellW() / 2 && idx < count) idx++
-        return idx
+        return (relRow * cols() + relCol).coerceAtMost(count)
     }
 }
