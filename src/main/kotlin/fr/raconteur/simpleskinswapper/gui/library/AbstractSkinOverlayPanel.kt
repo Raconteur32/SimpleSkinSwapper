@@ -225,11 +225,11 @@ abstract class AbstractSkinOverlayPanel(
         graphics.blitSprite(RenderPipelines.GUI_TEXTURED, SkinLibraryScreen.CARD_SPRITE_ACCESS, s[0], s[1], s[2], s[3])
         // Heads OUTSIDE the switch, one on each side, always visible: the option sits on
         // the side the knob must slide to (Steve = wide on the left, Alex = slim on the right).
-        graphics.blit(RenderPipelines.GUI_TEXTURED, STEVE_TEXTURE, s[0] - HEAD_GAP - HEAD, s[1] + (s[3] - HEAD) / 2, 8f, 8f, HEAD, HEAD, 8, 8, 64, 64)
-        graphics.blit(RenderPipelines.GUI_TEXTURED, ALEX_TEXTURE, s[0] + s[2] + HEAD_GAP, s[1] + (s[3] - HEAD) / 2, 8f, 8f, HEAD, HEAD, 8, 8, 64, 64)
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, HEAD_WIDE_SPRITE, s[0] - HEAD_GAP - HEAD, s[1] + (s[3] - HEAD) / 2, HEAD, HEAD)
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, HEAD_SLIM_SPRITE, s[0] + s[2] + HEAD_GAP, s[1] + (s[3] - HEAD) / 2, HEAD, HEAD)
         // Knob: the full-color square overlay, sliding toward the active side's head.
         val kx = if (skinType == SkinType.CLASSIC) s[0] - 4 else s[0] + s[2] - SWITCH_KNOB + 4
-        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, SkinLibraryScreen.PANEL_SPRITE_ACCESS, kx, s[1] + (s[3] - SWITCH_KNOB) / 2, SWITCH_KNOB, SWITCH_KNOB)
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, SkinLibraryScreen.SWITCH_KNOB_SPRITE_ACCESS, kx, s[1] + (s[3] - SWITCH_KNOB) / 2, SWITCH_KNOB, SWITCH_KNOB)
     }
 
     /** Renders the preview the same way the cards do, with the drag rotate feel. */
@@ -441,7 +441,9 @@ abstract class AbstractSkinOverlayPanel(
         private const val SPRING_RETURN_SPEED = 10.0F
         private const val SPRING_SNAP_EPSILON = 0.05F
 
-        private val STEVE_TEXTURE = Identifier.withDefaultNamespace("textures/entity/player/wide/steve.png")
-        private val ALEX_TEXTURE = Identifier.withDefaultNamespace("textures/entity/player/slim/alex.png")
+        // Head icons beside the switch: 8x8 face crops shipped under the mod namespace —
+        // no vanilla player-texture coupling, no manual UV blit.
+        private val HEAD_WIDE_SPRITE = Identifier.fromNamespaceAndPath("simpleskinswapper", "library/head_wide")
+        private val HEAD_SLIM_SPRITE = Identifier.fromNamespaceAndPath("simpleskinswapper", "library/head_slim")
     }
 }

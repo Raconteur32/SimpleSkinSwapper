@@ -4,37 +4,18 @@ import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.renderer.RenderPipelines
 import net.minecraft.resources.Identifier
 
-//? if >=26.1 {
-import net.minecraft.client.resources.model.sprite.SpriteId
-import net.minecraft.client.renderer.texture.TextureAtlas
-//?} else {
-/*import net.minecraft.client.renderer.texture.TextureAtlas
-import net.minecraft.client.resources.model.Material
-*///?}
-
 /**
- * Blits vanilla dye item textures straight from the atlas — dye PNGs are flat
- * pre-colored sprites, so no item-model rendering is involved. Item sprites live in
- * the dedicated items atlas on every target (since 1.21.4); the sprite wrapper type
- * diverges on 26.x (Material became SpriteId).
+ * Blits the mod-owned dye swatch sprites straight from the GUI atlas — flat
+ * pre-colored icons shipped under the mod's namespace, so resource packs can
+ * retheme them without the items-atlas coupling or any per-version sprite
+ * wrapper type.
  */
 internal object DyeIcons {
 
     fun spriteId(dyeName: String): Identifier =
-        Identifier.fromNamespaceAndPath("minecraft", "item/${dyeName}_dye")
+        Identifier.fromNamespaceAndPath("simpleskinswapper", "dye/$dyeName")
 
-    // @Suppress per warnings-as-errors design D2: no replacement exists on any target —
-    // the 26.x AtlasIds constants are atlas KEYS (minecraft:items), not atlas locations
-    // (textures/atlas/items.png), and vanilla itself still consumes LOCATION_ITEMS
-    // (Sheets, AtlasManager, CuboidItemModelWrapper). Revisit on a version that ships one.
-    @Suppress("DEPRECATION")
     fun draw(graphics: GuiGraphicsExtractor, dyeName: String, x: Int, y: Int, size: Int) {
-        val id = spriteId(dyeName)
-        //? if >=26.1 {
-        val sprite = graphics.getSprite(SpriteId(TextureAtlas.LOCATION_ITEMS, id))
-        //?} else {
-        /*val sprite = graphics.getSprite(Material(TextureAtlas.LOCATION_ITEMS, id))
-        *///?}
-        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x, y, size, size)
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, spriteId(dyeName), x, y, size, size)
     }
 }

@@ -1092,7 +1092,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         private const val TAB_SELECTED_STICKOUT = 6
 
         // Left offset the tab panels are drawn from, so their left border sits off-screen
-        // (the overlay_recipe nine-slice border is 4px).
+        // (the tab frame sprite's nine-slice border is 4px).
         private const val PANEL_BLEED = 4
 
         // Thickness of the page texture's baked border (measured: 8px of bevel on every side).
@@ -1101,12 +1101,12 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         internal const val PAGE_BORDER = 8
 
         // ------------------------------------------------------------------
-        // Vanilla recipe-book textures (same blit signature on 1.21.11 and 26.x)
+        // Mod-owned frame sprites (same blit signature on 1.21.11 and 26.x)
         // ------------------------------------------------------------------
 
-        // The recipe hover-highlight frame, in the GUI atlas with a nine_slice mcmeta
+        // The category tab strip frame, in the GUI atlas with a nine_slice mcmeta
         // (32x32, border 4): blitSprite stretches it as a panel on its own.
-        internal val PANEL_SPRITE_ACCESS = Identifier.withDefaultNamespace("recipe_book/overlay_recipe")
+        private val TAB_SPRITE = Identifier.fromNamespaceAndPath("simpleskinswapper", "library/tab")
 
         // The book page panel, cropped from gui/recipe_book.png with the search icon erased
         // (nine_slice mcmeta, border 8) — the main grid page surface.
@@ -1116,9 +1116,15 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         // transparent corners stay transparent (a flat fill would tint them).
         internal val CARD_SPRITE_ACCESS = Identifier.fromNamespaceAndPath("simpleskinswapper", "library/card")
 
-        /** The recipe-book frame sprite as a panel: full color when lit, darkened otherwise. */
+        // Hover highlight of a skin card: the tab frame at full color.
+        private val CARD_HOVER_SPRITE = Identifier.fromNamespaceAndPath("simpleskinswapper", "library/card_hover")
+
+        // Wide/slim switch knob: the tab frame at full color, drawn as a sliding square.
+        internal val SWITCH_KNOB_SPRITE_ACCESS = Identifier.fromNamespaceAndPath("simpleskinswapper", "library/switch_knob")
+
+        /** The tab-strip frame sprite as a panel: full color when lit, darkened otherwise. */
         private fun drawBookPanel(graphics: GuiGraphicsExtractor, x: Int, y: Int, w: Int, h: Int, lit: Boolean) {
-            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, PANEL_SPRITE_ACCESS, x, y, w, h)
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, TAB_SPRITE, x, y, w, h)
             if (!lit) graphics.fill(x, y, x + w, y + h, 0x66000000)
         }
 
@@ -1131,7 +1137,7 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         internal fun drawCardFrame(graphics: GuiGraphicsExtractor, x: Int, y: Int, w: Int, h: Int, hovered: Boolean) {
             // Idle: the dedicated darkened sprite (grayscale of the tab-zone look, transparent
             // corners preserved). Hovered: the full-color sprite, like a selected tab.
-            val sprite = if (hovered) PANEL_SPRITE_ACCESS else CARD_SPRITE_ACCESS
+            val sprite = if (hovered) CARD_HOVER_SPRITE else CARD_SPRITE_ACCESS
             graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x, y, w, h)
         }
 
