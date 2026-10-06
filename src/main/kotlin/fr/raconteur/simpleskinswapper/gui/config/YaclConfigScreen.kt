@@ -9,6 +9,7 @@ import dev.isxander.yacl3.api.YetAnotherConfigLib
 import dev.isxander.yacl3.api.controller.EnumControllerBuilder
 import dev.isxander.yacl3.api.controller.IntegerSliderControllerBuilder
 import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder
+import fr.raconteur.simpleskinswapper.config.AllSkinsWheelMode
 import fr.raconteur.simpleskinswapper.config.ButtonSide
 import fr.raconteur.simpleskinswapper.config.ServerCommand
 import fr.raconteur.simpleskinswapper.config.SimpleSkinSwapperConfig
@@ -44,66 +45,92 @@ object YaclConfigScreen {
     private fun buildOptionsCategory(config: SimpleSkinSwapperConfig): ConfigCategory =
         ConfigCategory.createBuilder()
             .name(Component.translatable("simpleskinswapper.config.category.options"))
-            .group(
-                OptionGroup.createBuilder()
-                    .name(Component.translatable("simpleskinswapper.config.group.menu_buttons"))
-                    .option(
-                        buttonSideOption(
-                            "simpleskinswapper.config.title_screen_button_side",
-                            { config.titleScreenSide() },
-                            { config.titleScreenButtonSide = it }
-                        )
-                    )
-                    .option(
-                        buttonSideOption(
-                            "simpleskinswapper.config.pause_menu_button_side",
-                            { config.pauseMenuSide() },
-                            { config.pauseMenuButtonSide = it }
-                        )
-                    )
-                    .build()
+            .group(buildMenuButtonsGroup(config))
+            .group(buildPlayerModelsGroup(config))
+            .group(buildSkinWheelGroup(config))
+            .group(buildLibraryGroup(config))
+            .build()
+
+    private fun buildMenuButtonsGroup(config: SimpleSkinSwapperConfig): OptionGroup =
+        OptionGroup.createBuilder()
+            .name(Component.translatable("simpleskinswapper.config.group.menu_buttons"))
+            .option(
+                buttonSideOption(
+                    "simpleskinswapper.config.title_screen_button_side",
+                    { config.titleScreenSide() },
+                    { config.titleScreenButtonSide = it }
+                )
             )
-            .group(
-                OptionGroup.createBuilder()
-                    .name(Component.translatable("simpleskinswapper.config.group.player_models"))
-                    .option(
-                        tickBoxOption(
-                            "simpleskinswapper.config.animate_menu_preview",
-                            { config.animateMenuPreview },
-                            { config.animateMenuPreview = it },
-                            default = true
-                        )
-                    )
-                    .build()
+            .option(
+                buttonSideOption(
+                    "simpleskinswapper.config.pause_menu_button_side",
+                    { config.pauseMenuSide() },
+                    { config.pauseMenuButtonSide = it }
+                )
             )
-            .group(
-                OptionGroup.createBuilder()
-                    .name(Component.translatable("simpleskinswapper.config.group.skin_wheel"))
-                    .option(
-                        tickBoxOption(
-                            "simpleskinswapper.config.remember_wheel_position",
-                            { config.rememberWheelPosition },
-                            { config.rememberWheelPosition = it },
-                            default = false
-                        )
-                    )
-                    .build()
+            .build()
+
+    private fun buildPlayerModelsGroup(config: SimpleSkinSwapperConfig): OptionGroup =
+        OptionGroup.createBuilder()
+            .name(Component.translatable("simpleskinswapper.config.group.player_models"))
+            .option(
+                tickBoxOption(
+                    "simpleskinswapper.config.animate_menu_preview",
+                    { config.animateMenuPreview },
+                    { config.animateMenuPreview = it },
+                    default = true
+                )
             )
-            .group(
-                OptionGroup.createBuilder()
-                    .name(Component.translatable("simpleskinswapper.config.group.library"))
-                    .option(
-                        intSliderOption(
-                            "simpleskinswapper.config.min_card_width",
-                            { config.minCardWidth },
-                            { config.minCardWidth = it },
-                            default = 64,
-                            min = SimpleSkinSwapperConfig.MIN_CARD_WIDTH,
-                            max = SimpleSkinSwapperConfig.MAX_CARD_WIDTH,
-                            step = 8
-                        )
-                    )
-                    .build()
+            .build()
+
+    private fun buildSkinWheelGroup(config: SimpleSkinSwapperConfig): OptionGroup =
+        OptionGroup.createBuilder()
+            .name(Component.translatable("simpleskinswapper.config.group.skin_wheel"))
+            .option(
+                enumOption(
+                    "simpleskinswapper.config.all_skins_wheel",
+                    AllSkinsWheelMode::class.java,
+                    AllSkinsWheelMode.FALLBACK,
+                    { config.allSkinsWheel() },
+                    { config.allSkinsWheelMode = it }
+                ) { mode ->
+                    Component.translatable("simpleskinswapper.config.all_skins_wheel.${mode.name.lowercase()}")
+                }
+            )
+            .option(
+                intSliderOption(
+                    "simpleskinswapper.config.max_all_skins_wheels",
+                    { config.maxAllSkinsWheels },
+                    { config.maxAllSkinsWheels = it },
+                    default = 2,
+                    min = SimpleSkinSwapperConfig.MIN_ALL_SKINS_WHEELS,
+                    max = SimpleSkinSwapperConfig.MAX_ALL_SKINS_WHEELS,
+                    step = 1
+                )
+            )
+            .option(
+                tickBoxOption(
+                    "simpleskinswapper.config.remember_wheel_position",
+                    { config.rememberWheelPosition },
+                    { config.rememberWheelPosition = it },
+                    default = false
+                )
+            )
+            .build()
+
+    private fun buildLibraryGroup(config: SimpleSkinSwapperConfig): OptionGroup =
+        OptionGroup.createBuilder()
+            .name(Component.translatable("simpleskinswapper.config.group.library"))
+            .option(
+                intSliderOption(
+                    "simpleskinswapper.config.min_card_width",
+                    { config.minCardWidth },
+                    { config.minCardWidth = it },
+                    default = 64,
+                    min = SimpleSkinSwapperConfig.MIN_CARD_WIDTH,
+                    max = SimpleSkinSwapperConfig.MAX_CARD_WIDTH,
+                    step = 8
+                )
             )
             .build()
 
@@ -168,27 +195,42 @@ object YaclConfigScreen {
             .build()
 
     /**
-     * Builds a LEFT/RIGHT cycling option for one of the menu-button side settings.
-     * [keyPrefix] is the translation key of the option; its description lives at
-     * `"$keyPrefix.description"`. Writes go straight to the config object and are
-     * persisted by the builder's save callback.
+     * Builds a cycling enum option. [keyPrefix] is the translation key of the
+     * option; its description lives at `"$keyPrefix.description"`. Writes go
+     * straight to the config object and are persisted by the builder's save
+     * callback.
      */
+    private fun <E : Enum<E>> enumOption(
+        keyPrefix: String,
+        enumClass: Class<E>,
+        default: E,
+        getter: () -> E,
+        setter: (E) -> Unit,
+        formatValue: (E) -> Component
+    ): Option<E> {
+        return Option.createBuilder<E>()
+            .name(Component.translatable(keyPrefix))
+            .description(OptionDescription.of(Component.translatable("$keyPrefix.description")))
+            .binding(default, getter, setter)
+            .controller { option ->
+                EnumControllerBuilder.create(option)
+                    .enumClass(enumClass)
+                    .formatValue { formatValue(it) }
+            }
+            .build()
+    }
+
     private fun buttonSideOption(
         keyPrefix: String,
         getter: () -> ButtonSide,
         setter: (ButtonSide) -> Unit
-    ): Option<ButtonSide> {
-        return Option.createBuilder<ButtonSide>()
-            .name(Component.translatable(keyPrefix))
-            .description(OptionDescription.of(Component.translatable("$keyPrefix.description")))
-            .binding(ButtonSide.RIGHT, getter, setter)
-            .controller { option ->
-                EnumControllerBuilder.create(option)
-                    .enumClass(ButtonSide::class.java)
-                    .formatValue { side ->
-                        Component.translatable("simpleskinswapper.config.button_side.${side.name.lowercase()}")
-                    }
-            }
-            .build()
+    ): Option<ButtonSide> = enumOption(
+        keyPrefix,
+        ButtonSide::class.java,
+        ButtonSide.RIGHT,
+        getter,
+        setter
+    ) { side ->
+        Component.translatable("simpleskinswapper.config.button_side.${side.name.lowercase()}")
     }
 }

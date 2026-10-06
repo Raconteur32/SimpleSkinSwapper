@@ -34,6 +34,17 @@ class SimpleSkinSwapperConfig {
     @JvmField
     var rememberWheelPosition: Boolean = false
 
+    /** When the wheel shows an all-skins group: never, fallback (no category wheel), or always. */
+    @JvmField
+    var allSkinsWheelMode: AllSkinsWheelMode? = AllSkinsWheelMode.FALLBACK
+
+    /**
+     * Maximum number of all-skins wheels shown ahead of the category wheels
+     * when the mode is ALWAYS (no effect in the other modes).
+     */
+    @JvmField
+    var maxAllSkinsWheels: Int = 2
+
     /**
      * Minimum library card width in logical px: drives how many grid columns fit
      * (fewer columns when raised), after which the 4:3 height ratio applies.
@@ -46,6 +57,9 @@ class SimpleSkinSwapperConfig {
 
     /** Non-null accessor for callers (e.g. Java mixins): defaults to RIGHT. */
     fun pauseMenuSide(): ButtonSide = pauseMenuButtonSide ?: ButtonSide.RIGHT
+
+    /** Non-null accessor: defaults to FALLBACK for callers that should not handle null. */
+    fun allSkinsWheel(): AllSkinsWheelMode = allSkinsWheelMode ?: AllSkinsWheelMode.FALLBACK
 
     /**
      * Returns the command for the given server address, or null if the server is not registered.
@@ -95,6 +109,10 @@ class SimpleSkinSwapperConfig {
         const val MIN_CARD_WIDTH = 32
         const val MAX_CARD_WIDTH = 256
 
+        /** Bounds of [SimpleSkinSwapperConfig.maxAllSkinsWheels], shared with the config slider. */
+        const val MIN_ALL_SKINS_WHEELS = 1
+        const val MAX_ALL_SKINS_WHEELS = 5
+
         @Volatile
         private var instance: SimpleSkinSwapperConfig? = null
 
@@ -134,8 +152,12 @@ class SimpleSkinSwapperConfig {
             if (loaded.pauseMenuButtonSide == null) {
                 loaded.pauseMenuButtonSide = ButtonSide.RIGHT
             }
+            if (loaded.allSkinsWheelMode == null) {
+                loaded.allSkinsWheelMode = AllSkinsWheelMode.FALLBACK
+            }
             // Hand-edited out-of-range values would break the grid math downstream.
             loaded.minCardWidth = loaded.minCardWidth.coerceIn(MIN_CARD_WIDTH, MAX_CARD_WIDTH)
+            loaded.maxAllSkinsWheels = loaded.maxAllSkinsWheels.coerceIn(MIN_ALL_SKINS_WHEELS, MAX_ALL_SKINS_WHEELS)
         }
 
         @Suppress("TooGenericExceptionCaught")

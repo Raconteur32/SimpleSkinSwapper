@@ -16,6 +16,12 @@ object SkinCategories {
     /** Copy semantics: appends a card for [skinId]; other categories are untouched. */
     @JvmStatic fun addCard(category: LibraryCategory, skinId: String): Boolean = instance.addCard(category, skinId)
     @JvmStatic fun removeCard(category: LibraryCategory, skinId: String): Boolean = instance.removeCard(category, skinId)
+
+    /** Relative card moves (wheel reordering): land the card right before/after the pivot. */
+    @JvmStatic fun moveCardBefore(category: LibraryCategory, skinId: String, pivotSkinId: String): Boolean =
+        instance.moveCardBefore(category, skinId, pivotSkinId)
+    @JvmStatic fun moveCardAfter(category: LibraryCategory, skinId: String, pivotSkinId: String): Boolean =
+        instance.moveCardAfter(category, skinId, pivotSkinId)
     @JvmStatic fun categoriesOf(skinId: String): List<LibraryCategory> = instance.categoriesOf(skinId)
     @JvmStatic fun setCardName(category: LibraryCategory, skinId: String, name: String) =
         instance.setCardName(category, skinId, name)

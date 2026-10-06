@@ -76,4 +76,56 @@ class SkinCardStoreTest {
         assertEquals(listOf("B", "A"), store().all().map { it.name })
         assertNotNull(store().all().first())
     }
+
+    /** One store holding one category with cards a, b, c, d. */
+    private fun fourCards(): Pair<SkinCardStore, LibraryCategory> {
+        val s = store()
+        val category = s.createCategory("PvP", "white")
+        listOf("a_slim", "b_slim", "c_slim", "d_slim").forEach { s.addCard(category, it) }
+        return s to category
+    }
+
+    @Test
+    fun `moving a card before a pivot lands right before it`() {
+        val (s, category) = fourCards()
+        assertTrue(s.moveCardBefore(category, "c_slim", "a_slim"))
+        assertEquals(listOf("c_slim", "a_slim", "b_slim", "d_slim"), category.cards.map { it.skinId })
+    }
+
+    @Test
+    fun `moving a card before its next neighbor changes nothing observable`() {
+        val (s, category) = fourCards()
+        assertTrue(s.moveCardBefore(category, "a_slim", "b_slim"))
+        assertEquals(listOf("a_slim", "b_slim", "c_slim", "d_slim"), category.cards.map { it.skinId })
+    }
+
+    @Test
+    fun `moving a card after a pivot lands right behind it`() {
+        val (s, category) = fourCards()
+        assertTrue(s.moveCardAfter(category, "a_slim", "c_slim"))
+        assertEquals(listOf("b_slim", "c_slim", "a_slim", "d_slim"), category.cards.map { it.skinId })
+    }
+
+    @Test
+    fun `moving a card after its previous neighbor changes nothing observable`() {
+        val (s, category) = fourCards()
+        assertTrue(s.moveCardAfter(category, "b_slim", "a_slim"))
+        assertEquals(listOf("a_slim", "b_slim", "c_slim", "d_slim"), category.cards.map { it.skinId })
+    }
+
+    @Test
+    fun `a wheel move persists across instances`() {
+        val (s, category) = fourCards()
+        s.moveCardBefore(category, "d_slim", "b_slim")
+        assertEquals(listOf("a_slim", "d_slim", "b_slim", "c_slim"), store().all().single().cards.map { it.skinId })
+    }
+
+    @Test
+    fun `moves with a missing card or pivot are no-ops`() {
+        val (s, category) = fourCards()
+        assertFalse(s.moveCardBefore(category, "ghost_slim", "a_slim"))
+        assertFalse(s.moveCardBefore(category, "a_slim", "ghost_slim"))
+        assertFalse(s.moveCardBefore(category, "a_slim", "a_slim"))
+        assertEquals(listOf("a_slim", "b_slim", "c_slim", "d_slim"), category.cards.map { it.skinId })
+    }
 }

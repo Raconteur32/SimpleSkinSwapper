@@ -106,6 +106,39 @@ class SkinCardStore(env: SkinLibraryEnv) {
         save()
     }
 
+    /** Moves the card for [skinId] immediately before the card for [pivotSkinId] in
+     *  [category]'s list — the relative move behind wheel reordering, where a drop
+     *  always targets an occupied slot. No-op (false) when either card is missing
+     *  or both name the same skin. */
+    fun moveCardBefore(category: LibraryCategory, skinId: String, pivotSkinId: String): Boolean {
+        ensureLoaded()
+        val from = category.cards.indexOfFirst { it.skinId == skinId }
+        val pivot = category.cards.indexOfFirst { it.skinId == pivotSkinId }
+        if (from < 0 || pivot < 0 || from == pivot) return false
+        val card = category.cards.removeAt(from)
+        // Pivot index after the removal — the dragged card may have sat before it.
+        val target = category.cards.indexOfFirst { it.skinId == pivotSkinId }
+        category.cards.add(target, card)
+        save()
+        return true
+    }
+
+    /** Moves the card for [skinId] immediately after the card for [pivotSkinId] —
+     *  the "drop past the last displayed card" landing. No-op conditions as
+     *  [moveCardBefore]. */
+    fun moveCardAfter(category: LibraryCategory, skinId: String, pivotSkinId: String): Boolean {
+        ensureLoaded()
+        val from = category.cards.indexOfFirst { it.skinId == skinId }
+        val pivot = category.cards.indexOfFirst { it.skinId == pivotSkinId }
+        if (from < 0 || pivot < 0 || from == pivot) return false
+        val card = category.cards.removeAt(from)
+        // Pivot index after the removal — the dragged card may have sat before it.
+        val target = category.cards.indexOfFirst { it.skinId == pivotSkinId }
+        category.cards.add(target + 1, card)
+        save()
+        return true
+    }
+
     /** Every category holding a card for [skinId], in category order. */
     fun categoriesOf(skinId: String): List<LibraryCategory> {
         ensureLoaded()
