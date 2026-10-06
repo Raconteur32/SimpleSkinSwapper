@@ -21,11 +21,12 @@ data class DeleteDecision(
     /** Total category references of the skin (drives "removes occurrences in X categories"). */
     val totalCategories: Int,
     ) {
-        /** The popup's action buttons in display order. A category view collapses to a
-         *  single definitive delete when this card is the skin's last location — removing
-         *  it there would be the same thing. Cancel is added by the popup, not this. */
+        /** The popup's action buttons in display order. A category view always offers
+         *  both: removing the card keeps the skin in the library (uncategorized when this
+         *  was its last category), deleting everywhere removes skin, texture and cards.
+         *  Cancel is added by the popup, not this. */
         fun actions(): List<DeleteAction> =
-            if (offerRemoveCard && otherCategories > 0)
+            if (offerRemoveCard)
                 listOf(DeleteAction.REMOVE_CARD_HERE, DeleteAction.DELETE_EVERYWHERE)
             else
                 listOf(DeleteAction.DELETE_EVERYWHERE)

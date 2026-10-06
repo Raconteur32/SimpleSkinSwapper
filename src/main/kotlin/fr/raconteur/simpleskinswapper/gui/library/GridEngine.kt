@@ -139,9 +139,11 @@ internal class GridEngine(
 
     internal fun updateCardPositions(mouseX: Int, mouseY: Int) {
         val dragged = reorderDraggingCard
-        // Insertion gap only where a reorder exists: category views. The derived views
-        // (All skins, Uncategorized) keep a fixed default order, so nothing shifts there.
-        val dragIndex = if (screen.selectedCategory != null) dragged?.let { cards().indexOf(it) } ?: -1 else -1
+        // Every view is reorderable now: category views move within their card list, the
+        // derived views (All skins, Uncategorized) reorder the registry order itself.
+        // cards() is already the displayed (derived) list, so the insertion index and the
+        // clamp below are relative to what is on screen.
+        val dragIndex = dragged?.let { cards().indexOf(it) } ?: -1
         if (dragIndex >= 0) cardDrag.updateInsertionIndex(cards().size, mouseX, mouseY)
 
         val now = System.nanoTime()

@@ -788,21 +788,46 @@ class SkinLibraryScreen(private val parent: Screen?) : Screen(Component.translat
         }
 
         // Grid drop in a category = reorder within it (the CardEntry moves whole, keeping
-        // its custom name). Derived views keep the default order: the card snaps back.
+        // its custom name). Grid drop in a derived view (All skins, Uncategorized) = the
+        // registry order itself moves, relative to the displayed cards (see below).
         val category = selectedCategory
-        if (category != null && grid.cardDrag.insertionIndex in 0..category.cards.size) {
-            val from = category.cards.indexOfFirst { it.skinId == card.entry.skinId }
-            if (from >= 0) {
-                // insertionIndex already refers to the list without the dragged card
-                val to = grid.cardDrag.insertionIndex
-                val moved = category.cards.removeAt(from)
-                category.cards.add(to.coerceIn(0, category.cards.size), moved)
-                SkinCategories.save()
+        if (category != null) {
+            if (grid.cardDrag.insertionIndex in 0..category.cards.size) {
+                val from = category.cards.indexOfFirst { it.skinId == card.entry.skinId }
+                if (from >= 0) {
+                    // insertionIndex already refers to the list without the dragged card
+                    val to = grid.cardDrag.insertionIndex
+                    val moved = category.cards.removeAt(from)
+                    category.cards.add(to.coerceIn(0, category.cards.size), moved)
+                    SkinCategories.save()
+                }
             }
+        } else {
+            applyDerivedReorder(card)
         }
         grid.cardDrag.stop()
         reloadView()
         rebuildCards()
+    }
+
+    /**
+     * Derived-view reorder (All skins / Uncategorized): the insertion index refers to the
+     * displayed list without the dragged card — a subset of the registry, so it translates
+     * to a pivot (the displayed card at the landing position), never to an absolute index.
+     * Past the last displayed card the move is still relative: right after the last
+     * displayed card, not at the registry end. No displayed neighbor left (or index
+     * outside the grid) → no-op, the card snaps back.
+     */
+    private fun applyDerivedReorder(card: SkinLibraryCard) {
+        val insertion = grid.cardDrag.insertionIndex
+        if (insertion < 0) return
+        val displayed = cards.filter { it !== card }.map { it.entry.skinId }
+        val pivot = displayed.getOrNull(insertion)
+        if (pivot != null) {
+            SkinRecords.moveBefore(card.entry.skinId, pivot)
+        } else {
+            displayed.lastOrNull()?.let { SkinRecords.moveAfter(card.entry.skinId, it) }
+        }
     }
 
     // ------------------------------------------------------------------

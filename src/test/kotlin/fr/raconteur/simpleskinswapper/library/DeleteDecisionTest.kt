@@ -50,9 +50,12 @@ class DeleteDecisionTest {
     }
 
     @Test
-    fun `popup collapses to one action at the skin's last location`() {
+    fun `popup keeps both actions at the skin's last location`() {
         val decision = DeleteDecision.of(DeleteSource.CATEGORY, totalCategories = 1)
-        assertEquals(listOf(DeleteAction.DELETE_EVERYWHERE), decision.actions())
+        assertEquals(
+            listOf(DeleteAction.REMOVE_CARD_HERE, DeleteAction.DELETE_EVERYWHERE),
+            decision.actions()
+        )
     }
 
     @Test

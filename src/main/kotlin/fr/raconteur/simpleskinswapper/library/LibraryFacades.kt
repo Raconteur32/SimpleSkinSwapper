@@ -37,6 +37,10 @@ object SkinRecords {
         instance.create(textureHash, model, name, file)
     @JvmStatic fun rename(id: String, name: String) = instance.rename(id, name)
     @JvmStatic fun remove(id: String): Boolean = instance.remove(id)
+
+    /** Relative registry-order moves (derived-view reordering): land next to a pivot skin. */
+    @JvmStatic fun moveBefore(id: String, pivotId: String): Boolean = instance.moveBefore(id, pivotId)
+    @JvmStatic fun moveAfter(id: String, pivotId: String): Boolean = instance.moveAfter(id, pivotId)
 }
 
 /** GUI-facing singleton over the texture lifecycle (ingest, delete, external pruning). */

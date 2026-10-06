@@ -88,6 +88,28 @@ class SkinRegistry(env: SkinLibraryEnv) {
         return removed
     }
 
+    /** Moves a skin immediately before the pivot skin in the registry order. Relative moves
+     *  serve the derived views (All skins, Uncategorized): their displayed list is a subset
+     *  of the registry, so a landing position only means something next to a pivot skin.
+     *  No-op (false) when the skin or the pivot is missing, or both name the same skin. */
+    fun moveBefore(id: String, pivotId: String): Boolean = moveRelative(id, pivotId, beforePivot = true)
+
+    /** Moves a skin immediately after the pivot skin (see [moveBefore]). */
+    fun moveAfter(id: String, pivotId: String): Boolean = moveRelative(id, pivotId, beforePivot = false)
+
+    private fun moveRelative(id: String, pivotId: String, beforePivot: Boolean): Boolean {
+        ensureLoaded()
+        val from = skins.indexOfFirst { it.id == id }
+        val pivot = skins.indexOfFirst { it.id == pivotId }
+        if (from < 0 || pivot < 0 || from == pivot) return false
+        val record = skins.removeAt(from)
+        // Pivot index after the removal — the dragged skin may have sat before it.
+        val target = skins.indexOfFirst { it.id == pivotId }
+        skins.add(if (beforePivot) target else target + 1, record)
+        save()
+        return true
+    }
+
     fun save() {
         store.save(RegistryDto(version = FORMAT_VERSION, skins = skins.map {
             SkinDto(hash = it.textureHash, model = it.model, name = it.name, file = it.file)
