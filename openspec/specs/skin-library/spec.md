@@ -150,9 +150,9 @@ When a category tab is selected, a collapsible band SHALL appear at the top of t
 - **WHEN** the All skins tab is selected
 - **THEN** no config band is displayed above the grid
 
-### Requirement: Skin add and delete flows are available on the screen
+### Requirement: Skin add, remove and delete flows are available on the screen
 
-Skins SHALL be addable through the add-skin overlay while a category is selected or the All skins view is shown; no other import affordance SHALL be shown on the library screen. Adding SHALL deduplicate by texture value and land the new skin in the selected category (additively, copying semantics) or unassigned from All skins. Every deletion SHALL go through the shared confirmation popup: from the detail overlay's single delete control, or from the category delete control, all rendering the same popup component. From a category, the popup SHALL offer removing this card or deleting the skin everywhere, with the other-category count shown, collapsing to a single definitive delete when the card is the skin's last location; from All skins, deleting everywhere with the occurrence count; from Uncategorized, deleting outright as it is referenced nowhere. Confirming the popup SHALL execute the deletion without committing any pending detail-panel edits, and canceling SHALL return to the prior state unchanged. Renaming SHALL edit display names only — the global skin name, plus a per-category name when opened from a category — never files. The detail overlay SHALL expose a single delete control; no instant remove-card button, no two-click arming, and no per-card delete affordance outside the detail overlay SHALL remain.
+Skins SHALL be addable through the add-skin overlay while a category is selected or the All skins view is shown; no other import affordance SHALL be shown on the library screen. Adding SHALL deduplicate by texture value and land the new skin in the selected category (additively, copying semantics) or unassigned from All skins. Every deletion SHALL go through the shared confirmation popup: from the detail overlay's single delete control, or from the category delete control, all rendering the same popup component. From a category, the popup SHALL offer removing this card or deleting the skin everywhere, with the other-category count shown when the skin has other categories; from All skins, deleting everywhere with the occurrence count; from Uncategorized, deleting outright as it is referenced nowhere. Removing a card that is the skin's last category reference SHALL keep the skin in the library, unassigned from every category. Confirming the popup SHALL execute the deletion without committing any pending detail-panel edits, and canceling SHALL return to the prior state unchanged. Renaming SHALL edit display names only — the global skin name, plus a per-category name when opened from a category — never files. The detail overlay SHALL expose a single delete control; no instant remove-card button, no two-click arming, and no per-card delete affordance outside the detail overlay SHALL remain.
 
 #### Scenario: Import lands in All skins
 
@@ -181,13 +181,13 @@ Skins SHALL be addable through the add-skin overlay while a category is selected
 
 #### Scenario: Delete from a category offers both levels
 
-- **WHEN** the user deletes a card from a category view where the skin has other categories
-- **THEN** the popup offers removing this card and deleting everywhere, stating the skin also appears in the other categories
+- **WHEN** the user deletes a card from any category view
+- **THEN** the popup offers removing this card and deleting everywhere, stating the other categories when the skin has any
 
-#### Scenario: Delete at the last location collapses to one choice
+#### Scenario: Delete at the last location keeps the skin in the library
 
-- **WHEN** the user deletes a card from a category view where the skin has no other categories
-- **THEN** the popup offers a single definitive delete (plus cancel) instead of two equivalent choices
+- **WHEN** the user removes a card from the category view where the skin has no other categories
+- **THEN** the popup still offers both removal and full delete, removal leaves the skin uncategorized (still in All skins), and only the full delete removes the skin itself
 
 #### Scenario: Delete from All skins warns about occurrences
 
@@ -434,9 +434,9 @@ The library core (registry, hashing and naming, texture lifecycle, migration, de
 - **WHEN** the unit test task is executed
 - **THEN** the core behaviors (dedup, lifecycle, naming, migration, delete decision) are exercised and pass
 
-### Requirement: The whole card body is the reorder grab
+### Requirement: Card drags reorder the current view
 
-Pressing anywhere on a card and moving SHALL start the card's reorder drag: the card follows the cursor, an insertion gap shows where it will land, and on release in a category view the category's card order updates and persists. There SHALL be no dedicated grab handle or rotation zone on the card. A press released without real movement SHALL open the detail overlay instead. In the All skins and Uncategorized views dragging SHALL NOT reorder — the order stays the default order and no insertion gap shows. During any drag, the hover walk animation SHALL not apply to the dragged card nor to the cards beneath it.
+Pressing anywhere on a card and moving SHALL start the card's reorder drag: the card follows the cursor, an insertion gap shows where it will land, and on release the current view's order updates and persists — the category's card list in a category view, the registry order in the All skins and Uncategorized views. There SHALL be no dedicated grab handle or rotation zone on the card. A press released without real movement SHALL open the detail overlay instead. During any drag, the hover walk animation SHALL not apply to the dragged card nor to the cards beneath it.
 
 #### Scenario: Press and move reorders
 
@@ -453,10 +453,34 @@ Pressing anywhere on a card and moving SHALL start the card's reorder drag: the 
 - **WHEN** the user drags on a card's preview area
 - **THEN** the card reorders instead of rotating, and only the detail overlay's preview rotates
 
-#### Scenario: Dragging in a derived view does not reorder
+#### Scenario: Dragging in a derived view reorders the registry order
 
-- **WHEN** the user drags a card in the All skins or Uncategorized view
-- **THEN** no insertion gap shows, the other cards keep their positions, and the view order is unchanged
+- **WHEN** the user presses a card in the All skins or Uncategorized view and moves beyond a small threshold
+- **THEN** the card follows the cursor as a reorder drag, an insertion gap shows, and releasing between two cards updates the registry order so the card lands at that displayed position, persisted across restarts
+
+### Requirement: Derived views follow and reorder the registry order
+
+The All skins view SHALL display skins in registry order and the Uncategorized view SHALL display the same order filtered to the skins referenced by zero categories. Reordering in either view SHALL update the registry order itself and persist it; it SHALL NOT change any category's membership. Because a derived view shows only a subset of the registry, a reorder SHALL be applied relative to the displayed cards: a card released between two displayed cards SHALL land immediately before the displayed card at the insertion position, and a card released past the last displayed card SHALL land immediately after the last displayed card of that view — the relative order of the skins not displayed SHALL only change as a side effect of the dragged card's move.
+
+#### Scenario: Reordering in All skins persists
+
+- **WHEN** the user drags a card between two cards in the All skins view
+- **THEN** the registry order places the dragged skin at that displayed position and the order survives a restart
+
+#### Scenario: Uncategorized reorder is relative to the filtered view
+
+- **WHEN** the registry holds four skins of which two are uncategorized, and the user drags the second uncategorized card to the first displayed position in Uncategorized
+- **THEN** the dragged skin comes immediately before the other uncategorized skin in the registry order, regardless of how many categorized skins separate them in the full list
+
+#### Scenario: Drop past the last displayed card is relative
+
+- **WHEN** the user releases a dragged card beyond the last card of a derived view
+- **THEN** the dragged skin lands immediately after the last skin displayed in that view, and skins displayed after it before the drag remain after it
+
+#### Scenario: Derived-view reorder does not touch category membership
+
+- **WHEN** a card is reordered in the All skins or Uncategorized view
+- **THEN** no category gains or loses a card reference and the category views keep their own order
 
 ### Requirement: The skin wheel always renders at least five slots
 
