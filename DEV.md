@@ -21,6 +21,18 @@ All supported Minecraft versions are built from a single source tree using [Ston
 - `scripts/hotspots.sh` — hotspot table (git churn × size × jscpd clones); run from the repo root
 - Kotlin **warnings are errors** on every tree: after a MC version bump, a deprecation wave fails CI by design (drift alarm). Triage per warning — fix it, or `@Suppress` at the site with a justifying comment (never blanket).
 
+## Changelog
+
+`CHANGELOG.md` at the repo root, newest version first, written at release time (same commit as the version bump). One section per release, always the same shape:
+
+```markdown
+# <version>
+
+- <one user-facing change per line>
+```
+
+Rules: user-facing changes only — refactors, build and CI work stay out. A fix to a feature introduced in the *same* release folds into that feature's line instead of getting its own "Fixed" entry. English, plain sentences, no subsections. The previous version's boundary is what actually shipped (the last Modrinth publish), not the version-bump commit: anything landed between the bump and the publish already belongs to the previous release.
+
 ## Atlas
 
 `docs/atlas.md` is the regenerable map of the codebase: package dependencies, data flows,
