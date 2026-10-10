@@ -18,6 +18,12 @@ Hold your keybind (default key is G) to open the overlay, hover over the skin yo
 <center>
   <img src="https://cdn.modrinth.com/data/kWMT8Yql/images/567726d300ff246714781878881ecea347ae3e60.gif" alt="Skin wheel">
 </center>
+
+You can reorganize the wheel by dragging the skin out, then dropping it where you want.
+
+<center>
+  <img src="https://cdn.modrinth.com/data/kWMT8Yql/images/9df9b7671aea4f763ecf0e464a0b9ec1c3fe12de.gif" alt="Skin wheel reorder">
+</center>
 </details>
 
 <details>
